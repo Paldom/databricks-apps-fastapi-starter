@@ -1,0 +1,57 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  DATABRICKS_HOST:  ${{ secrets.DATABRICKS_HOST }}
+  DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+
+  APP_NAME:   databricks-apps-fastapi-starter
+  REPO_PATH:  /Repos/${{ secrets.DATABRICKS_REPO_OWNER }}/${{ github.repository }}
+  GIT_URL:    https://github.com/${{ github.repository }}
+  GIT_PROVIDER: gitHub        # change if using another provider
+  BRANCH:     ${{ github.ref_name }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install Databricks CLI
+      run: curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+
+    - name: Register Git credentials in workspace (idempotent)
+      run: |
+        databricks git-credentials create \
+          --git-provider $GIT_PROVIDER \
+          --personal-access-token "${{ secrets.GIT_PAT }}" \
+          --host $DATABRICKS_HOST || true
+
+    - name: Create or update Databricks Repo
+      run: |
+        set -e
+        if databricks repos create \
+             --url "$GIT_URL" \
+             --provider "$GIT_PROVIDER" \
+             --path "$REPO_PATH"; then
+          echo "Repo created at $REPO_PATH"
+        else
+          echo "Repo already exists – syncing latest commit"
+          databricks repos update \
+             --path "$REPO_PATH" \
+             --branch "$BRANCH"
+        fi
+
+    - name: Deploy Databricks App
+      run: |
+        databricks apps deploy "$APP_NAME" \
+          --source-code-path "$REPO_PATH" \
+          --bundle-name default

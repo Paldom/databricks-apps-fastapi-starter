@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "databricks-apps-fastapi-starter"
+version = "0.1.0"
+description = "Sample FastAPI application to showcase how to leverage Databricks services."
+authors = ["Paldom <3684864+Paldom@users.noreply.github.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.13"
+fastapi = "^0.115.12"
+uvicorn = "^0.34.3"
+asyncpg = "^0.30.0"
+pandas = "^2.3.0"
+pydantic = "^2.11.5"
+python-dotenv = "^1.1.0"
+databricks-sdk = "^0.56.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
