@@ -1,91 +1,67 @@
-import os, json, asyncio
 from contextlib import asynccontextmanager
-from typing import Any, Dict, List, Optional
 
-import asyncpg, pandas as pd
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from dotenv import load_dotenv
-from databricks.sdk.service.serving import DataframeSplitInput
+from fastapi import FastAPI
+from openai import AsyncOpenAI
+from core.deps import get_workspace_client
+from core.vector_search import init_vector_index, vector_index
+from core.logging import setup_logging, get_logger
 
-from workspace import w
-from config import get_secret
+from config import settings
+from fastapi_pagination import add_pagination
 
-load_dotenv()
+from api import api_router
+from controllers import health
+from core.database import init_pg_pool, close_pg_pool
+from core.sqlalchemy import engine
+from modules.todo.models import Base as TodoBase
+from middlewares import user_info_middleware, security_headers_middleware
 
-DBX_ENDPOINT = get_secret("SERVING_ENDPOINT_NAME")
-JOB_ID       = get_secret("JOB_ID")
-
-PG_DSN = {
-    "host":     get_secret("PG_HOST"),
-    "port": int(get_secret("PG_PORT") or 5432),
-    "database": get_secret("PG_DB"),
-    "user":     get_secret("PG_USER"),
-    "password": get_secret("PG_PASSWORD"),
-}
-
-class Message(BaseModel):
-    text: str
-
-class GenericRow(BaseModel):
-    id: str
-    data: str
-
-pg_pool: Optional[asyncpg.Pool] = None
+setup_logging(settings.log_level)
+logger = get_logger()
 
 @asynccontextmanager
 async def lifespan(app):
-    global pg_pool
-    pg_pool = await asyncpg.create_pool(**PG_DSN, min_size=1, max_size=4)
-    yield
-    await pg_pool.close()
-
-app = FastAPI(lifespan=lifespan)
-
-@app.get("/")
-async def health():
-    return {"ok": True}
-
-@app.post("/pg")
-async def pg_demo(msg: Message):
-    if not pg_pool:
-        raise HTTPException(500, "PostgreSQL pool not initialised")
-    row = await pg_pool.fetchrow(
-        "INSERT INTO demo(text) VALUES ($1) RETURNING id, text", msg.text
+    logger.info("Starting application")
+    logger.debug("Initialising PostgreSQL pool")
+    await init_pg_pool()
+    async with engine.begin() as conn:
+        await conn.run_sync(TodoBase.metadata.create_all)
+    ws = get_workspace_client()
+    cfg = ws.config
+    app.state.ai_client = AsyncOpenAI(
+        api_key=cfg.token,
+        base_url=f"{cfg.host}/serving-endpoints",
+        timeout=30.0,
     )
-    return dict(row)
-
-@app.post("/serving")
-async def serving(rows: List[GenericRow]):
-    if not DBX_ENDPOINT:
-        raise HTTPException(500, "SERVING_ENDPOINT_NAME not configured")
-    df = pd.DataFrame([r.model_dump() for r in rows])
-    df_split = DataframeSplitInput.from_dict(df.to_dict(orient="split"))
+    init_vector_index()
+    app.state.vector_index = vector_index
     try:
-        resp = await asyncio.to_thread(
-            w().serving_endpoints.query,
-            name=DBX_ENDPOINT,
-            dataframe_split=df_split,
-        )
-        return resp.as_dict()
-    except Exception as e:
-        raise HTTPException(500, str(e))
+        yield
+    finally:
+        logger.debug("Closing AI client and database connections")
+        await app.state.ai_client.aclose()
+        await close_pg_pool()
+        await engine.dispose()
+        logger.info("Shutdown complete")
 
-@app.post("/job")
-async def run_job(params: Dict[str, Any] | None = None):
-    if not JOB_ID:
-        raise HTTPException(500, "JOB_ID not configured")
-    try:
-        finished = await asyncio.to_thread(
-            w().jobs.run_now_and_wait,
-            job_id=int(JOB_ID),
-            notebook_params=params or {},
-        )
-        last_task_id = finished.tasks[-1].run_id
-        out = await asyncio.to_thread(
-            w().jobs.get_run_output,
-            run_id=last_task_id,
-        )
-        return json.loads(out.notebook_output.result)
-    except Exception as e:
-        raise HTTPException(500, str(e))
+
+if settings.environment == "production":
+    app = FastAPI(
+        lifespan=lifespan,
+        docs_url=None,
+        openapi_url=None,
+        redoc_url=None,
+    )
+else:
+    app = FastAPI(lifespan=lifespan)
+
+
+app.middleware("http")(user_info_middleware)
+app.middleware("http")(security_headers_middleware)
+
+app.include_router(health.router)
+app.include_router(api_router, prefix="/v1")
+
+add_pagination(app)
+
+

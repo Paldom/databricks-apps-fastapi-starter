@@ -1,0 +1,93 @@
+bundle:
+  name: databricks-apps-fastapi-starter
+
+# ---- single environment ----
+targets:
+  dev:
+    mode: development
+    workspace:
+      host: https://<your-workspace>
+      root_path: /Users/<you>/databricks-apps-fastapi-starter
+
+resources:
+
+  # 1. FastAPI App
+  apps:
+    fastapi_app:
+      name: databricks-apps-fastapi-starter
+      description: "FastAPI reference app deployed from bundle"
+      source_code_path: .
+      resources:
+        - name: inference
+          serving_endpoint:
+            id: ${resources.model_serving_endpoints.starter_endpoint.id}
+            permission: CAN_INVOKE
+
+  # 2. Lakebase OLTP instance
+  database_instances:
+    lakebase_oltp:
+      name: starter_oltp
+      engine: LAKEBASE_POSTGRES
+      size: SMALL
+      storage_gb: 20
+      admin_username: lakebase_admin
+
+  # 3. Vector-search index
+  vector_search_indexes:
+    starter_index:
+      name: main.default.starter_index
+      endpoint_name: lakehouse_vector_endpoint
+      primary_key: id
+      embedding_dimension: 1536
+      source_table: main.default.embedded_docs
+      index_type: DELTA_SYNC
+      sync_type: TRIGGERED
+
+  # 4. Serving endpoint (pre-registered model)
+  model_serving_endpoints:
+    starter_endpoint:
+      name: starter-endpoint
+      config:
+        served_models:
+          - name: startermodel-v1
+            model_name: StarterModel
+            model_version: "1"
+            workload_size: Small
+            scale_to_zero: false
+
+  # 5. Minimal cluster for the job
+  clusters:
+    tiny_cluster:
+      spark_version: 15.4.x-scala2.12
+      node_type_id: i3.xlarge
+      num_workers: 1
+      autotermination_minutes: 30
+
+  # 6. Job that runs a simple notebook on the cluster
+  jobs:
+    starter_job:
+      name: StarterJob
+      job_clusters:
+        - job_cluster_key: tiny
+          new_cluster: ${resources.clusters.tiny_cluster}
+      tasks:
+        - task_key: run_python
+          job_cluster_key: tiny
+          spark_python_task:
+            python_file: notebooks/jobs/starter_job.py
+
+  # 7. Secret scope and secrets
+  secret_scopes:
+    starter_scope:
+      name: starter_scope
+      initial_manage_principal: users
+      permissions:
+        - user_name: admins
+          level: WRITE
+        - user_name: users
+          level: READ
+      secrets:
+        SERVING_ENDPOINT_NAME: ""
+        JOB_ID: ""
+        LAKEBASE_PASSWORD: ""
+        OPENAI_KEY: ""

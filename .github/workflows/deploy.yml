@@ -55,3 +55,18 @@ jobs:
         databricks apps deploy "$APP_NAME" \
           --source-code-path "$REPO_PATH" \
           --bundle-name default
+
+    - name: Deploy Serving Endpoint
+      run: |
+        databricks jobs submit --json "{
+          \"run_name\": \"StarterModelDeployNotebookJob\",
+          \"tasks\": [
+            {
+              \"task_key\": \"starter-model-deploy-notebook-job\",
+              \"notebook_task\": {\"notebook_path\": \"$REPO_PATH/notebooks/serving/deploy\"}
+            }
+          ]
+        }"
+      env:
+        DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+        DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
