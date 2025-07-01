@@ -4,29 +4,44 @@
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Paldom_databricks-apps-fastapi-starter&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Paldom_databricks-apps-fastapi-starter)
 [![CodeRabbit AI](https://img.shields.io/badge/CodeRabbit-AI%20Code%20Review-orange?logo=rabbitmq&logoColor=white)](https://github.com/marketplace/coderabbitai)
 
+[![Databricks](https://img.shields.io/badge/Databricks-Apps-red.svg)](https://docs.databricks.com/en/dev-tools/databricks-apps/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Sample FastAPI application to showcase how to leverage Databricks services.
 
-This repository serves as a Databricks **Apps** sample.  It demonstrates how a
-FastAPI backend can call various Databricks capabilities including jobs,
-serving endpoints, the AI Gateway, Vector Search and Lakebase.
+A production-ready FastAPI template for building data and AI applications on **Databricks Apps**, featuring built-in authentication, database connectivity, and deployment automation. It demonstrates how a FastAPI backend can call various Databricks capabilities including Jobs, Serving endpoints, Delta tables & Volumes, AI Gateway, Vector Search and Lakebase.
 
-## Quickstart
+## 🎯 Why This Starter?
+
+- **Zero to Production**: Deploy a secure API in minutes, sample CI/CD, IaC.
+- **Built for Databricks**: Native integration with Lakebase, Vector Search Index, Unity Catalog, Model Serving.
+- **Modern Stack**: FastAPI, Pydantic 2.0, SQLAlchemy, asyncpg, Alembic. Testing & quality tools like pytest (-asyncio, -cov), Locust, Ruff, MyPy, Bandit.
+- **Enterprise Ready**: Built-in auth, governance, security provided by Databricks, with a scalable and layered FastAPI architecture.
+
+## 🚀 Quickstart
 
 1. [Sign up for a free Databricks account](https://www.databricks.com/learn/free-edition).
 2. In the workspace UI open your user icon in the top‑right corner,
    choose **Previews** and enable **Lakebase (OLTP)**.
-3. Still in the **Previews** menu, enable **User authorization for Databricks Apps**. Optinally, you may also need to enable **On-behalf-of-user authentication**
+3. Still in the **Previews** menu, enable **User authorization for Databricks Apps**. Optionally, you may also need to enable **On-behalf-of-user authentication**.
+4. Create a new PAT, install Databricks CLI, run `databricks configure`.
+5. Set keys properly in `.env` based on `.env.example`. Set up Databricks secrets accordingly.
+6. Init infrastructure by deploying Databricks Asset Bundle `databricks bundle deploy`. 
+7. Run database migrations with `alembic upgrade head`.
+8. Clone this repository, set `DATABRICKS_HOST` and `DATABRICKS_TOKEN` secrets for deployment with GitHub actions. Run actions.
+9. Voilá! Up & running Apps instance with Lakebase, AI and scaling ecosystem.
+
+## Databricks Services
 
 The demo controller (`controllers/demo.py`) exercises several Databricks services:
 
-- **Serving Endpoint** – queries an MLflow model registered and deployed via the asset bundle.
-- **Databricks Jobs** – triggers a job defined in `databricks.yml` and returns its output.
-- **AI Gateway** – obtains embeddings used for vector storage.
+- **Serving Endpoint** – queries an MLflow model that can scale seamlessly with no latency. Recommended for complex but critical tasks.
+- **Databricks Jobs** – triggers a job and returns its output. Recommended for heavy duty background tasks, like media conversion, parsing, where latency is not a problem, but a custom cluster can be useful.
+- **AI Gateway** – gateway for embeddings or foundation model's AI query.
 - **Vector Search** – stores and searches embeddings in a vector search index.
-- **Delta Table** – persists todo items in a Unity Catalog Delta table.
-- **Volume** – reads and writes files in a Unity Catalog volume.
-- **Genie** – ask natural language questions about your data using the
-  Conversation API.
+- **Delta Table** – read and persists data in a Unity Catalog Delta table.
+- **Volume** – reads and writes files in a Unity Catalog's Volume.
+- **Genie** – ask natural language questions about your data using the Conversation API.
 
 ### Genie conversation API
 
@@ -42,6 +57,25 @@ MLflow model that backs the serving endpoint and `notebooks/jobs` contains the
 notebook executed by the job resource.
 
 ## Setup
+
+### Prerequisites
+- Python 3.10+ + uv configured
+- Databricks CLI configured
+- Access to a Databricks workspace
+
+### Local Development
+
+Clone the repository:
+```bash
+git clone https://github.com/Paldom/databricks-apps-fastapi-starter.git
+cd databricks-apps-fastapi-starter
+```
+
+Configure environment:
+```bash
+cp .env.example .env
+# Edit .env with your Databricks credentials
+```
 
 Create a virtual environment and install dependencies:
 ```bash
@@ -110,6 +144,13 @@ Liveness and readiness endpoints are available at `/health/live` and `/health/re
 
 All endpoints are served under the `/v1` prefix. Future versions of the API
 will use different prefixes such as `/v2`.
+
+### API Routes and Documentation
+
+Once running, access the interactive API documentation, generated by FastAPI at:
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+- **OpenAPI Schema**: http://localhost:8000/openapi.json
 
 ## Configuration
 
@@ -189,8 +230,10 @@ identity. See the [Databricks Apps authentication docs](https://docs.databricks.
 
 The repository includes `.github/workflows/deploy.yml` which deploys the app
 to Databricks using the Databricks CLI. Configure the required secrets and push
-to the `main` branch to trigger a deployment.
+to the `main` branch to trigger a deployment. 
 
+Set `DATABRICKS_HOST` and `DATABRICKS_TOKEN` secrets before first run.
+ 
 ## Databricks Asset Bundle
 
 To validate and deploy the infrastructure defined in `databricks.yml`, run:
@@ -203,8 +246,7 @@ databricks bundle deploy -e dev
 Use the Databricks CLI to provide values for the placeholder secrets:
 
 ```bash
-databricks secrets put-secret starter_scope SERVING_ENDPOINT_NAME
-databricks secrets put-secret starter_scope JOB_ID
+
 databricks secrets put-secret starter_scope LAKEBASE_PASSWORD
 databricks secrets put-secret starter_scope OPENAI_KEY
 ```
