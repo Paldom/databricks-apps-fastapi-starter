@@ -1,7 +1,7 @@
 # databricks-apps-fastapi-starter
 
 [![Snyk Vulnerabilities](https://snyk.io/test/github/Paldom/databricks-apps-fastapi-starter/badge.svg)](https://snyk.io/test/github/Paldom/databricks-apps-fastapi-starter)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Paldom_databricks-apps-fastapi-starter-clone&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Paldom_databricks-apps-fastapi-starter-clone)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Paldom_databricks-apps-fastapi-starter&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Paldom_databricks-apps-fastapi-starter)
 [![CodeRabbit AI](https://img.shields.io/badge/CodeRabbit-AI%20Code%20Review-orange?logo=rabbitmq&logoColor=white)](https://github.com/marketplace/coderabbitai)
 
 Sample FastAPI application to showcase how to leverage Databricks services.
