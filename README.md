@@ -83,7 +83,7 @@ uv venv .venv
 source .venv/bin/activate
 uv pip install -e .
 uv lock
-uv export --format=requirements.txt > requirements.txt
+uv export --no-hashes --format=requirements.txt > requirements.txt
 uvicorn main:app --reload
 ```
 
