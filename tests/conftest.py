@@ -4,6 +4,8 @@ from unittest.mock import AsyncMock, MagicMock
 import sys
 import types
 
+import main
+
 import databricks
 try:
     import sqlalchemy.ext.asyncio as sa_asyncio
