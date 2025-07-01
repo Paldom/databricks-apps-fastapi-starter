@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 from modules.todo.services import TodoService
 from modules.todo.schemas import TodoRead, TodoCreate, TodoUpdate

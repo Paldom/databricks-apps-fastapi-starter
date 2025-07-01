@@ -23,7 +23,10 @@ def get_settings() -> Settings:
     return settings
 
 
-def get_workspace_client() -> WorkspaceClient:
+def get_workspace_client(request: Request = None) -> WorkspaceClient:  # type: ignore[assignment]
+    """Return a WorkspaceClient either from the request state or create one."""
+    if request is not None:
+        return getattr(request.state, "w", w())
     return w()
 
 

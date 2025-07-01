@@ -1,2 +1,17 @@
 mlflow
 pandas
+locust>=2.19,<3
+fastapi==0.115.12
+uvicorn==0.34.3
+asyncpg==0.30.0
+pydantic==2.11.5
+pydantic-settings==2.2.1
+python-dotenv==1.1.0
+databricks-sdk==0.56.0
+sqlalchemy==2.0.41
+secure==1.0.1
+fastapi-pagination==0.13.2
+openai==1.30.1
+httpx
+pytest-asyncio
+pytest-mock

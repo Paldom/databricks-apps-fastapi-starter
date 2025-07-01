@@ -24,11 +24,13 @@ async def check_db(pool: Pool) -> bool:
         return False
 
 
-async def check_cache() -> bool:
+def check_cache() -> bool:
+    """Stub cache check."""
     return True
 
 
-async def check_broker() -> bool:
+def check_broker() -> bool:
+    """Stub broker check."""
     return True
 
 
@@ -60,8 +62,8 @@ async def ready(
 ) -> dict[str, bool]:
     logger.debug("Running readiness checks")
     db_ok = await check_db(pool)
-    cache_ok = await check_cache()
-    broker_ok = await check_broker()
+    cache_ok = check_cache()
+    broker_ok = check_broker()
     ai_ok = await check_ai(client, settings.serving_endpoint_name)
     vector_ok = await check_vector(index)
     return {

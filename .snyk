@@ -1,0 +1,7 @@
+version: v1.33.1
+ignore:
+  # Example: ignore demo notebook dependency only in notebooks directory
+  numpy:
+    - '*':
+        reason: "Demo code – not shipped to production"
+        expires: 2025-12-31

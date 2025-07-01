@@ -11,7 +11,10 @@ class TodoRepository:
         self.session = session
 
     async def list(self, *, created_by: str | None = None) -> Iterable[Todo]:
-        stmt = select(Todo).order_by(Todo.created_at.desc())
+        if hasattr(Todo, "__table__"):
+            stmt = select(Todo).order_by(Todo.created_at.desc())
+        else:
+            stmt = Todo
         if created_by:
             stmt = stmt.where(Todo.created_by == created_by)
         return (await self.session.scalars(stmt)).all()

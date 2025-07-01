@@ -1,0 +1,23 @@
+# yamllint disable rule:line-length
+# yaml-language-server: $schema=https://storage.googleapis.com/coderabbit_public_assets/schema.v2.json
+# yamllint enable rule:line-length
+---
+language: en-US
+early_access: true
+reviews:
+  profile: assertive
+  high_level_summary: true
+  auto_review:
+    enabled: true
+    drafts: false
+tools:
+  ruff: {enabled: true}
+  mypy: {enabled: true}
+  bandit: {enabled: true}
+  markdownlint: {enabled: true}
+  yamllint: {enabled: true}
+  eslint: {enabled: false}
+  gitleaks: {enabled: true}
+finishing_touches:
+  docstrings: {enabled: true}
+  unit_tests: {enabled: true}

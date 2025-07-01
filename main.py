@@ -14,7 +14,11 @@ from controllers import health
 from core.database import init_pg_pool, close_pg_pool
 from core.sqlalchemy import engine
 from modules.todo.models import Base as TodoBase
-from middlewares import user_info_middleware, security_headers_middleware
+from middlewares import (
+    user_info_middleware,
+    security_headers_middleware,
+    workspace_client_middleware,
+)
 
 setup_logging(settings.log_level)
 logger = get_logger()
@@ -57,6 +61,7 @@ else:
 
 
 app.middleware("http")(user_info_middleware)
+app.middleware("http")(workspace_client_middleware)
 app.middleware("http")(security_headers_middleware)
 
 app.include_router(health.router)

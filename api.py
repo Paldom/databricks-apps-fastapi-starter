@@ -14,6 +14,6 @@ for router_instance, prefix_path, tags_list in routers_to_include:
     api_router.include_router(
         router_instance,
         prefix=prefix_path,
-        tags=tags_list,  # type: ignore[arg-type]
+        tags=tags_list,
     )
 

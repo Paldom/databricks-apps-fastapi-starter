@@ -1,16 +1,24 @@
 import json
 import asyncio
 import uuid
-from typing import Any, Dict, List
+
+import io
+import os
+from typing import Any, Dict, List, cast
 
 import pandas as pd
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import StreamingResponse
+
+from httpx import AsyncClient
 from core.errors import http_error
 from pydantic import BaseModel
-from modules.todo.schemas import TodoCreate
+from modules.todo.schemas import TodoCreate, TodoRead
 from databricks.sdk.service.serving import DataframeSplitInput
 
 from databricks.sdk import WorkspaceClient
+from databricks import sql
+import pyarrow as pa
 from openai import AsyncOpenAI, OpenAIError
 
 from config import Settings
@@ -39,6 +47,25 @@ class GenericRow(BaseModel):
     id: str
     data: str
 
+TABLE = "main.default.todo_demo"
+SERVING_ENDPOINT_ERROR = "SERVING_ENDPOINT_NAME not configured"
+
+def _get_sql_conn(settings: Settings):
+    host = os.getenv("DATABRICKS_HOST")
+    hostname = f"https://{host}" if host else None
+    return sql.connect(
+        server_hostname=hostname,
+        http_path=settings.databricks_http_path,
+        access_token=settings.databricks_token,
+    )
+
+def _genie_client(w: WorkspaceClient = Depends(get_workspace_client)) -> AsyncClient:
+    """Return an AsyncClient for interacting with Genie."""
+    return AsyncClient(
+        base_url=f"https://{w.config.host}",
+        headers={"Authorization": f"Bearer {w.config.token}"},
+    )
+
 
 async def _embed_text(client: AsyncOpenAI, model: str, text: str) -> list[float]:
     """Return embedding vector for the given text."""
@@ -49,6 +76,7 @@ async def _embed_text(client: AsyncOpenAI, model: str, text: str) -> list[float]
     )
     return rsp.data[0].embedding
 
+# Lakebase
 
 @router.post("/pg")
 async def pg_demo(
@@ -63,23 +91,24 @@ async def pg_demo(
     )
     return dict(row)
 
-
+# Serving Endpoint
+  
 @router.post("/serving")
 async def serving(
     rows: List[GenericRow],
     settings: Settings = Depends(get_settings),
-    ws: WorkspaceClient = Depends(get_workspace_client),
+    w: WorkspaceClient = Depends(get_workspace_client),
     logger: Logger = Depends(get_logger),
 ):
     endpoint = settings.serving_endpoint_name
     if not endpoint:
-        raise http_error(500, "SERVING_ENDPOINT_NAME not configured")
+        raise http_error(500, SERVING_ENDPOINT_ERROR)
     df = pd.DataFrame([r.model_dump() for r in rows])
     df_split = DataframeSplitInput.from_dict(df.to_dict(orient="split"))
     try:
         logger.info("Querying serving endpoint %s", endpoint)
         resp = await asyncio.to_thread(
-            ws.serving_endpoints.query,
+            w.serving_endpoints.query,
             name=endpoint,
             dataframe_split=df_split,
         )
@@ -87,12 +116,13 @@ async def serving(
     except Exception as e:
         raise http_error(500, str(e))
 
+# Job
 
 @router.post("/job")
 async def run_job(
     params: Dict[str, Any] | None = None,
     settings: Settings = Depends(get_settings),
-    ws: WorkspaceClient = Depends(get_workspace_client),
+    w: WorkspaceClient = Depends(get_workspace_client),
     logger: Logger = Depends(get_logger),
 ):
     job_id = settings.job_id
@@ -101,19 +131,20 @@ async def run_job(
     try:
         logger.info("Triggering job %s", job_id)
         finished = await asyncio.to_thread(
-            ws.jobs.run_now_and_wait,
+            w.jobs.run_now_and_wait,
             job_id=int(job_id),
             notebook_params=params or {},
         )
-        last_task_id = finished.tasks[-1].run_id  # type: ignore[index]
+        last_task_id = finished.tasks[-1].run_id
         out = await asyncio.to_thread(
-            ws.jobs.get_run_output,
-            run_id=last_task_id,  # type: ignore[arg-type]
+            w.jobs.get_run_output,
+            run_id=last_task_id,
         )
-        return json.loads(out.notebook_output.result)  # type: ignore[union-attr,arg-type]
+        return json.loads(out.notebook_output.result)
     except Exception as e:
         raise http_error(500, str(e))
 
+# AI Gateway
 
 @router.post("/embed")
 async def embed(
@@ -124,7 +155,7 @@ async def embed(
 ):
     endpoint = settings.serving_endpoint_name
     if not endpoint:
-        raise http_error(500, "SERVING_ENDPOINT_NAME not configured")
+        raise http_error(500, SERVING_ENDPOINT_ERROR)
     try:
         logger.info("Embedding todo title using endpoint %s", endpoint)
         vector = await _embed_text(client, endpoint, todo.title)
@@ -132,6 +163,7 @@ async def embed(
     except OpenAIError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# Vector Search Index
 
 @router.post("/vector/store")
 async def vector_store(
@@ -143,7 +175,7 @@ async def vector_store(
 ):
     endpoint = settings.serving_endpoint_name
     if not endpoint:
-        raise http_error(500, "SERVING_ENDPOINT_NAME not configured")
+        raise http_error(500, SERVING_ENDPOINT_ERROR)
     vector = await _embed_text(client, endpoint, todo.title)
     doc = {
         "id": str(uuid.uuid4()),
@@ -165,7 +197,7 @@ async def vector_query(
 ):
     endpoint = settings.serving_endpoint_name
     if not endpoint:
-        raise http_error(500, "SERVING_ENDPOINT_NAME not configured")
+        raise http_error(500, SERVING_ENDPOINT_ERROR)
     vector = await _embed_text(client, endpoint, todo.title)
     results = await asyncio.to_thread(
         index.similarity_search,
@@ -175,5 +207,104 @@ async def vector_query(
         num_results=3,
     )
     return results
+
+# Delta Tables
+
+@router.get("/delta/todos", response_model=List[TodoRead])
+def list_delta_todos(
+    limit: int = 100,
+    settings: Settings = Depends(get_settings),
+):
+    query = f"SELECT id, title, completed FROM {TABLE} LIMIT %(lim)s"
+    with _get_sql_conn(settings) as conn, conn.cursor() as cur:
+        cur.execute(query, {"lim": limit})
+        tbl: pa.Table = cur.fetchall_arrow()
+    return tbl.to_pandas().to_dict(orient="records")
+
+
+@router.post("/delta/todos", status_code=201)
+def add_delta_todo(
+    todo: TodoCreate,
+    settings: Settings = Depends(get_settings),
+):
+    stmt = (
+        f"INSERT INTO {TABLE} (id, title, completed) VALUES (gen_random_uuid(), %(title)s, false)"
+    )
+    with _get_sql_conn(settings) as conn, conn.cursor() as cur:
+        cur.execute(stmt, todo.model_dump())
+    return {"title": todo.title}
+
+# Genie
+
+@router.post("/genie/{space_id}/ask")
+async def genie_start_conversation(
+    space_id: str,
+    question: str,
+    client: AsyncClient = Depends(_genie_client),
+):
+    body = {"content": question}
+    resp = await client.post(
+        f"/api/2.0/genie/spaces/{space_id}/start-conversation", json=body
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+@router.post("/genie/{space_id}/{conversation_id}/ask")
+async def genie_follow_up(
+    space_id: str,
+    conversation_id: str,
+    question: str,
+    client: AsyncClient = Depends(_genie_client),
+):
+    body = {"content": question}
+    resp = await client.post(
+        f"/api/2.0/genie/spaces/{space_id}/conversations/{conversation_id}/messages",
+        json=body,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _vol_uri(root: str, relative_path: str) -> str:
+    relative = relative_path.lstrip("/")
+    return f"{root}/{relative}"
+
+
+@router.post("/uc/upload")
+async def upload(
+    relative_path: str,
+    file: UploadFile = File(...),
+    ws: WorkspaceClient = Depends(get_workspace_client),
+    settings: Settings = Depends(get_settings),
+):
+    data = await file.read()
+    ws.files.upload(
+        _vol_uri(settings.volume_root, relative_path),
+        io.BytesIO(data),
+        overwrite=True,
+    )
+    return {"uploaded": relative_path, "bytes": len(data)}
+
+
+@router.get("/uc/download")
+def download(
+    relative_path: str,
+    ws: WorkspaceClient = Depends(get_workspace_client),
+    settings: Settings = Depends(get_settings),
+):
+    resp = ws.files.download(_vol_uri(settings.volume_root, relative_path))
+    if resp.contents is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    stream = io.BytesIO(cast(bytes, resp.contents))
+    return StreamingResponse(
+        stream,
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{os.path.basename(relative_path)}"'
+            )
+        },
+    )
 
 

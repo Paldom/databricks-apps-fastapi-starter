@@ -25,6 +25,7 @@ async def test_lifespan_calls_dependencies(mocker):
     mocker.patch.object(main, "vector_index", MagicMock())
 
     async with main.lifespan(main.app):
+        # No actions inside the context; we only verify lifecycle hooks.
         pass
 
     mock_init_pg_pool.assert_awaited_once()

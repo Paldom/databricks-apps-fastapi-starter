@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, status
 from fastapi_pagination import Page, paginate
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.sqlalchemy import get_async_session
+from core.sqlalchemy import get_async_session, engine
+from .models import Base
 from core.deps import get_user_info, get_logger
 from logging import Logger
 from core.auth import UserInfo
@@ -66,3 +67,6 @@ async def get_todo(
     service: Annotated[TodoService, Depends(get_service)],
 ):
     return await service.get(todo_id)
+
+
+__all__ = ["router", "engine", "Base"]
