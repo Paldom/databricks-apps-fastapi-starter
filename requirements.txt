@@ -112,6 +112,8 @@ protobuf==5.29.5
     # via
     #   databricks-vectorsearch
     #   mlflow-skinny
+pyarrow==20.0.0
+    # via databricks-apps-fastapi-starter
 pyasn1==0.6.1
     # via
     #   pyasn1-modules

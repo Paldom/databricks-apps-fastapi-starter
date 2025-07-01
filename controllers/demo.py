@@ -18,7 +18,20 @@ from databricks.sdk.service.serving import DataframeSplitInput
 
 from databricks.sdk import WorkspaceClient
 from databricks import sql
-import pyarrow as pa
+
+# pyarrow is an optional dependency required only for Delta Table examples. Wrap the
+# import in a try/except so the whole application (and its unit-tests) can still
+# start even if the library is not installed in the environment.
+#
+# When ``pyarrow`` is not available we set ``pa`` to ``None`` and guard every
+# code path that relies on it. A clear error will be returned if an endpoint is
+# called that needs ``pyarrow``.
+
+try:
+    import pyarrow as pa  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover
+    pa = None  # noqa: N816 – keep lowercase alias to mimic normal import
+
 from openai import AsyncOpenAI, OpenAIError
 
 from config import Settings
@@ -215,10 +228,14 @@ def list_delta_todos(
     limit: int = 100,
     settings: Settings = Depends(get_settings),
 ):
+    if pa is None:
+        # Avoid hard dependency when the endpoint is not used. This keeps the
+        # service importable for test environments that don't install pyarrow.
+        raise http_error(500, "pyarrow is required for Delta table operations but is not installed")
     query = f"SELECT id, title, completed FROM {TABLE} LIMIT %(lim)s"
     with _get_sql_conn(settings) as conn, conn.cursor() as cur:
         cur.execute(query, {"lim": limit})
-        tbl: pa.Table = cur.fetchall_arrow()
+        tbl: "pa.Table" = cur.fetchall_arrow()  # type: ignore[name-defined]
     return tbl.to_pandas().to_dict(orient="records")
 
 

@@ -3,7 +3,6 @@ from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, MagicMock
 import sys
 import types
-import main
 
 import databricks
 try:
@@ -50,8 +49,6 @@ databricks.vector_search = vector_module
 sys.modules.setdefault("databricks.vector_search", vector_module)
 sys.modules.setdefault("databricks.vector_search.index", index_module)
 sys.modules.setdefault("databricks.vector_search.client", client_module)
-
-import main
 
 @pytest.fixture(autouse=True)
 def mock_lifespan(monkeypatch):

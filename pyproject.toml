@@ -20,6 +20,7 @@ dependencies = [
     "openai==1.30.1",
     "databricks-sql-connector==4.0.5",
     "databricks-vectorsearch==0.56",
+    "pyarrow==20.0.0",
 ]
 
 [project.optional-dependencies]
@@ -44,6 +45,8 @@ disable_error_code = ["attr-defined", "arg-type", "index", "union-attr"]
 [tool.ruff]
 line-length = 88
 extend-exclude = ["notebooks"]
+
+[tool.ruff.lint]
 ignore = ["F401"]
 
 [tool.bandit]
