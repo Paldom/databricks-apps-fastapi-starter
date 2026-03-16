@@ -13,9 +13,10 @@ from api import api_router
 from controllers import health
 from core.database import init_pg_pool, close_pg_pool
 from core.sqlalchemy import engine
-from modules.todo.models import Base as TodoBase
+from modules.base import Base as AppBase
+import modules.users.models  # noqa: F401 – ensure AppUser is registered with Base.metadata
 from middlewares import (
-    user_info_middleware,
+    authorization_middleware,
     security_headers_middleware,
     workspace_client_middleware,
 )
@@ -29,7 +30,7 @@ async def lifespan(app):
     logger.debug("Initialising PostgreSQL pool")
     await init_pg_pool()
     async with engine.begin() as conn:
-        await conn.run_sync(TodoBase.metadata.create_all)
+        await conn.run_sync(AppBase.metadata.create_all)
     ws = get_workspace_client()
     cfg = ws.config
     app.state.ai_client = AsyncOpenAI(
@@ -60,13 +61,12 @@ else:
     app = FastAPI(lifespan=lifespan)
 
 
-app.middleware("http")(user_info_middleware)
+app.middleware("http")(authorization_middleware)
 app.middleware("http")(workspace_client_middleware)
 app.middleware("http")(security_headers_middleware)
 
 app.include_router(health.router)
-app.include_router(api_router, prefix="/v1")
+app.include_router(api_router, prefix="/api/v1")
+app.include_router(api_router, prefix="/v1", include_in_schema=False)
 
 add_pagination(app)
-
-

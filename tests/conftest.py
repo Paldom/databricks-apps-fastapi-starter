@@ -70,6 +70,10 @@ def mock_lifespan(monkeypatch):
     wc.config.host = "http://localhost"
     monkeypatch.setattr(main, "get_workspace_client", lambda: wc)
 
+    # Also patch workspace_client middleware's w() to avoid real Databricks calls
+    import middlewares.workspace_client as ws_mw
+    monkeypatch.setattr(ws_mw, "w", lambda: wc)
+
     mock_ai = MagicMock()
     mock_ai.aclose = AsyncMock()
     monkeypatch.setattr(main, "AsyncOpenAI", lambda **_: mock_ai)
@@ -79,13 +83,13 @@ def mock_lifespan(monkeypatch):
 
     fake_metadata = MagicMock()
     fake_metadata.create_all = AsyncMock()
-    fake_model = MagicMock()
-    fake_model.metadata = fake_metadata
-    monkeypatch.setattr(main, "TodoBase", fake_model)
+    fake_base = MagicMock()
+    fake_base.metadata = fake_metadata
+    monkeypatch.setattr(main, "AppBase", fake_base)
     import modules.todo.controllers as todo_ctrl
 
     monkeypatch.setattr(todo_ctrl, "engine", fake_engine)
-    monkeypatch.setattr(todo_ctrl, "Base", fake_model)
+    monkeypatch.setattr(todo_ctrl, "Base", fake_base)
     import modules.todo.models as todo_models
     import modules.todo.repositories as todo_repos
 
@@ -101,7 +105,23 @@ def mock_lifespan(monkeypatch):
     monkeypatch.setattr(todo_repos, "Todo", DummyTodo)
 
     monkeypatch.setattr(todo_ctrl, "engine", fake_engine, raising=False)
-    monkeypatch.setattr(todo_ctrl, "Base", fake_model, raising=False)
+    monkeypatch.setattr(todo_ctrl, "Base", fake_base, raising=False)
+
+    # Mock the authorization middleware's DB session to avoid real DB calls
+    import middlewares.authorization as auth_mw
+
+    mock_session = AsyncMock()
+    mock_session.get = AsyncMock(return_value=None)
+    mock_session.add = MagicMock()
+    mock_session.commit = AsyncMock()
+    mock_session.refresh = AsyncMock()  # no-op: AppUser retains constructor values
+
+    mock_session_factory = MagicMock()
+    mock_session_ctx = AsyncMock()
+    mock_session_ctx.__aenter__.return_value = mock_session
+    mock_session_ctx.__aexit__.return_value = False
+    mock_session_factory.return_value = mock_session_ctx
+    monkeypatch.setattr(auth_mw, "AsyncSessionLocal", mock_session_factory)
 
     yield
 

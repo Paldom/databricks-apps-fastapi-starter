@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 from modules.base import Base
 from modules import todo  # needed for model discovery
+from modules import users  # needed for model discovery
 from config import settings
 
 # this is the Alembic Config object, which provides

@@ -2,7 +2,7 @@ from fastapi import status
 
 from core.errors import http_error
 
-from core.auth import UserInfo
+from modules.users.schemas import CurrentUser
 from logging import Logger
 
 from .repositories import TodoRepository
@@ -11,16 +11,14 @@ from .mappers import to_dto
 
 
 class TodoService:
-    def __init__(self, repo: TodoRepository, user: UserInfo, logger: Logger):
+    def __init__(self, repo: TodoRepository, user: CurrentUser, logger: Logger):
         self.repo = repo
         self.user = user
         self.logger = logger
 
     def _uid(self) -> str:
-        """Return the authenticated user identifier or raise."""
-        if self.user.user_id:
-            return self.user.user_id
-        raise http_error(status.HTTP_401_UNAUTHORIZED, "User ID missing")
+        """Return the authenticated user identifier."""
+        return self.user.id
 
     async def list(self) -> list[TodoRead]:
         self.logger.debug("Listing todos for user %s", self._uid())

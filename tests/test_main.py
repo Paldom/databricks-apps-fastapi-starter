@@ -33,4 +33,3 @@ async def test_lifespan_calls_dependencies(mocker):
     mock_ai.aclose.assert_awaited_once()
     mock_close_pg_pool.assert_awaited_once()
     mock_dispose.assert_awaited_once()
-

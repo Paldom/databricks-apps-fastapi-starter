@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends
+
+from core.deps import get_current_user
+from modules.users.schemas import CurrentUser
 
 router = APIRouter()
 
 
 @router.get("/userInfo")
-async def get_user_info(request: Request):
-    user_info = getattr(request.state, "user_info", None)
-    if user_info is None:
-        return {}
-    return user_info.model_dump()
+async def get_user_info(user: CurrentUser = Depends(get_current_user)):
+    return user.model_dump()

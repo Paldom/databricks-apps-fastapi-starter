@@ -46,8 +46,8 @@ The demo controller (`controllers/demo.py`) exercises several Databricks service
 ### Genie conversation API
 
 Databricks Genie lets applications query data using natural language.
-The demo exposes `/v1/genie/{space_id}/ask` to start a conversation and
-`/v1/genie/{space_id}/{conversation_id}/ask` for follow-up questions.
+The demo exposes `/api/v1/genie/{space_id}/ask` to start a conversation and
+`/api/v1/genie/{space_id}/{conversation_id}/ask` for follow-up questions.
 Databricks Apps automatically provide the host URL and token used by these
 endpoints.
 
@@ -139,14 +139,30 @@ alembic upgrade head
 ## Structure
 
 - **`core/database.py`** – PostgreSQL connection pool and dependency providers
+- **`core/deps.py`** – FastAPI dependency injection (`get_current_user`, `get_current_user_optional`, etc.)
 - **`core/logging.py`** – application logging configuration
 - **`controllers`** – FastAPI routers (`health`, `user`, `demo`, `todo`)
+- **`middlewares`** – HTTP middleware (`authorization`, `workspace_client`, `security_headers`)
 - **`modules/todo`** – example CRUD feature with SQLAlchemy models and services
+- **`modules/users`** – local user model, repository, and schemas for auth context
+
 Liveness and readiness endpoints are available at `/health/live` and `/health/ready`. The readiness check performs a lightweight AI Gateway call in addition to database checks.
+
 ## API versioning
 
-All endpoints are served under the `/v1` prefix. Future versions of the API
-will use different prefixes such as `/v2`.
+All API endpoints are served under the `/api/v1` prefix (canonical). The legacy
+`/v1` prefix is also supported for backward compatibility but is not included
+in the OpenAPI schema. Future versions of the API will use `/api/v2`, etc.
+
+Example requests:
+```bash
+# Canonical
+curl http://localhost:8000/api/v1/userInfo -H "X-Forwarded-User: me"
+curl http://localhost:8000/api/v1/todos/ -H "X-Forwarded-User: me"
+
+# Legacy (still works)
+curl http://localhost:8000/v1/userInfo -H "X-Forwarded-User: me"
+```
 
 ### API Routes and Documentation
 
@@ -215,6 +231,28 @@ include HSTS, content type, frame and referrer policies in line with
 OWASP recommendations.
 
 ### Authentication
+
+Databricks Apps authenticates users and forwards identity via HTTP headers.
+The application's `AuthorizationMiddleware` reads these headers and maintains
+a local `app_user` table for user persistence:
+
+| Header | Maps to |
+|--------|---------|
+| `X-Forwarded-User` | `user.id` (primary key) |
+| `X-Forwarded-Email` | `user.email` |
+| `X-Forwarded-Preferred-Username` | `user.preferred_username` |
+
+Protected endpoints (e.g. `/api/v1/userInfo`, `/api/v1/todos/`) require the
+`X-Forwarded-User` header and return **401** when it is absent.
+
+For local development, either use the Databricks local app runner (which
+forwards headers automatically) or pass headers manually:
+
+```bash
+curl http://localhost:8000/api/v1/todos/ \
+  -H "X-Forwarded-User: me@example.com" \
+  -H "X-Forwarded-Email: me@example.com"
+```
 
 Set `DATABRICKS_HOST`, `DATABRICKS_CLIENT_ID` and `DATABRICKS_CLIENT_SECRET`
 so that the app can generate cross-app authentication headers using

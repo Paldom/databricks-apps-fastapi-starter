@@ -6,9 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.sqlalchemy import get_async_session, engine
 from .models import Base
-from core.deps import get_user_info, get_logger
+from core.deps import get_current_user, get_logger
 from logging import Logger
-from core.auth import UserInfo
+from modules.users.schemas import CurrentUser
 from .repositories import TodoRepository
 from .services import TodoService
 from .schemas import TodoCreate, TodoRead, TodoUpdate
@@ -22,7 +22,7 @@ def get_repo(session: Annotated[AsyncSession, Depends(get_async_session)]) -> To
 
 def get_service(
     repo: Annotated[TodoRepository, Depends(get_repo)],
-    user: Annotated[UserInfo, Depends(get_user_info)],
+    user: Annotated[CurrentUser, Depends(get_current_user)],
     logger: Annotated[Logger, Depends(get_logger)],
 ) -> TodoService:
     return TodoService(repo, user, logger)

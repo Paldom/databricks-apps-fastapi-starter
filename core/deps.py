@@ -9,6 +9,8 @@ from fastapi import Request
 from openai import AsyncOpenAI
 
 from core.auth import UserInfo
+from core.errors import http_error
+from modules.users.schemas import CurrentUser
 from logging import Logger
 from core.logging import get_logger as _get_logger
 
@@ -30,8 +32,29 @@ def get_workspace_client(request: Request = None) -> WorkspaceClient:  # type: i
     return w()
 
 
+def get_current_user(request: Request) -> CurrentUser:
+    """Require an authenticated user or raise 401."""
+    user: CurrentUser | None = getattr(request.state, "user", None)
+    if user is None:
+        raise http_error(401, "Authentication required")
+    return user
+
+
+def get_current_user_optional(request: Request) -> CurrentUser | None:
+    """Return authenticated user or None (no 401)."""
+    return getattr(request.state, "user", None)
+
+
 def get_user_info(request: Request) -> UserInfo:
-    return request.state.user_info
+    """Backward-compatible bridge: derive UserInfo from CurrentUser."""
+    user: CurrentUser | None = getattr(request.state, "user", None)
+    if user is not None:
+        return UserInfo(
+            preferred_username=user.preferred_username,
+            user_id=user.id,
+            email=user.email,
+        )
+    return UserInfo()
 
 
 def get_ai_client(request: Request) -> AsyncOpenAI:
@@ -42,4 +65,3 @@ def get_vector_index():
 
 def get_logger() -> Logger:
     return _get_logger()
-

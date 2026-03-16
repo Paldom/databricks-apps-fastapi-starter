@@ -5,7 +5,7 @@ import main
 from modules.todo.services import TodoService
 from modules.todo.controllers import get_service
 from modules.todo.repositories import TodoRepository
-from core.auth import UserInfo
+from modules.users.schemas import CurrentUser
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def mock_repo():
 
 @pytest.fixture
 def mock_user():
-    return UserInfo(user_id="user123", email="test@example.com")
+    return CurrentUser(id="user123", email="test@example.com")
 
 
 @pytest.fixture

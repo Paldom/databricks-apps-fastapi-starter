@@ -17,7 +17,13 @@ def test_workspace_client_middleware_uses_header(monkeypatch):
     monkeypatch.setattr('middlewares.workspace_client.WorkspaceClient', DummyWC)
 
     with TestClient(main.app) as client:
-        response = client.get('/v1/userInfo', headers={'X-Forwarded-Access-Token': 'pat'})
+        response = client.get(
+            '/v1/userInfo',
+            headers={
+                'X-Forwarded-Access-Token': 'pat',
+                'X-Forwarded-User': 'test-user',
+            },
+        )
     assert response.status_code == 200
     assert created['token'] == 'pat'
     assert created['host'] == 'http://h'
@@ -35,6 +41,12 @@ def test_workspace_client_middleware_ignores_header_when_disabled(monkeypatch):
     monkeypatch.setattr('middlewares.workspace_client.WorkspaceClient', dummy_wc)
 
     with TestClient(main.app) as client:
-        response = client.get('/v1/userInfo', headers={'X-Forwarded-Access-Token': 'ignored'})
+        response = client.get(
+            '/v1/userInfo',
+            headers={
+                'X-Forwarded-Access-Token': 'ignored',
+                'X-Forwarded-User': 'test-user',
+            },
+        )
     assert response.status_code == 200
     assert not called
