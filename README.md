@@ -59,7 +59,7 @@ notebook executed by the job resource.
 ## Setup
 
 ### Prerequisites
-- Python 3.10+ + uv configured
+- Python 3.11 + uv configured
 - Databricks CLI configured
 - Access to a Databricks workspace
 
@@ -77,15 +77,18 @@ cp .env.example .env
 # Edit .env with your Databricks credentials
 ```
 
-Create a virtual environment and install dependencies:
+Install dependencies and start the app:
 ```bash
-uv venv .venv
+uv sync --extra dev
 source .venv/bin/activate
-uv pip install -e .
-uv lock
-uv export --no-hashes --format=requirements.txt > requirements.txt
-uvicorn main:app --reload
+uv run uvicorn main:app --reload
 ```
+
+> **Note:** When changing dependencies, regenerate both `uv.lock` and `requirements.txt`:
+> ```bash
+> uv lock
+> uv export --no-hashes --no-editable --format=requirements.txt > requirements.txt
+> ```
 
 ### Static analysis
 
