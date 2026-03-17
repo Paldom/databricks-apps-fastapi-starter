@@ -1,0 +1,14 @@
+dist
+node_modules
+coverage
+reports
+.stryker-tmp
+.scannerwork
+storybook-static
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+src/shared/api/generated
+.local
+public/locales
+public/mockServiceWorker.js

@@ -1,0 +1,110 @@
+{
+  "app": {
+    "title": "Chat App",
+    "name": "React Starter Pro",
+    "edition": "Enterprise",
+    "logoAlt": "Logo"
+  },
+  "chat": {
+    "newChat": "New chat",
+    "searchChats": "Search chats",
+    "searchPlaceholder": "Search chats...",
+    "noResults": "No chats found.",
+    "recentChats": "Recent chats",
+    "share": "Share",
+    "rename": "Rename",
+    "duplicate": "Duplicate",
+    "delete": "Delete",
+    "confirmDelete": "Are you sure you want to delete this chat?",
+    "emptyState": "Select a chat or start a new conversation"
+  },
+  "project": {
+    "addProject": "Add project",
+    "editName": "Edit name",
+    "remove": "Remove",
+    "selectProject": "Select project"
+  },
+  "user": {
+    "settings": "Settings",
+    "logOut": "Log out"
+  },
+  "settings": {
+    "title": "Settings",
+    "nav": {
+      "general": "General",
+      "profile": "Profile",
+      "notifications": "Notifications"
+    },
+    "general": {
+      "title": "General",
+      "theme": "Theme",
+      "themeDescription": "Select your preferred theme.",
+      "light": "Light",
+      "dark": "Dark",
+      "language": "Language",
+      "languageDescription": "Select your preferred language."
+    },
+    "profile": {
+      "title": "Profile",
+      "name": "Name",
+      "email": "Email",
+      "save": "Save",
+      "cancel": "Cancel",
+      "nameRequired": "Name is required",
+      "emailInvalid": "Please enter a valid email address",
+      "saveError": "Failed to save settings. Please try again.",
+      "saveSuccess": "Settings saved successfully."
+    },
+    "notifications": {
+      "title": "Notifications",
+      "enable": "Enable notifications",
+      "enableDescription": "Receive notifications about updates and messages."
+    }
+  },
+  "document": {
+    "title": "Documents",
+    "addDocument": "Add document",
+    "addedDocuments": "Added documents",
+    "uploadNew": "Upload new",
+    "pending": "Processing...",
+    "ingested": "Ready",
+    "error": "Error",
+    "dropzoneIdle": "Drag & drop or click to upload",
+    "dropzoneActive": "Drop files here",
+    "dropzoneAccepted": "PDF, DOC, DOCX, TXT, MD",
+    "removeDocument": "Remove document"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "retry": "Retry",
+    "close": "Close",
+    "loadingApplication": "Loading application...",
+    "loadingTranslations": "Loading translations...",
+    "loadMore": "Load more",
+    "openMenu": "Open menu",
+    "more": "More",
+    "units": {
+      "byte": "B",
+      "kilobyte": "KB",
+      "megabyte": "MB",
+      "gigabyte": "GB"
+    }
+  },
+  "errors": {
+    "title": "Something went wrong",
+    "unexpected": "An unexpected error occurred.",
+    "requestFailed": "Request failed with status {{status}}.",
+    "tryAgain": "Try again",
+    "goHome": "Go back home"
+  },
+  "sidebar": {
+    "title": "Sidebar",
+    "description": "Displays the mobile sidebar.",
+    "toggle": "Toggle Sidebar"
+  },
+  "command": {
+    "title": "Command Palette",
+    "description": "Search for a command to run..."
+  }
+}

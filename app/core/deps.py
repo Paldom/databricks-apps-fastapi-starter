@@ -1,6 +1,7 @@
-from collections.abc import AsyncGenerator
+from __future__ import annotations
+
 from logging import Logger
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 from databricks.sdk import WorkspaceClient
 from fastapi import Depends, Request
@@ -9,13 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.core.cache import Cache, NullCache
 from app.core.config import Settings, settings
-from app.core.databricks.ai_gateway import AiGatewayAdapter
-from app.core.databricks.genie import GenieAdapter
-from app.core.databricks.jobs import JobsAdapter
-from app.core.databricks.serving import ServingAdapter
-from app.core.databricks.sql_delta import SqlDeltaAdapter
-from app.core.databricks.uc_files import UcFilesAdapter
-from app.core.databricks.vector_search import VectorSearchAdapter
 from app.core.db.deps import get_async_session, get_engine  # noqa: F401 – re-export
 from app.core.errors import (
     AuthenticationError,
@@ -25,21 +19,17 @@ from app.core.errors import (
 from app.core.logging import get_logger as _get_logger
 from app.core.runtime import AppRuntime, get_app_runtime
 from app.models.user_dto import CurrentUser, UserInfo
-from app.repositories.delta_todo_repository import DeltaTodoRepository
-from app.repositories.lakebase_demo_repository import LakebaseDemoRepository
-from app.repositories.todo_command_repository import TodoCommandRepository
-from app.repositories.todo_query_repository import TodoQueryRepository
-from app.repositories.todo_repository import TodoRepository
-from app.services.integrations.ai_gateway_service import AiGatewayService
-from app.services.integrations.genie_service import GenieService
-from app.services.integrations.jobs_service import JobsService
-from app.services.integrations.lakebase_demo_service import LakebaseDemoService
-from app.services.integrations.serving_service import ServingService
-from app.services.integrations.sql_delta_service import SqlDeltaService
-from app.services.integrations.uc_files_service import UcFilesService
-from app.services.integrations.vector_search_service import VectorSearchService
-from app.services.todo_service import TodoService
 
+if TYPE_CHECKING:
+    from app.repositories.chat_repository import ChatRepository
+    from app.repositories.document_repository import DocumentRepository
+    from app.repositories.project_repository import ProjectRepository
+    from app.repositories.user_settings_repository import UserSettingsRepository
+    from app.services.chat_service import ChatService
+    from app.services.chat_stream_service import ChatStreamService
+    from app.services.document_service import DocumentService
+    from app.services.project_service import ProjectService
+    from app.services.user_settings_service import UserSettingsService
 
 # ---------------------------------------------------------------------------
 # Shared / leaf dependencies
@@ -137,199 +127,77 @@ def get_cache(request: Request) -> Cache:
 
 
 # ---------------------------------------------------------------------------
-# Adapter factories
+# Frontend contract dependencies
 # ---------------------------------------------------------------------------
 
 
-def get_serving_adapter(
-    request: Request,
-    logger: Annotated[Logger, Depends(get_logger)],
-) -> ServingAdapter:
-    return ServingAdapter(get_workspace_client(request), logger)
-
-
-def get_jobs_adapter(
-    request: Request,
-    logger: Annotated[Logger, Depends(get_logger)],
-) -> JobsAdapter:
-    return JobsAdapter(get_workspace_client(request), logger)
-
-
-def get_ai_gateway_adapter(
-    request: Request,
-    logger: Annotated[Logger, Depends(get_logger)],
-) -> AiGatewayAdapter:
-    return AiGatewayAdapter(get_ai_client(request), logger)
-
-
-def get_vector_search_adapter(
-    request: Request,
-    logger: Annotated[Logger, Depends(get_logger)],
-    s: Annotated[Settings, Depends(get_settings)],
-) -> VectorSearchAdapter:
-    if not s.has_vector_search_config():
-        raise ConfigurationError(
-            "Vector Search is not configured; set VECTOR_SEARCH_ENDPOINT_NAME and "
-            "VECTOR_SEARCH_INDEX_NAME"
-        )
-    return VectorSearchAdapter(get_vector_index(request), logger)
-
-
-def get_sql_delta_adapter(
-    logger: Annotated[Logger, Depends(get_logger)],
-) -> SqlDeltaAdapter:
-    return SqlDeltaAdapter(settings, logger)
-
-
-async def get_genie_adapter(
-    request: Request,
-    logger: Annotated[Logger, Depends(get_logger)],
-) -> AsyncGenerator[GenieAdapter, None]:
-    from httpx import AsyncClient
-
-    ws = get_workspace_client(request)
-    async with AsyncClient(
-        base_url=f"https://{ws.config.host}",
-        headers={"Authorization": f"Bearer {ws.config.token}"},
-        timeout=float(settings.genie_timeout_seconds),
-    ) as client:
-        yield GenieAdapter(client, logger)
-
-
-def get_uc_files_adapter(
-    request: Request,
-    logger: Annotated[Logger, Depends(get_logger)],
-) -> UcFilesAdapter:
-    return UcFilesAdapter(get_workspace_client(request), logger)
-
-
-# ---------------------------------------------------------------------------
-# Repository factories
-# ---------------------------------------------------------------------------
-
-
-def get_todo_repo(
+def get_project_repo(
     session: Annotated[AsyncSession, Depends(get_async_session)],
-) -> TodoRepository:
-    return TodoRepository(session)
+) -> ProjectRepository:
+    from app.repositories.project_repository import ProjectRepository
+    return ProjectRepository(session)
 
 
-def get_todo_query_repo(
+def get_chat_repo(
     session: Annotated[AsyncSession, Depends(get_async_session)],
-    cache: Annotated[Cache, Depends(get_cache)],
+) -> ChatRepository:
+    from app.repositories.chat_repository import ChatRepository
+    return ChatRepository(session)
+
+
+def get_document_repo(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+) -> DocumentRepository:
+    from app.repositories.document_repository import DocumentRepository
+    return DocumentRepository(session)
+
+
+def get_user_settings_repo(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+) -> UserSettingsRepository:
+    from app.repositories.user_settings_repository import UserSettingsRepository
+    return UserSettingsRepository(session)
+
+
+def get_project_service(
+    repo: Annotated[Any, Depends(get_project_repo)],
     user: Annotated[CurrentUser, Depends(get_current_user)],
-    logger: Annotated[Logger, Depends(get_logger)],
-    s: Annotated[Settings, Depends(get_settings)],
-) -> TodoQueryRepository:
-    return TodoQueryRepository(
-        session,
-        cache,
-        user.id,
-        logger,
-        detail_ttl=s.cache_todo_detail_ttl,
-        list_ttl=s.cache_todo_list_ttl,
+) -> ProjectService:
+    from app.services.project_service import ProjectService
+    return ProjectService(repo, user.id)
+
+
+def get_chat_service(
+    repo: Annotated[Any, Depends(get_chat_repo)],
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> ChatService:
+    from app.services.chat_service import ChatService
+    return ChatService(repo, user.id)
+
+
+def get_document_service(
+    repo: Annotated[Any, Depends(get_document_repo)],
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> DocumentService:
+    from app.services.document_service import DocumentService
+    return DocumentService(repo, user.id)
+
+
+def get_user_settings_service(
+    repo: Annotated[Any, Depends(get_user_settings_repo)],
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> UserSettingsService:
+    from app.services.user_settings_service import UserSettingsService
+    return UserSettingsService(
+        repo, user.id,
+        default_name=user.name or user.id,
+        default_email=user.email,
     )
 
 
-def get_todo_command_repo(
-    session: Annotated[AsyncSession, Depends(get_async_session)],
-    cache: Annotated[Cache, Depends(get_cache)],
-    user: Annotated[CurrentUser, Depends(get_current_user)],
-    logger: Annotated[Logger, Depends(get_logger)],
-    s: Annotated[Settings, Depends(get_settings)],
-) -> TodoCommandRepository:
-    return TodoCommandRepository(
-        session,
-        cache,
-        user.id,
-        logger,
-        detail_ttl=s.cache_todo_detail_ttl,
-    )
-
-
-def get_lakebase_repo(
-    session: Annotated[AsyncSession, Depends(get_async_session)],
-) -> LakebaseDemoRepository:
-    return LakebaseDemoRepository(session)
-
-
-def get_delta_todo_repo(
-    adapter: Annotated[SqlDeltaAdapter, Depends(get_sql_delta_adapter)],
-) -> DeltaTodoRepository:
-    return DeltaTodoRepository(adapter)
-
-
-# ---------------------------------------------------------------------------
-# Service factories
-# ---------------------------------------------------------------------------
-
-
-def get_todo_service(
-    query_repo: Annotated[TodoQueryRepository, Depends(get_todo_query_repo)],
-    command_repo: Annotated[TodoCommandRepository, Depends(get_todo_command_repo)],
-    user: Annotated[CurrentUser, Depends(get_current_user)],
-    logger: Annotated[Logger, Depends(get_logger)],
-) -> TodoService:
-    return TodoService(query_repo, command_repo, user, logger)
-
-
-def get_lakebase_service(
-    repo: Annotated[LakebaseDemoRepository, Depends(get_lakebase_repo)],
-    logger: Annotated[Logger, Depends(get_logger)],
-) -> LakebaseDemoService:
-    return LakebaseDemoService(repo, logger)
-
-
-def get_serving_service(
-    adapter: Annotated[ServingAdapter, Depends(get_serving_adapter)],
-    s: Annotated[Settings, Depends(get_settings)],
-    logger: Annotated[Logger, Depends(get_logger)],
-) -> ServingService:
-    return ServingService(adapter, s, logger)
-
-
-def get_jobs_service(
-    adapter: Annotated[JobsAdapter, Depends(get_jobs_adapter)],
-    s: Annotated[Settings, Depends(get_settings)],
-    logger: Annotated[Logger, Depends(get_logger)],
-) -> JobsService:
-    return JobsService(adapter, s, logger)
-
-
-def get_ai_gateway_service(
-    adapter: Annotated[AiGatewayAdapter, Depends(get_ai_gateway_adapter)],
-    s: Annotated[Settings, Depends(get_settings)],
-    logger: Annotated[Logger, Depends(get_logger)],
-) -> AiGatewayService:
-    return AiGatewayService(adapter, s, logger)
-
-
-def get_vector_search_service(
-    ai_adapter: Annotated[AiGatewayAdapter, Depends(get_ai_gateway_adapter)],
-    vs_adapter: Annotated[VectorSearchAdapter, Depends(get_vector_search_adapter)],
-    s: Annotated[Settings, Depends(get_settings)],
-    logger: Annotated[Logger, Depends(get_logger)],
-) -> VectorSearchService:
-    return VectorSearchService(ai_adapter, vs_adapter, s, logger)
-
-
-def get_sql_delta_service(
-    repo: Annotated[DeltaTodoRepository, Depends(get_delta_todo_repo)],
-    logger: Annotated[Logger, Depends(get_logger)],
-) -> SqlDeltaService:
-    return SqlDeltaService(repo, logger)
-
-
-def get_genie_service(
-    adapter: Annotated[GenieAdapter, Depends(get_genie_adapter)],
-    logger: Annotated[Logger, Depends(get_logger)],
-) -> GenieService:
-    return GenieService(adapter, logger)
-
-
-def get_uc_files_service(
-    adapter: Annotated[UcFilesAdapter, Depends(get_uc_files_adapter)],
-    s: Annotated[Settings, Depends(get_settings)],
-    logger: Annotated[Logger, Depends(get_logger)],
-) -> UcFilesService:
-    return UcFilesService(adapter, s, logger)
+def get_chat_stream_service(
+    request: Request,
+) -> ChatStreamService:
+    from app.services.chat_stream_service import ChatStreamService
+    ai_client = get_ai_client(request)
+    return ChatStreamService(ai_client)

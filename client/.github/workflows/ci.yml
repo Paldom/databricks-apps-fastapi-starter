@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: ['main', 'master', 'develop', '*']
+  pull_request:
+
+jobs:
+  build_test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Check API freshness
+        run: |
+          npm run api:gen
+          git diff --exit-code src/shared/api/generated/
+
+      - run: npm run typecheck
+
+      - run: npm run lint
+
+      - run: npm run test:coverage
+
+      - run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage
+          if-no-files-found: ignore
+
+  mutation_test:
+    runs-on: ubuntu-latest
+    needs: build_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npm run test:mutation
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mutation-report
+          path: reports/mutation/html
+          if-no-files-found: ignore

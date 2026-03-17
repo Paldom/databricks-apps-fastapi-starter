@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap"
+      rel="stylesheet"
+    />
+    <title>Chat App</title>
+    <script>
+      ;(() => {
+        try {
+          const raw = localStorage.getItem('ui-store')
+          if (!raw) return
+          const data = JSON.parse(raw)
+          const theme = data?.state?.theme
+          if (theme === 'dark') {
+            document.documentElement.classList.add('dark')
+            document.documentElement.style.colorScheme = 'dark'
+          } else if (theme === 'light') {
+            document.documentElement.classList.remove('dark')
+            document.documentElement.style.colorScheme = 'light'
+          }
+        } catch {}
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,110 @@
+{
+  "app": {
+    "title": "Chat Alkalmazas",
+    "name": "React Starter Pro",
+    "edition": "Vallalati",
+    "logoAlt": "Logo"
+  },
+  "chat": {
+    "newChat": "Uj beszelgetes",
+    "searchChats": "Beszelgetesek keresese",
+    "searchPlaceholder": "Kereses a beszelgetesek kozott...",
+    "noResults": "Nem talalhato beszelgetes.",
+    "recentChats": "Legutobbi beszelgetesek",
+    "share": "Megosztas",
+    "rename": "Atnevezes",
+    "duplicate": "Masolas",
+    "delete": "Torles",
+    "confirmDelete": "Biztosan torolni szeretne ezt a beszelgetest?",
+    "emptyState": "Valasszon egy beszelgetest vagy kezdjen ujat"
+  },
+  "project": {
+    "addProject": "Projekt hozzaadasa",
+    "editName": "Nev szerkesztese",
+    "remove": "Eltavolitas",
+    "selectProject": "Projekt kivalasztasa"
+  },
+  "user": {
+    "settings": "Beallitasok",
+    "logOut": "Kijelentkezes"
+  },
+  "settings": {
+    "title": "Beallitasok",
+    "nav": {
+      "general": "Altalanos",
+      "profile": "Profil",
+      "notifications": "Ertesitesek"
+    },
+    "general": {
+      "title": "Altalanos",
+      "theme": "Tema",
+      "themeDescription": "Valassza ki a kedvenc temajat.",
+      "light": "Vilagos",
+      "dark": "Sotet",
+      "language": "Nyelv",
+      "languageDescription": "Valassza ki a kedvenc nyelvet."
+    },
+    "profile": {
+      "title": "Profil",
+      "name": "Nev",
+      "email": "E-mail",
+      "save": "Mentes",
+      "cancel": "Megse",
+      "nameRequired": "A nev megadasa kotelezo",
+      "emailInvalid": "Kerjuk, adjon meg ervenyes e-mail cimet",
+      "saveError": "Nem sikerult menteni a beallitasokat. Probalkozzon ujra.",
+      "saveSuccess": "Beallitasok sikeresen mentve."
+    },
+    "notifications": {
+      "title": "Ertesitesek",
+      "enable": "Ertesitesek engedelyezese",
+      "enableDescription": "Ertesitesek fogadasa frissitesekrol es uzenetekrol."
+    }
+  },
+  "document": {
+    "title": "Dokumentumok",
+    "addDocument": "Dokumentum hozzaadasa",
+    "addedDocuments": "Hozzaadott dokumentumok",
+    "uploadNew": "Uj feltoltes",
+    "pending": "Feldolgozas...",
+    "ingested": "Kesz",
+    "error": "Hiba",
+    "dropzoneIdle": "Huzd ide vagy kattints a feltolteshez",
+    "dropzoneActive": "Engedd el a fajlokat",
+    "dropzoneAccepted": "PDF, DOC, DOCX, TXT, MD",
+    "removeDocument": "Dokumentum eltavolitasa"
+  },
+  "common": {
+    "loading": "Betoltes...",
+    "error": "Hiba tortent",
+    "retry": "Ujra",
+    "close": "Bezaras",
+    "loadingApplication": "Alkalmazas betoltese...",
+    "loadingTranslations": "Forditasok betoltese...",
+    "loadMore": "Tobb betoltese",
+    "openMenu": "Menu megnyitasa",
+    "more": "Tobb",
+    "units": {
+      "byte": "B",
+      "kilobyte": "KB",
+      "megabyte": "MB",
+      "gigabyte": "GB"
+    }
+  },
+  "errors": {
+    "title": "Valami rosszul sikerult",
+    "unexpected": "Varatlan hiba tortent.",
+    "requestFailed": "A kerest nem sikerult vegrehajtani, allapot: {{status}}.",
+    "tryAgain": "Probalja ujra",
+    "goHome": "Vissza a fokepernyore"
+  },
+  "sidebar": {
+    "title": "Oldalsav",
+    "description": "Megjeleniti a mobil oldalsavat.",
+    "toggle": "Oldalsav kapcsolasa"
+  },
+  "command": {
+    "title": "Parancs paletta",
+    "description": "Keressen futtathato parancsot..."
+  }
+}

@@ -29,6 +29,12 @@ async def lifespan(application: FastAPI):
     runtime = AppRuntime()
     application.state.runtime = runtime
 
+    # Propagate runtime to mounted sub-apps (e.g. /api)
+    for route in application.routes:
+        sub = getattr(route, "app", None)
+        if sub is not None and hasattr(sub, "state"):
+            sub.state.runtime = runtime
+
     # ── Startup ──────────────────────────────────────────────────────
     t0 = time.monotonic()
     with tracer.start_as_current_span("app.startup"):

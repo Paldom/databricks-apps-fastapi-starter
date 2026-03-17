@@ -45,6 +45,7 @@ dev = [
     "locust>=2.19,<3",
     "httpx",
     "pytest-mock",
+    "pyyaml",
 ]
 
 [tool.mypy]

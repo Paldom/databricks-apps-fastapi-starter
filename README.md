@@ -9,12 +9,12 @@
 
 Sample FastAPI application to showcase how to leverage Databricks services.
 
-A production-ready FastAPI template for building data and AI applications on **Databricks Apps**, featuring built-in authentication, database connectivity, and deployment automation. It demonstrates how a FastAPI backend can call various Databricks capabilities including Jobs, Serving endpoints, Delta tables & Volumes, AI Gateway, Vector Search and Lakebase.
+A production-ready FastAPI template for building data and AI applications on **Databricks Apps**, featuring built-in authentication, database connectivity, and deployment automation. It demonstrates how a FastAPI backend can call various Databricks capabilities including Jobs, Serving endpoints, Delta tables & Volumes, Genie & AgentBricks Knowledge Assistant, AI Gateway, Vector Search and Lakebase.
 
 ## Why This Starter?
 
 - **Zero to Production**: Deploy a secure API in minutes, sample CI/CD, IaC.
-- **Built for Databricks**: Native integration with Lakebase, Vector Search Index, Unity Catalog, Model Serving.
+- **Built for Databricks**: Native integration with Lakebase, Vector Search Index, Unity Catalog, Model Serving, Genie and AgentBricks Knowledge Assistant.
 - **Modern Stack**: FastAPI, Pydantic 2.0, SQLAlchemy (async), Alembic. Testing & quality tools like pytest (-asyncio, -cov), Locust, Ruff, MyPy, Bandit.
 - **Enterprise Ready**: Built-in auth, governance, security provided by Databricks, with a scalable and layered FastAPI architecture.
 
@@ -31,9 +31,18 @@ A production-ready FastAPI template for building data and AI applications on **D
 8. Clone this repository, set `DATABRICKS_HOST` and `DATABRICKS_TOKEN` secrets for deployment with GitHub actions. Run actions.
 9. Up & running Apps instance with Lakebase, AI and scaling ecosystem.
 
+## Architecture
+
+This repository implements the core path through a broader Databricks Apps reference architecture.  
+The diagram below shows both the pieces demonstrated in this starter and adjacent platform patterns you can add as the project evolves.
+
+[![Reference architecture for the Databricks Apps FastAPI starter](databricks-apps-architecture.svg)](databricks-apps-architecture.svg)
+
+> Scope note: this starter directly covers the Databricks App, FastAPI service layer, Lakebase, Serving, Jobs, AI Gateway, Vector Search, Genie, Knowledge Assistant, Unity Catalog-backed data access, secrets, and DAB-driven provisioning. Some other boxes in the diagram are shown as broader reference patterns rather than scaffolded code in this repo.
+
 ## Databricks Services
 
-The integration controllers under `app/api/integrations/` exercise several Databricks services:
+The legacy example router in `app/api/examples_controller.py` exercises several Databricks services without adding a full feature layer around them:
 
 - **Serving Endpoint** -- queries an MLflow model that can scale seamlessly with no latency. Recommended for complex but critical tasks.
 - **Databricks Jobs** -- triggers a job and returns its output. Recommended for heavy duty background tasks, like media conversion, parsing, where latency is not a problem, but a custom cluster can be useful.
@@ -46,8 +55,9 @@ The integration controllers under `app/api/integrations/` exercise several Datab
 ### Genie conversation API
 
 Databricks Genie lets applications query data using natural language.
-The demo exposes `/api/v1/genie/{space_id}/ask` to start a conversation and
-`/api/v1/genie/{space_id}/{conversation_id}/ask` for follow-up questions.
+When `ENABLE_LEGACY_API=true`, the demo exposes
+`/legacy/v1/genie/{space_id}/ask` to start a conversation and
+`/legacy/v1/genie/{space_id}/{conversation_id}/ask` for follow-up questions.
 Databricks Apps automatically provide the host URL and token used by these
 endpoints.
 
@@ -180,31 +190,34 @@ app/
     api.py                        # Central router registry
     health_controller.py          # /healthcheck, /databasehealthcheck, /health/live, /health/ready
     user_controller.py            # /userInfo
-    todo_controller.py            # /todos CRUD
-    integrations/                 # Demo integration controllers (thin HTTP layer)
+    examples_controller.py        # Legacy Databricks example routes
   services/
-    todo_service.py               # Todo business logic + UoW transaction scopes
-    integrations/                 # Integration orchestration services
+    project_service.py            # Project CRUD and pagination
+    chat_service.py               # Chat CRUD and search
+    document_service.py           # Document listing and uploads
+    user_settings_service.py      # Per-user settings
+    chat_stream_service.py        # Streaming chat responses
   repositories/
-    todo_repository.py            # SQLAlchemy Todo persistence (flush only)
+    project_repository.py         # SQLAlchemy project persistence
+    chat_repository.py            # SQLAlchemy chat persistence
+    document_repository.py        # SQLAlchemy document persistence
     user_repository.py            # User upsert (flush only)
-    lakebase_demo_repository.py   # Lakebase demo via SQLAlchemy text()
-    delta_todo_repository.py      # Delta table access via SQL adapter
+    user_settings_repository.py   # Settings persistence
   models/
     __init__.py                   # Model registry (imports all ORM models)
     base.py                       # Re-exports from core.db.base
-    todo_model.py                 # Todo ORM model
+    project_model.py              # Project ORM model
+    chat_session_model.py         # Chat session ORM model
+    message_model.py              # Chat message ORM model
+    file_record_model.py          # Uploaded file ORM model
     user_model.py                 # AppUser ORM model (users table)
-    chat_session_model.py         # ChatSession ORM model
-    message_model.py              # Message ORM model
-    file_record_model.py          # FileRecord ORM model
-    todo_dto.py                   # Pydantic DTOs + mapper
+    user_settings_model.py        # User settings ORM model
     user_dto.py                   # CurrentUser, UserInfo
-    integrations/                 # Integration request/response DTOs
+    health_dto.py                 # Health response models
   core/
     bootstrap.py                  # Lifespan (startup/shutdown) — no schema creation
     config.py                     # Pydantic Settings + Databricks secrets
-    deps.py                       # DI factory functions (adapters, services, repos)
+    deps.py                       # Shared runtime / request dependencies
     errors.py                     # AppError hierarchy
     logging.py                    # Logging setup (OTel-compatible, idempotent)
     observability.py              # Thin OTel helpers (tracer, meter, spans, metrics)
@@ -234,17 +247,21 @@ app/
 ### Dependency Flow
 
 ```
-Controller -> Service -> Repository / Adapter -> Shared deps (app.state)
+Public API route -> Service -> Repository -> Shared deps (app.state)
+Legacy example route -> Adapter / DB session -> Shared deps (app.state)
 ```
 
-- **Controllers** are thin: route definition, input validation, HTTP response construction only.
-- **Services** own business logic and adapter orchestration.
+- **Example routes** stay intentionally flat, closer to the original starter repo.
+- **Services** are used for the main app features, not for the Databricks demos.
 - **Repositories** handle persistence (SQLAlchemy) — flush only, never commit.
 - **Adapters** (`app/core/databricks/`) wrap low-level SDK calls with error mapping, timeouts, and thread bridging.
 
 ### Router Registry
 
-`app/api/api.py` is the canonical router registry. All versioned routes are served under `/api/v1` (canonical) and `/v1` (legacy, excluded from OpenAPI schema). Health checks remain unversioned at `/healthcheck`, `/databasehealthcheck`, and `/health/*`.
+`app/api/public/` contains the frontend-facing `/api` contract. `app/api/api.py`
+registers the legacy routes that are mounted under `/legacy/v1` when
+`ENABLE_LEGACY_API=true`. Health checks remain unversioned at `/healthcheck`,
+`/databasehealthcheck`, and `/health/*`.
 
 ### Error Handling
 
@@ -253,8 +270,8 @@ Adapters raise typed `AppError` subclasses (e.g., `ServingEndpointError`, `Confi
 ### DI and Testing
 
 Runtime resources are stored in a single `app.state.runtime` container during bootstrap. DI factory functions in `app/core/deps.py` read from that runtime container, making tests simple:
-- **Controller tests**: mock services via `dependency_overrides`
-- **Service tests**: construct with mock adapters/repos (no FastAPI needed)
+- **Route tests**: use `dependency_overrides` and `TestClient`
+- **Feature service tests**: construct with mock repositories (no FastAPI needed)
 - **Adapter tests**: construct with mock SDK clients
 
 Root-level `main.py` and `api.py` are compatibility shims that re-export from the `app` package.
@@ -407,19 +424,19 @@ uv export --no-hashes --no-editable --format=requirements.txt > requirements.txt
 
 ### Rate limiting and abuse controls
 
-Expensive integration endpoints are rate-limited using an in-memory
+Expensive legacy example endpoints are rate-limited using an in-memory
 fixed-window strategy. Rate-limit keys are derived from the authenticated
 Databricks user identity, falling back to IP and client host.
 
 | Endpoint | Default limit |
 |----------|--------------|
-| `POST /v1/serving` | 20/minute |
-| `POST /v1/job` | 5/minute |
-| `POST /v1/embed` | 20/minute |
-| `POST /v1/vector/store` | 10/minute |
-| `POST /v1/vector/query` | 20/minute |
-| `POST /v1/genie/{space_id}/ask` | 5/minute |
-| `POST /v1/genie/{space_id}/{conv}/ask` | 20/minute |
+| `POST /legacy/v1/serving` | 20/minute |
+| `POST /legacy/v1/job` | 5/minute |
+| `POST /legacy/v1/embed` | 20/minute |
+| `POST /legacy/v1/vector/store` | 10/minute |
+| `POST /legacy/v1/vector/query` | 20/minute |
+| `POST /legacy/v1/genie/{space_id}/ask` | 5/minute |
+| `POST /legacy/v1/genie/{space_id}/{conv}/ask` | 20/minute |
 | `GET /health/ready` | 60/minute |
 | `GET /health/deep` | 10/minute |
 
@@ -453,8 +470,18 @@ All downstream service calls have configurable timeouts:
 | `GENIE_TIMEOUT_SECONDS` | 30 |
 | `OPENAI_TIMEOUT_SECONDS` | 30 |
 
-See [`docs/security-hardening.md`](docs/security-hardening.md) for full
-details on all security controls and known limitations.
+Synchronous SDK calls run via `asyncio.to_thread()` wrapped with
+`asyncio.wait_for()`. On timeout the underlying thread may continue
+(Python limitation) but the async caller is unblocked immediately.
+
+### Known limitations
+
+- Rate limiting is **in-memory, per-process** — not globally distributed.
+- Thread-based timeouts protect the event loop but the SDK thread may
+  leak until it completes naturally.
+- Sensitive headers (`Authorization`, `X-Forwarded-Access-Token`) are
+  never logged. Security events include `request_id`, `user_id`,
+  `client_ip`, and `route`.
 
 ### Authentication
 

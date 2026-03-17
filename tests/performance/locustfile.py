@@ -28,8 +28,8 @@ class DatabricksAppsUser(HttpUser):
     # ---- tasks ------------------------------------------------------------
     @task(2)
     def healthcheck(self):
-        self.client.get("/health/ready", headers=self.headers)
+        self.client.get("/api/health/ready", headers=self.headers)
 
     @task(1)
-    def list_todos(self):
-        self.client.get("/v1/todos/", headers=self.headers)
+    def list_projects(self):
+        self.client.get("/api/projects", headers=self.headers)

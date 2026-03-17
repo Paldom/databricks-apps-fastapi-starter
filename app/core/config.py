@@ -60,6 +60,12 @@ class Settings(BaseSettings):
     volume_root: str = "/Volumes/main/default"
     enable_obo: bool = False
 
+    # Frontend serving
+    enable_docs: bool = True
+    serve_static: bool = False
+    frontend_dist_dir: str = "frontend/dist"
+    enable_legacy_api: bool = False
+
     # Rate limiting
     rate_limit_enabled: bool = True
 
@@ -82,8 +88,6 @@ class Settings(BaseSettings):
     cache_backend: str = "memory"
     cache_namespace: str = "databricks-apps-fastapi-starter"
     cache_default_ttl: int = 60
-    cache_todo_list_ttl: int = 60
-    cache_todo_detail_ttl: int = 120
     cache_timeout: int = 1
     cache_redis_endpoint: str = "localhost"
     cache_redis_port: int = 6379
@@ -134,13 +138,15 @@ class Settings(BaseSettings):
             "cache_backend": "CACHE_BACKEND",
             "cache_namespace": "CACHE_NAMESPACE",
             "cache_default_ttl": "CACHE_DEFAULT_TTL",
-            "cache_todo_list_ttl": "CACHE_TODO_LIST_TTL",
-            "cache_todo_detail_ttl": "CACHE_TODO_DETAIL_TTL",
             "cache_timeout": "CACHE_TIMEOUT",
             "cache_redis_endpoint": "CACHE_REDIS_ENDPOINT",
             "cache_redis_port": "CACHE_REDIS_PORT",
             "cache_redis_db": "CACHE_REDIS_DB",
             "cache_redis_password": "CACHE_REDIS_PASSWORD",
+            "enable_docs": "ENABLE_DOCS",
+            "serve_static": "SERVE_STATIC",
+            "frontend_dist_dir": "FRONTEND_DIST_DIR",
+            "enable_legacy_api": "ENABLE_LEGACY_API",
             "rate_limit_enabled": "RATE_LIMIT_ENABLED",
             "max_request_body_bytes": "MAX_REQUEST_BODY_BYTES",
             "max_upload_bytes": "MAX_UPLOAD_BYTES",
@@ -151,12 +157,17 @@ class Settings(BaseSettings):
             "openai_timeout_seconds": "OPENAI_TIMEOUT_SECONDS",
             "health_ready_cache_ttl": "HEALTH_READY_CACHE_TTL",
         }
-        _bool_fields = {"enable_obo", "cache_enabled", "rate_limit_enabled"}
+        _bool_fields = {
+            "enable_obo",
+            "cache_enabled",
+            "rate_limit_enabled",
+            "enable_docs",
+            "serve_static",
+            "enable_legacy_api",
+        }
         _int_fields = {
             "lakebase_port",
             "cache_default_ttl",
-            "cache_todo_list_ttl",
-            "cache_todo_detail_ttl",
             "cache_timeout",
             "cache_redis_port",
             "cache_redis_db",
