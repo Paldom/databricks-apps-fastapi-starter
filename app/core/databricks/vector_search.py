@@ -82,14 +82,11 @@ class VectorSearchAdapter:
 
 
 def init_vector_index(settings: Settings) -> Any:
-    """Initialise the Vector Search index connection. Returns None on failure."""
-    try:
-        from databricks.vector_search.client import VectorSearchClient
+    """Initialise the Vector Search index connection."""
+    from databricks.vector_search.client import VectorSearchClient
 
-        client = VectorSearchClient()
-        return client.get_index(
-            endpoint_name=settings.vector_search_endpoint_name,
-            index_name=settings.vector_search_index_name,
-        )
-    except Exception:
-        return None
+    client = VectorSearchClient()
+    return client.get_index(
+        endpoint_name=settings.vector_search_endpoint_name,
+        index_name=settings.vector_search_index_name,
+    )

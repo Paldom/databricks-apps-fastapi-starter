@@ -89,5 +89,7 @@ resources:
       secrets:
         SERVING_ENDPOINT_NAME: ""
         JOB_ID: ""
+        VECTOR_SEARCH_ENDPOINT_NAME: ""
+        VECTOR_SEARCH_INDEX_NAME: ""
         LAKEBASE_PASSWORD: ""
         OPENAI_KEY: ""

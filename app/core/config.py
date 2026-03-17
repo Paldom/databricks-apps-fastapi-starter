@@ -1,6 +1,6 @@
-import os
 import base64
-from typing import Optional, Dict
+import os
+from typing import Dict, Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -60,7 +60,41 @@ class Settings(BaseSettings):
     volume_root: str = "/Volumes/main/default"
     enable_obo: bool = False
 
+    # Cache
+    cache_enabled: bool = True
+    cache_backend: str = "memory"
+    cache_namespace: str = "databricks-apps-fastapi-starter"
+    cache_default_ttl: int = 60
+    cache_todo_list_ttl: int = 60
+    cache_todo_detail_ttl: int = 120
+    cache_timeout: int = 1
+    cache_redis_endpoint: str = "localhost"
+    cache_redis_port: int = 6379
+    cache_redis_db: int = 0
+    cache_redis_password: Optional[str] = None
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    def has_database_config(self) -> bool:
+        return bool(
+            os.getenv("DATABASE_URL")
+            or all(
+                [
+                    self.lakebase_host,
+                    self.lakebase_db,
+                    self.lakebase_user,
+                    self.lakebase_password,
+                ]
+            )
+        )
+
+    def has_ai_config(self) -> bool:
+        return bool(self.serving_endpoint_name)
+
+    def has_vector_search_config(self) -> bool:
+        return bool(
+            self.vector_search_endpoint_name and self.vector_search_index_name
+        )
 
     def model_post_init(self, __context) -> None:
         mapping = {
@@ -79,19 +113,40 @@ class Settings(BaseSettings):
             "log_level": "LOG_LEVEL",
             "volume_root": "VOLUME_ROOT",
             "enable_obo": "ENABLE_OBO",
+            "cache_enabled": "CACHE_ENABLED",
+            "cache_backend": "CACHE_BACKEND",
+            "cache_namespace": "CACHE_NAMESPACE",
+            "cache_default_ttl": "CACHE_DEFAULT_TTL",
+            "cache_todo_list_ttl": "CACHE_TODO_LIST_TTL",
+            "cache_todo_detail_ttl": "CACHE_TODO_DETAIL_TTL",
+            "cache_timeout": "CACHE_TIMEOUT",
+            "cache_redis_endpoint": "CACHE_REDIS_ENDPOINT",
+            "cache_redis_port": "CACHE_REDIS_PORT",
+            "cache_redis_db": "CACHE_REDIS_DB",
+            "cache_redis_password": "CACHE_REDIS_PASSWORD",
+        }
+        _bool_fields = {"enable_obo", "cache_enabled"}
+        _int_fields = {
+            "lakebase_port",
+            "cache_default_ttl",
+            "cache_todo_list_ttl",
+            "cache_todo_detail_ttl",
+            "cache_timeout",
+            "cache_redis_port",
+            "cache_redis_db",
         }
         for attr, env_key in mapping.items():
             if getattr(self, attr) is not None:
                 continue
             val = get_secret(env_key)
-            if attr == "lakebase_port":
+            if attr in _int_fields:
                 if val is None:
                     continue
                 try:
                     setattr(self, attr, int(val))
                 except ValueError:
                     continue
-            elif attr == "enable_obo":
+            elif attr in _bool_fields:
                 setattr(self, attr, str(val).lower() in {"1", "true", "yes", "y"})
             else:
                 setattr(self, attr, val)

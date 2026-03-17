@@ -7,6 +7,7 @@ from fastapi import Depends, Request
 from openai import AsyncOpenAI
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from app.core.cache import Cache, NullCache
 from app.core.config import Settings, settings
 from app.core.databricks.ai_gateway import AiGatewayAdapter
 from app.core.databricks.genie import GenieAdapter
@@ -15,13 +16,19 @@ from app.core.databricks.serving import ServingAdapter
 from app.core.databricks.sql_delta import SqlDeltaAdapter
 from app.core.databricks.uc_files import UcFilesAdapter
 from app.core.databricks.vector_search import VectorSearchAdapter
-from app.core.databricks.workspace import get_workspace_client_singleton
 from app.core.db.deps import get_async_session, get_engine  # noqa: F401 – re-export
-from app.core.errors import AuthenticationError
+from app.core.errors import (
+    AuthenticationError,
+    ConfigurationError,
+    ServiceUnavailableError,
+)
 from app.core.logging import get_logger as _get_logger
+from app.core.runtime import AppRuntime, get_app_runtime
 from app.models.user_dto import CurrentUser, UserInfo
 from app.repositories.delta_todo_repository import DeltaTodoRepository
 from app.repositories.lakebase_demo_repository import LakebaseDemoRepository
+from app.repositories.todo_command_repository import TodoCommandRepository
+from app.repositories.todo_query_repository import TodoQueryRepository
 from app.repositories.todo_repository import TodoRepository
 from app.services.integrations.ai_gateway_service import AiGatewayService
 from app.services.integrations.genie_service import GenieService
@@ -47,20 +54,54 @@ def get_logger() -> Logger:
     return _get_logger()
 
 
-def get_workspace_client(request: Request = None) -> WorkspaceClient:  # type: ignore[assignment]
-    if request is not None:
-        return getattr(request.state, "w", get_workspace_client_singleton())
-    return get_workspace_client_singleton()
+def get_runtime(request: Request) -> AppRuntime:
+    return get_app_runtime(request.app)
+
+
+def get_workspace_client(request: Request) -> WorkspaceClient:
+    request_client = getattr(request.state, "w", None)
+    if request_client is not None:
+        return request_client
+
+    runtime = get_runtime(request)
+    if runtime.workspace_client is not None:
+        return runtime.workspace_client
+
+    detail = runtime.error_for("workspace_client")
+    if detail:
+        raise ServiceUnavailableError(
+            f"Databricks workspace client is unavailable: {detail}"
+        )
+    raise ConfigurationError("Databricks workspace client is not configured")
 
 
 def get_ai_client(request: Request) -> AsyncOpenAI:
-    return request.app.state.ai_client
+    runtime = get_runtime(request)
+    client = runtime.ai_client
+    if client is not None:
+        return client
+
+    detail = runtime.error_for("ai_client") or runtime.error_for("workspace_client")
+    if detail:
+        raise ServiceUnavailableError(f"AI client is unavailable: {detail}")
+    raise ConfigurationError(
+        "AI integration is not configured; set SERVING_ENDPOINT_NAME"
+    )
 
 
 def get_vector_index(request: Request) -> Any:
-    idx = getattr(request.app.state, "vector_index", None)
+    runtime = get_runtime(request)
+    idx = runtime.vector_index
     if idx is None:
-        raise RuntimeError("Vector Search index not initialised")
+        detail = runtime.error_for("vector_index")
+        if detail:
+            raise ServiceUnavailableError(
+                f"Vector Search index is unavailable: {detail}"
+            )
+        raise ConfigurationError(
+            "Vector Search is not configured; set VECTOR_SEARCH_ENDPOINT_NAME and "
+            "VECTOR_SEARCH_INDEX_NAME"
+        )
     return idx
 
 
@@ -84,6 +125,15 @@ def get_user_info(request: Request) -> UserInfo:
             email=user.email,
         )
     return UserInfo()
+
+
+def get_cache(request: Request) -> Cache:
+    """Provide the application-level cache instance."""
+    runtime = get_runtime(request)
+    cache = getattr(runtime, "cache", None)
+    if cache is not None:
+        return cache
+    return NullCache()
 
 
 # ---------------------------------------------------------------------------
@@ -115,7 +165,13 @@ def get_ai_gateway_adapter(
 def get_vector_search_adapter(
     request: Request,
     logger: Annotated[Logger, Depends(get_logger)],
+    s: Annotated[Settings, Depends(get_settings)],
 ) -> VectorSearchAdapter:
+    if not s.has_vector_search_config():
+        raise ConfigurationError(
+            "Vector Search is not configured; set VECTOR_SEARCH_ENDPOINT_NAME and "
+            "VECTOR_SEARCH_INDEX_NAME"
+        )
     return VectorSearchAdapter(get_vector_index(request), logger)
 
 
@@ -158,6 +214,39 @@ def get_todo_repo(
     return TodoRepository(session)
 
 
+def get_todo_query_repo(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+    cache: Annotated[Cache, Depends(get_cache)],
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    logger: Annotated[Logger, Depends(get_logger)],
+    s: Annotated[Settings, Depends(get_settings)],
+) -> TodoQueryRepository:
+    return TodoQueryRepository(
+        session,
+        cache,
+        user.id,
+        logger,
+        detail_ttl=s.cache_todo_detail_ttl,
+        list_ttl=s.cache_todo_list_ttl,
+    )
+
+
+def get_todo_command_repo(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+    cache: Annotated[Cache, Depends(get_cache)],
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    logger: Annotated[Logger, Depends(get_logger)],
+    s: Annotated[Settings, Depends(get_settings)],
+) -> TodoCommandRepository:
+    return TodoCommandRepository(
+        session,
+        cache,
+        user.id,
+        logger,
+        detail_ttl=s.cache_todo_detail_ttl,
+    )
+
+
 def get_lakebase_repo(
     session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> LakebaseDemoRepository:
@@ -176,11 +265,12 @@ def get_delta_todo_repo(
 
 
 def get_todo_service(
-    repo: Annotated[TodoRepository, Depends(get_todo_repo)],
+    query_repo: Annotated[TodoQueryRepository, Depends(get_todo_query_repo)],
+    command_repo: Annotated[TodoCommandRepository, Depends(get_todo_command_repo)],
     user: Annotated[CurrentUser, Depends(get_current_user)],
     logger: Annotated[Logger, Depends(get_logger)],
 ) -> TodoService:
-    return TodoService(repo, user, logger)
+    return TodoService(query_repo, command_repo, user, logger)
 
 
 def get_lakebase_service(

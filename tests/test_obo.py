@@ -13,16 +13,14 @@ def test_workspace_client_middleware_uses_header(monkeypatch):
             created["token"] = token
 
     monkeypatch.setattr(settings, "enable_obo", True)
-
-    monkeypatch.setattr(
-        "app.middlewares.workspace_client.get_workspace_client_singleton",
-        lambda: MagicMock(config=MagicMock(host="http://h")),
-    )
     monkeypatch.setattr(
         "app.middlewares.workspace_client.WorkspaceClient", DummyWC
     )
 
     with TestClient(app_main.app) as client:
+        client.app.state.runtime.workspace_client = MagicMock(
+            config=MagicMock(host="http://h")
+        )
         response = client.get(
             "/v1/userInfo",
             headers={
@@ -44,14 +42,11 @@ def test_workspace_client_middleware_ignores_header_when_disabled(monkeypatch):
 
     monkeypatch.setattr(settings, "enable_obo", False)
     monkeypatch.setattr(
-        "app.middlewares.workspace_client.get_workspace_client_singleton",
-        lambda: "default",
-    )
-    monkeypatch.setattr(
         "app.middlewares.workspace_client.WorkspaceClient", dummy_wc
     )
 
     with TestClient(app_main.app) as client:
+        client.app.state.runtime.workspace_client = "default"
         response = client.get(
             "/v1/userInfo",
             headers={

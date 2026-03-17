@@ -91,10 +91,19 @@ def mock_lifespan(monkeypatch):
     wc.config.token = "test-token"
     wc.config.host = "http://localhost"
     monkeypatch.setattr(bootstrap, "get_workspace_client_singleton", lambda: wc)
-
-    # Patch workspace_client middleware too
-    import app.middlewares.workspace_client as ws_mw
-    monkeypatch.setattr(ws_mw, "get_workspace_client_singleton", lambda: wc)
+    monkeypatch.setattr(bootstrap.settings, "lakebase_host", "db.example.com")
+    monkeypatch.setattr(bootstrap.settings, "lakebase_db", "starter")
+    monkeypatch.setattr(bootstrap.settings, "lakebase_user", "starter")
+    monkeypatch.setattr(bootstrap.settings, "lakebase_password", "secret")
+    monkeypatch.setattr(bootstrap.settings, "serving_endpoint_name", "starter-endpoint")
+    monkeypatch.setattr(
+        bootstrap.settings, "vector_search_endpoint_name", "starter-vs"
+    )
+    monkeypatch.setattr(
+        bootstrap.settings,
+        "vector_search_index_name",
+        "main.default.starter_index",
+    )
 
     # AI client
     mock_ai = MagicMock()
@@ -103,6 +112,11 @@ def mock_lifespan(monkeypatch):
 
     # Vector search
     monkeypatch.setattr(bootstrap, "init_vector_index", lambda s: MagicMock())
+
+    # Cache
+    from app.core.cache import NullCache
+
+    monkeypatch.setattr(bootstrap, "build_cache", lambda s: NullCache())
 
     yield
 

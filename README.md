@@ -141,6 +141,23 @@ Apply pending migrations:
 alembic upgrade head
 ```
 
+### Caching
+
+The Todo module uses **repository-layer caching with explicit invalidation**:
+
+- **Memory backend** (default) for local development — no extra services needed.
+- **Redis backend** for production/shared deployments — set `CACHE_BACKEND=redis`
+  and configure the `CACHE_REDIS_*` variables.
+- Reads go through a **cache-aside** pattern: check cache first, fall back to DB
+  on miss, then populate the cache.
+- Writes **explicitly invalidate** the relevant cache entries after flushing to
+  the database. List caches use a **versioned key** — a version counter is
+  bumped on every write, so old list snapshots expire naturally via TTL.
+- Cache failures are swallowed and logged; they never break CRUD correctness.
+- GET endpoints return `ETag` and `Cache-Control: private, no-cache` headers.
+  Clients can send `If-None-Match` to receive `304 Not Modified` when the data
+  has not changed.
+
 ### Transaction architecture
 
 Each request gets a **session with an active transaction** via FastAPI's
@@ -161,7 +178,7 @@ app/
   main.py                         # FastAPI app factory + global error handler
   api/
     api.py                        # Central router registry
-    health_controller.py          # /health/live, /health/ready
+    health_controller.py          # /healthcheck, /databasehealthcheck, /health/live, /health/ready
     user_controller.py            # /userInfo
     todo_controller.py            # /todos CRUD
     integrations/                 # Demo integration controllers (thin HTTP layer)
@@ -226,7 +243,7 @@ Controller -> Service -> Repository / Adapter -> Shared deps (app.state)
 
 ### Router Registry
 
-`app/api/api.py` is the canonical router registry. All versioned routes are served under `/api/v1` (canonical) and `/v1` (legacy, excluded from OpenAPI schema). Health checks remain unversioned at `/health/*`.
+`app/api/api.py` is the canonical router registry. All versioned routes are served under `/api/v1` (canonical) and `/v1` (legacy, excluded from OpenAPI schema). Health checks remain unversioned at `/healthcheck`, `/databasehealthcheck`, and `/health/*`.
 
 ### Error Handling
 
@@ -234,7 +251,7 @@ Adapters raise typed `AppError` subclasses (e.g., `ServingEndpointError`, `Confi
 
 ### DI and Testing
 
-All runtime resources (engine, session_factory, ai_client, vector_index) are stored on `app.state` during bootstrap. DI factory functions in `app/core/deps.py` read from `request.app.state`, making tests simple:
+Runtime resources are stored in a single `app.state.runtime` container during bootstrap. DI factory functions in `app/core/deps.py` read from that runtime container, making tests simple:
 - **Controller tests**: mock services via `dependency_overrides`
 - **Service tests**: construct with mock adapters/repos (no FastAPI needed)
 - **Adapter tests**: construct with mock SDK clients
@@ -277,8 +294,10 @@ Configuration keys:
 - `DATABASE_URL` - optional override; if set, used as-is for the database
   connection string (takes precedence over `LAKEBASE_*` settings)
 - `SERVING_ENDPOINT_NAME`
-  used by both the serving and AI Gateway demo endpoints
+  optional; used by the serving, AI Gateway, and vector-search demo endpoints
 - `JOB_ID`
+- `VECTOR_SEARCH_ENDPOINT_NAME`
+- `VECTOR_SEARCH_INDEX_NAME`
 - `LAKEBASE_HOST`
 - `LAKEBASE_PORT`
 - `LAKEBASE_DB`
@@ -288,6 +307,17 @@ Configuration keys:
 - `LOG_LEVEL` - Python logging level used by the application
 - `VOLUME_ROOT` - root UC volume path for the demo file endpoints
 - `ENABLE_OBO` - set to `true` to accept `X-Forwarded-Access-Token`
+- `CACHE_ENABLED` - enable/disable the cache (default `true`)
+- `CACHE_BACKEND` - `memory` (default) or `redis`
+- `CACHE_NAMESPACE` - key prefix for cache entries
+- `CACHE_DEFAULT_TTL` - default TTL in seconds
+- `CACHE_TODO_LIST_TTL` - TTL for todo list cache (default `60`)
+- `CACHE_TODO_DETAIL_TTL` - TTL for todo detail cache (default `120`)
+- `CACHE_TIMEOUT` - backend operation timeout in seconds
+- `CACHE_REDIS_ENDPOINT` - Redis host (when using `redis` backend)
+- `CACHE_REDIS_PORT` - Redis port (default `6379`)
+- `CACHE_REDIS_DB` - Redis database number
+- `CACHE_REDIS_PASSWORD` - Redis password (optional)
 
 Create a `.env` file based on `env.example`:
 
@@ -299,6 +329,18 @@ Edit `.env` or set the variables directly in the environment.  When
 deploying on Databricks, you can also store these values in your secret
 scope so that the application loads them automatically when environment
 variables are absent.
+
+### Health and readiness
+
+- `GET /healthcheck` and `GET /health/live` report basic process health.
+- `GET /databasehealthcheck` reports database-only readiness.
+- `GET /health/ready` returns a structured readiness report with per-check diagnostics.
+
+Readiness returns HTTP `200` when all required checks are healthy and HTTP `503`
+when any required check is failing or not configured. Optional integrations such
+as AI Gateway, Vector Search, cache, and broker are diagnostic-only by default:
+they surface as `not_configured` or `fail` in the response without crashing the
+endpoint or forcing a `503` on their own.
 
 ### Databricks secrets
 
@@ -470,8 +512,10 @@ Set `DATABRICKS_HOST` and `DATABRICKS_TOKEN` secrets before first run.
 ### Migration-first startup
 
 The application does **not** create database tables at runtime. Alembic
-migrations must be applied before the server starts. The `app.yaml` entry
-point runs `alembic upgrade head` automatically before launching uvicorn.
+migrations should be applied before the server starts. The `app.yaml` entry
+point attempts `alembic upgrade head` before launching uvicorn, but it will
+still start the app if the database is unavailable so liveness and readiness
+endpoints can report the failure explicitly.
 
 For fresh environments or CI pipelines where the database is reachable, run
 migrations explicitly:

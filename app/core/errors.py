@@ -36,7 +36,12 @@ class AuthenticationError(AppError):
 
 class ConfigurationError(AppError):
     def __init__(self, detail: str = "Service not configured", **kw):
-        super().__init__(500, detail, **kw)
+        super().__init__(503, detail, **kw)
+
+
+class ServiceUnavailableError(AppError):
+    def __init__(self, detail: str = "Service unavailable", **kw):
+        super().__init__(503, detail, **kw)
 
 
 class ExternalServiceError(AppError):

@@ -21,7 +21,8 @@ def test_health_unaffected():
     with TestClient(app_main.app) as client:
         response = client.get("/health/live")
     assert response.status_code == 200
-    assert response.json() == {"ok": True}
+    assert response.json()["ok"] is True
+    assert response.json()["status"] == "alive"
 
 
 def test_openapi_has_canonical_prefix():

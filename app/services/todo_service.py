@@ -4,29 +4,34 @@ from app.core.errors import NotFoundError
 from app.core.observability import increment_counter, start_span, tag_exception
 from app.models.todo_dto import TodoCreate, TodoRead, TodoUpdate, to_dto
 from app.models.user_dto import CurrentUser
-from app.repositories.todo_repository import TodoRepository
+from app.repositories.todo_command_repository import TodoCommandRepository
+from app.repositories.todo_query_repository import TodoQueryRepository
 
 _OP_COUNTER = "app.todo.operation.count"
 
 
 class TodoService:
-    def __init__(self, repo: TodoRepository, user: CurrentUser, logger: Logger):
-        self.repo = repo
+    def __init__(
+        self,
+        query_repo: TodoQueryRepository,
+        command_repo: TodoCommandRepository,
+        user: CurrentUser,
+        logger: Logger,
+    ):
+        self.query_repo = query_repo
+        self.command_repo = command_repo
         self.user = user
         self.logger = logger
-
-    def _uid(self) -> str:
-        return self.user.id
 
     async def list(self) -> list[TodoRead]:
         self.logger.debug("Listing todos")
         with start_span("todo.list") as span:
             try:
-                todos = await self.repo.list(created_by=self._uid())
+                todos = await self.query_repo.list()
                 increment_counter(
                     _OP_COUNTER, attributes={"operation": "list", "result": "ok"}
                 )
-                return [to_dto(t) for t in todos]
+                return todos
             except Exception as exc:
                 tag_exception(span, exc)
                 increment_counter(
@@ -39,10 +44,10 @@ class TodoService:
         self.logger.debug("Fetching todo %s", id_)
         with start_span("todo.get", attributes={"todo.id": id_}) as span:
             try:
-                todo = await self.repo.get(id_)
-                if not todo or todo.created_by != self._uid():
+                dto = await self.query_repo.get(id_)
+                if dto is None:
                     raise NotFoundError(f"Todo {id_} not found")
-                return to_dto(todo)
+                return dto
             except Exception as exc:
                 tag_exception(span, exc)
                 raise
@@ -51,7 +56,7 @@ class TodoService:
         self.logger.info("Creating todo")
         with start_span("todo.create") as span:
             try:
-                todo = await self.repo.create(title=data.title, user=self._uid())
+                todo = await self.command_repo.create(title=data.title)
                 increment_counter(
                     _OP_COUNTER,
                     attributes={"operation": "create", "result": "ok"},
@@ -69,15 +74,15 @@ class TodoService:
         self.logger.info("Updating todo %s", id_)
         with start_span("todo.update", attributes={"todo.id": id_}) as span:
             try:
-                todo = await self.repo.get(id_)
-                if not todo or todo.created_by != self._uid():
+                todo = await self.command_repo.get_for_update(id_)
+                if not todo:
                     raise NotFoundError(f"Todo {id_} not found")
                 if data.title is not None:
                     todo.title = data.title
                 if data.completed is not None:
                     todo.completed = data.completed
-                todo.updated_by = self._uid()
-                todo = await self.repo.update(todo)
+                todo.updated_by = self.user.id
+                todo = await self.command_repo.update(todo)
                 increment_counter(
                     _OP_COUNTER,
                     attributes={"operation": "update", "result": "ok"},
@@ -95,10 +100,10 @@ class TodoService:
         self.logger.info("Deleting todo %s", id_)
         with start_span("todo.delete", attributes={"todo.id": id_}) as span:
             try:
-                todo = await self.repo.get(id_)
-                if not todo or todo.created_by != self._uid():
+                todo = await self.command_repo.get_for_update(id_)
+                if not todo:
                     raise NotFoundError(f"Todo {id_} not found")
-                await self.repo.delete(todo)
+                await self.command_repo.delete(todo)
                 increment_counter(
                     _OP_COUNTER,
                     attributes={"operation": "delete", "result": "ok"},
