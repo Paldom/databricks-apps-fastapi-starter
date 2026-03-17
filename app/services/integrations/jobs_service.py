@@ -19,4 +19,5 @@ class JobsService:
         return await self._adapter.run_and_get_output(
             job_id=int(job_id),
             notebook_params=params,
+            timeout=float(self._settings.job_timeout_seconds),
         )

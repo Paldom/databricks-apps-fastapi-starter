@@ -84,6 +84,26 @@ class UcFilesError(ExternalServiceError):
     pass
 
 
+class RateLimitError(AppError):
+    def __init__(self, detail: str = "Rate limit exceeded", **kw):
+        super().__init__(429, detail, **kw)
+
+
+class RequestTooLargeError(AppError):
+    def __init__(self, detail: str = "Request body too large", **kw):
+        super().__init__(413, detail, **kw)
+
+
+class RequestTimeoutError(AppError):
+    def __init__(self, detail: str = "Request timed out", **kw):
+        super().__init__(504, detail, **kw)
+
+
+class PathValidationError(AppError):
+    def __init__(self, detail: str = "Invalid path", **kw):
+        super().__init__(400, detail, **kw)
+
+
 class ResourceNotFoundError(AppError):
     def __init__(self, detail: str = "Resource not found", **kw):
         super().__init__(404, detail, **kw)

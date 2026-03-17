@@ -26,7 +26,7 @@ jobs:
         fetch-depth: 0
 
     - name: Install Databricks CLI
-      run: curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+      uses: databricks/setup-cli@main
 
     - name: Register Git credentials in workspace (idempotent)
       run: |

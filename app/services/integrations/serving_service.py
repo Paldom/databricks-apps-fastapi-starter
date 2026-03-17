@@ -19,4 +19,8 @@ class ServingService:
         if not endpoint:
             raise ConfigurationError("SERVING_ENDPOINT_NAME not configured")
         df = pd.DataFrame([r.model_dump() for r in rows])
-        return await self._adapter.query(endpoint, df.to_dict(orient="split"))
+        return await self._adapter.query(
+            endpoint,
+            df.to_dict(orient="split"),
+            timeout=float(self._settings.serving_timeout_seconds),
+        )

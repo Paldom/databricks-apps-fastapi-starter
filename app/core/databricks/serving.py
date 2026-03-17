@@ -20,6 +20,8 @@ class ServingAdapter:
         self,
         endpoint_name: str,
         dataframe_split: dict,
+        *,
+        timeout: float | None = None,
     ) -> dict:
         """Query a model serving endpoint. Returns the response as a dict."""
         with _tracer.start_as_current_span(
@@ -38,6 +40,7 @@ class ServingAdapter:
                     name=endpoint_name,
                     dataframe_split=df_split,
                     error_cls=ServingEndpointError,
+                    timeout=timeout,
                 )
                 span.set_attribute("result", "ok")
                 return resp.as_dict()

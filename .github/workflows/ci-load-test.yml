@@ -8,9 +8,9 @@ jobs:
   load-test:
     runs-on: ubuntu-latest
     env:
-      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST || 'localhost' }}
-      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID || 'dummy' }}
-      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET || 'dummy' }}
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST != '' && secrets.DATABRICKS_HOST || 'localhost' }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID != '' && secrets.DATABRICKS_CLIENT_ID || 'dummy' }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET != '' && secrets.DATABRICKS_CLIENT_SECRET || 'dummy' }}
     steps:
       - uses: actions/checkout@v4
       - name: Install uv

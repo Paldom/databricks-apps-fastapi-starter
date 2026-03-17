@@ -1,6 +1,6 @@
 command: [
   "sh", "-c",
-  "alembic upgrade head || echo 'Alembic migration failed; starting app so health endpoints can report readiness.' >&2; opentelemetry-instrument uvicorn main:app"
+  "alembic upgrade head || echo 'Alembic migration failed; starting app so health endpoints can report readiness.' >&2; opentelemetry-instrument uvicorn main:app --limit-concurrency 100 --timeout-keep-alive 5"
 ]
 env:
   - name: OTEL_TRACES_SAMPLER

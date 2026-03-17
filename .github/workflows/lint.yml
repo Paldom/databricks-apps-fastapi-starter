@@ -23,3 +23,10 @@ jobs:
         run: uv run mypy --ignore-missing-imports .
       - name: Bandit
         run: uv run bandit -r . -q
+      - name: Check requirements.txt is in sync
+        run: |
+          uv export --no-hashes --no-editable --format=requirements.txt > /tmp/requirements-check.txt
+          diff -u requirements.txt /tmp/requirements-check.txt || {
+            echo "::error::requirements.txt is out of sync. Run: uv export --no-hashes --no-editable --format=requirements.txt > requirements.txt"
+            exit 1
+          }

@@ -36,7 +36,9 @@ class VectorSearchService:
             "metadata": {"user": user_id},
             "text": text,
         }
-        await self._vs.upsert([doc])
+        await self._vs.upsert(
+            [doc], timeout=float(self._settings.vector_timeout_seconds)
+        )
         return {"id": doc["id"], "vector": vector}
 
     async def query(self, text: str, user_id: str) -> Any:
@@ -47,4 +49,5 @@ class VectorSearchService:
             columns=["text"],
             filters={"user": user_id},
             num_results=3,
+            timeout=float(self._settings.vector_timeout_seconds),
         )

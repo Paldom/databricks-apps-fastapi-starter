@@ -225,6 +225,7 @@ app/
       uc_files.py                 # UcFilesAdapter
   middlewares/
     request_context.py            # Request-ID propagation + safe span attrs
+    request_size.py               # ASGI body size enforcement
     user_info.py                  # Auth header extraction + user upsert
     workspace_client.py           # OBO WorkspaceClient
     security_headers.py           # OWASP security headers
@@ -334,7 +335,11 @@ variables are absent.
 
 - `GET /healthcheck` and `GET /health/live` report basic process health.
 - `GET /databasehealthcheck` reports database-only readiness.
-- `GET /health/ready` returns a structured readiness report with per-check diagnostics.
+- `GET /health/ready` returns a lightweight readiness report (checks client
+  initialization, **no network calls**).
+- `GET /health/deep` runs full dependency probes (database query, AI
+  embedding, vector search describe) and caches results for
+  `HEALTH_READY_CACHE_TTL` seconds (default 30). Rate-limited to 10/minute.
 
 Readiness returns HTTP `200` when all required checks are healthy and HTTP `503`
 when any required check is failing or not configured. Optional integrations such
@@ -363,6 +368,93 @@ The application applies common HTTP security headers using the
 [`secure`](https://github.com/TypeError/secure) library. These headers
 include HSTS, content type, frame and referrer policies in line with
 OWASP recommendations.
+
+### Dependency management
+
+This project uses [uv](https://docs.astral.sh/uv/) for dependency management.
+
+**Version policy:**
+- Production dependencies in `pyproject.toml` use exact pins (e.g.,
+  `fastapi==0.135.1`) except for OpenTelemetry packages and `aiocache`
+  which use compatible-release bounds.
+- Dev dependencies use unpinned or range-based specifiers for flexibility.
+- `uv.lock` is the resolved lockfile and is committed to the repository.
+
+**`requirements.txt` is generated — do not edit it manually.** It is
+produced by:
+
+```bash
+uv export --no-hashes --no-editable --format=requirements.txt > requirements.txt
+```
+
+CI verifies that `requirements.txt` matches the lockfile on every PR.
+After changing any dependency in `pyproject.toml`, regenerate both files:
+
+```bash
+uv lock
+uv export --no-hashes --no-editable --format=requirements.txt > requirements.txt
+```
+
+**Security scanning:**
+- [Snyk](https://snyk.io/) runs on every PR and weekly, failing on
+  high/critical vulnerabilities. Results are uploaded to GitHub Code
+  Scanning. Requires a `SNYK_TOKEN` repository secret.
+- [Dependabot](https://docs.github.com/en/code-security/dependabot)
+  proposes weekly grouped PRs for dependency and GitHub Actions updates.
+- The `.snyk` policy file contains vulnerability ignores. Never add broad
+  wildcard ignores; always scope to a specific vulnerability ID, path,
+  and expiry date.
+
+### Rate limiting and abuse controls
+
+Expensive integration endpoints are rate-limited using an in-memory
+fixed-window strategy. Rate-limit keys are derived from the authenticated
+Databricks user identity, falling back to IP and client host.
+
+| Endpoint | Default limit |
+|----------|--------------|
+| `POST /v1/serving` | 20/minute |
+| `POST /v1/job` | 5/minute |
+| `POST /v1/embed` | 20/minute |
+| `POST /v1/vector/store` | 10/minute |
+| `POST /v1/vector/query` | 20/minute |
+| `POST /v1/genie/{space_id}/ask` | 5/minute |
+| `POST /v1/genie/{space_id}/{conv}/ask` | 20/minute |
+| `GET /health/ready` | 60/minute |
+| `GET /health/deep` | 10/minute |
+
+Disable rate limiting for development with `RATE_LIMIT_ENABLED=false`.
+
+> **Note:** Rate limiting uses an in-memory backend and is per-process,
+> not globally distributed. For production deployments with multiple
+> workers, consider a Redis-backed limiter.
+
+### Request limits
+
+A global ASGI middleware enforces maximum request body sizes:
+
+| Content type | Default limit | Setting |
+|-------------|---------------|---------|
+| JSON / other | 1 MiB | `MAX_REQUEST_BODY_BYTES` |
+| Multipart (uploads) | 10 MiB | `MAX_UPLOAD_BYTES` |
+
+File uploads are read in chunks to avoid unbounded memory usage.
+Volume paths are validated to prevent path traversal.
+
+### Timeout controls
+
+All downstream service calls have configurable timeouts:
+
+| Setting | Default |
+|---------|---------|
+| `SERVING_TIMEOUT_SECONDS` | 30 |
+| `JOB_TIMEOUT_SECONDS` | 120 |
+| `VECTOR_TIMEOUT_SECONDS` | 30 |
+| `GENIE_TIMEOUT_SECONDS` | 30 |
+| `OPENAI_TIMEOUT_SECONDS` | 30 |
+
+See [`docs/security-hardening.md`](docs/security-hardening.md) for full
+details on all security controls and known limitations.
 
 ### Authentication
 

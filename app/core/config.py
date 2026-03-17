@@ -60,6 +60,23 @@ class Settings(BaseSettings):
     volume_root: str = "/Volumes/main/default"
     enable_obo: bool = False
 
+    # Rate limiting
+    rate_limit_enabled: bool = True
+
+    # Request size limits
+    max_request_body_bytes: int = 1_048_576  # 1 MiB
+    max_upload_bytes: int = 10_485_760  # 10 MiB
+
+    # Timeouts (seconds)
+    genie_timeout_seconds: int = 30
+    serving_timeout_seconds: int = 30
+    job_timeout_seconds: int = 120
+    vector_timeout_seconds: int = 30
+    openai_timeout_seconds: int = 30
+
+    # Health
+    health_ready_cache_ttl: int = 30
+
     # Cache
     cache_enabled: bool = True
     cache_backend: str = "memory"
@@ -124,8 +141,17 @@ class Settings(BaseSettings):
             "cache_redis_port": "CACHE_REDIS_PORT",
             "cache_redis_db": "CACHE_REDIS_DB",
             "cache_redis_password": "CACHE_REDIS_PASSWORD",
+            "rate_limit_enabled": "RATE_LIMIT_ENABLED",
+            "max_request_body_bytes": "MAX_REQUEST_BODY_BYTES",
+            "max_upload_bytes": "MAX_UPLOAD_BYTES",
+            "genie_timeout_seconds": "GENIE_TIMEOUT_SECONDS",
+            "serving_timeout_seconds": "SERVING_TIMEOUT_SECONDS",
+            "job_timeout_seconds": "JOB_TIMEOUT_SECONDS",
+            "vector_timeout_seconds": "VECTOR_TIMEOUT_SECONDS",
+            "openai_timeout_seconds": "OPENAI_TIMEOUT_SECONDS",
+            "health_ready_cache_ttl": "HEALTH_READY_CACHE_TTL",
         }
-        _bool_fields = {"enable_obo", "cache_enabled"}
+        _bool_fields = {"enable_obo", "cache_enabled", "rate_limit_enabled"}
         _int_fields = {
             "lakebase_port",
             "cache_default_ttl",
@@ -134,6 +160,14 @@ class Settings(BaseSettings):
             "cache_timeout",
             "cache_redis_port",
             "cache_redis_db",
+            "max_request_body_bytes",
+            "max_upload_bytes",
+            "genie_timeout_seconds",
+            "serving_timeout_seconds",
+            "job_timeout_seconds",
+            "vector_timeout_seconds",
+            "openai_timeout_seconds",
+            "health_ready_cache_ttl",
         }
         for attr, env_key in mapping.items():
             if getattr(self, attr) is not None:

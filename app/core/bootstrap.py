@@ -69,7 +69,7 @@ async def lifespan(application: FastAPI):
                     runtime.ai_client = AsyncOpenAI(
                         api_key=cfg.token,
                         base_url=f"{cfg.host}/serving-endpoints",
-                        timeout=30.0,
+                        timeout=float(settings.openai_timeout_seconds),
                     )
                     runtime.clear_error("ai_client")
                 except Exception as exc:

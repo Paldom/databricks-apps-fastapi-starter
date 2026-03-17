@@ -142,6 +142,85 @@ def test_ready_returns_not_ready_when_database_is_not_configured():
     )
 
 
+def test_ready_is_lightweight_no_network_call(monkeypatch):
+    """Readiness endpoint should NOT call _probe_ai or _probe_vector."""
+    app_main.app.dependency_overrides[get_settings] = lambda: _db_settings(
+        serving_endpoint_name="starter-endpoint",
+        vector_search_endpoint_name="starter-vs",
+        vector_search_index_name="main.default.starter_index",
+    )
+    monkeypatch.setattr(
+        health_controller,
+        "_probe_database",
+        AsyncMock(return_value="SELECT 1 succeeded"),
+    )
+    probe_ai_mock = AsyncMock(return_value="Embedding request succeeded")
+    monkeypatch.setattr(health_controller, "_probe_ai", probe_ai_mock)
+    probe_vector_mock = AsyncMock(return_value="Vector Search describe succeeded")
+    monkeypatch.setattr(health_controller, "_probe_vector", probe_vector_mock)
+    try:
+        with TestClient(app_main.app) as client:
+            response = client.get("/health/ready")
+    finally:
+        app_main.app.dependency_overrides.clear()
+
+    data = response.json()
+    assert response.status_code == 200
+    # Lightweight ready: AI and vector should show as OK (initialized)
+    # but the probes should NOT have been called
+    assert data["checks"]["ai"]["status"] == "ok"
+    assert data["checks"]["ai"]["message"] == "AI client initialized"
+    assert data["checks"]["vector_search"]["status"] == "ok"
+    assert data["checks"]["vector_search"]["message"] == "Vector Search index initialized"
+    probe_ai_mock.assert_not_called()
+    probe_vector_mock.assert_not_called()
+
+
+def test_deep_health_returns_full_probes(monkeypatch):
+    """Deep health endpoint should run actual probes."""
+    app_main.app.dependency_overrides[get_settings] = lambda: _db_settings()
+    monkeypatch.setattr(
+        health_controller,
+        "_probe_database",
+        AsyncMock(return_value="SELECT 1 succeeded"),
+    )
+    try:
+        with TestClient(app_main.app) as client:
+            # Reset cache to force fresh probes
+            runtime = client.app.state.runtime
+            runtime.last_deep_health = None
+            response = client.get("/health/deep")
+    finally:
+        app_main.app.dependency_overrides.clear()
+
+    data = response.json()
+    assert response.status_code == 200
+    assert data["ok"] is True
+    assert data["checks"]["database"]["status"] == "ok"
+
+
+def test_deep_health_uses_cache(monkeypatch):
+    """Subsequent /health/deep calls should return cached results within TTL."""
+    app_main.app.dependency_overrides[get_settings] = lambda: _db_settings()
+    monkeypatch.setattr(
+        health_controller,
+        "_probe_database",
+        AsyncMock(return_value="SELECT 1 succeeded"),
+    )
+    try:
+        with TestClient(app_main.app) as client:
+            runtime = client.app.state.runtime
+            runtime.last_deep_health = None
+            resp1 = client.get("/health/deep")
+            resp2 = client.get("/health/deep")
+    finally:
+        app_main.app.dependency_overrides.clear()
+
+    assert resp1.status_code == 200
+    assert resp2.status_code == 200
+    assert resp1.json() == resp2.json()
+
+
 def test_ready_reports_vector_failure_without_crashing(monkeypatch):
     app_main.app.dependency_overrides[get_settings] = lambda: _db_settings(
         vector_search_endpoint_name="starter-vs",

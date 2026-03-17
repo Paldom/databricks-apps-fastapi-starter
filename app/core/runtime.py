@@ -20,6 +20,8 @@ class AppRuntime:
     vector_index: Any | None = None
     cache: Cache | None = None
     init_errors: dict[str, str] = field(default_factory=dict)
+    last_deep_health: Any = None
+    last_deep_health_at: float = 0.0
 
     def remember_error(self, name: str, exc: Exception | str) -> None:
         message = exc if isinstance(exc, str) else str(exc)

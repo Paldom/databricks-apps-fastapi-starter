@@ -4,9 +4,9 @@ Locust load test for Databricks Apps FastAPI starter.
 Usage (local):
   export HOST=https://dbc-123.cloud.databricks.com
   export DATABRICKS_HOST=dbc-123.cloud.databricks.com
-  export DATABRICKS_CLIENT_ID=... 
+  export DATABRICKS_CLIENT_ID=...
   export DATABRICKS_CLIENT_SECRET=...
-  poetry run locust -f tests/performance/locustfile.py --headless -u 50 -r 10 -t 2m
+  uv run locust -f tests/performance/locustfile.py --headless -u 50 -r 10 -t 2m
 """
 
 import os
@@ -32,4 +32,4 @@ class DatabricksAppsUser(HttpUser):
 
     @task(1)
     def list_todos(self):
-        self.client.get("/v1/todo", headers=self.headers)
+        self.client.get("/v1/todos/", headers=self.headers)

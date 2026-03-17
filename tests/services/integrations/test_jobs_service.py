@@ -17,7 +17,7 @@ async def test_run_delegates_to_adapter():
 
     assert result == {"result": "ok"}
     adapter.run_and_get_output.assert_awaited_once_with(
-        job_id=123, notebook_params={"key": "val"}
+        job_id=123, notebook_params={"key": "val"}, timeout=120.0
     )
 
 

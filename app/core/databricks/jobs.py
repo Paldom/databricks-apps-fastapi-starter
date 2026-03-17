@@ -20,6 +20,8 @@ class JobsAdapter:
         self,
         job_id: int,
         notebook_params: dict[str, str] | None = None,
+        *,
+        timeout: float | None = None,
     ) -> dict:
         """Trigger a job, wait for completion, return notebook output as dict."""
         with _tracer.start_as_current_span(
@@ -33,6 +35,7 @@ class JobsAdapter:
                     job_id=job_id,
                     notebook_params=notebook_params or {},
                     error_cls=JobExecutionError,
+                    timeout=timeout,
                 )
                 last_task_id = finished.tasks[-1].run_id
                 out = await run_sync(

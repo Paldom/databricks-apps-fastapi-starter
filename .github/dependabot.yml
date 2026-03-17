@@ -1,0 +1,52 @@
+version: 2
+updates:
+  # Python dependencies (reads pyproject.toml)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      production-deps:
+        patterns:
+          - "fastapi"
+          - "uvicorn"
+          - "asyncpg"
+          - "pandas"
+          - "numpy"
+          - "pydantic"
+          - "pydantic-settings"
+          - "python-dotenv"
+          - "databricks-*"
+          - "sqlalchemy"
+          - "secure"
+          - "fastapi-pagination"
+          - "openai"
+          - "pyarrow"
+          - "python-multipart"
+          - "opentelemetry-*"
+          - "aiocache"
+          - "slowapi"
+      dev-deps:
+        patterns:
+          - "ruff"
+          - "mypy"
+          - "bandit"
+          - "alembic"
+          - "pytest"
+          - "pytest-*"
+          - "locust"
+          - "httpx"
+
+  # GitHub Actions versions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns:
+          - "*"

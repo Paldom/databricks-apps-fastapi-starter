@@ -15,7 +15,7 @@ class VectorSearchAdapter:
         self._index = index
         self._logger = logger
 
-    async def upsert(self, documents: list[dict]) -> None:
+    async def upsert(self, documents: list[dict], *, timeout: float | None = None) -> None:
         """Upsert documents into the vector search index."""
         with _tracer.start_as_current_span(
             "dependency.vector.upsert",
@@ -31,6 +31,7 @@ class VectorSearchAdapter:
                     self._index.upsert,
                     documents,
                     error_cls=VectorSearchError,
+                    timeout=timeout,
                 )
                 span.set_attribute("result", "ok")
             except Exception as exc:
@@ -44,6 +45,8 @@ class VectorSearchAdapter:
         columns: list[str],
         filters: dict | None = None,
         num_results: int = 3,
+        *,
+        timeout: float | None = None,
     ) -> Any:
         """Search the vector index by query vector."""
         with _tracer.start_as_current_span(
@@ -65,6 +68,7 @@ class VectorSearchAdapter:
                     filters=filters or {},
                     num_results=num_results,
                     error_cls=VectorSearchError,
+                    timeout=timeout,
                 )
                 span.set_attribute("result", "ok")
                 return result

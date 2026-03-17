@@ -6,6 +6,7 @@ from databricks.sdk import WorkspaceClient
 
 from app.core.databricks._async_bridge import run_sync
 from app.core.errors import ResourceNotFoundError, UcFilesError
+from app.core.security.path_validation import validate_volume_path
 
 
 class UcFilesAdapter:
@@ -15,8 +16,8 @@ class UcFilesAdapter:
 
     @staticmethod
     def _vol_uri(root: str, relative_path: str) -> str:
-        relative = relative_path.lstrip("/")
-        return f"{root}/{relative}"
+        validated = validate_volume_path(relative_path)
+        return f"{root}/{validated}"
 
     async def upload(
         self, volume_root: str, relative_path: str, data: bytes

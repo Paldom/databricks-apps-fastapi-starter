@@ -17,6 +17,7 @@ from app.core.observability import (
     tag_exception,
 )
 from app.core.runtime import get_app_runtime
+from app.core.security.rate_limit import limiter
 from app.models.health_dto import (
     HealthCheckResult,
     HealthCheckStatus,
@@ -151,10 +152,63 @@ async def _database_check(settings: Settings, request: Request) -> HealthCheckRe
     )
 
 
-async def _ai_check(
+def _ai_check_lightweight(
     settings: Settings,
     request: Request,
 ) -> HealthCheckResult:
+    """Check AI client initialization without making a network call."""
+    runtime = get_app_runtime(request.app)
+    if not settings.has_ai_config():
+        return _check(
+            HealthCheckStatus.NOT_CONFIGURED,
+            required=False,
+            message=_ai_not_configured_message(),
+        )
+    if runtime.ai_client is None:
+        return _check(
+            HealthCheckStatus.FAIL,
+            required=False,
+            message=runtime.error_for("ai_client")
+            or runtime.error_for("workspace_client")
+            or "AI client is unavailable",
+        )
+    return _check(
+        HealthCheckStatus.OK,
+        required=False,
+        message="AI client initialized",
+    )
+
+
+def _vector_check_lightweight(
+    settings: Settings,
+    request: Request,
+) -> HealthCheckResult:
+    """Check vector index initialization without making a network call."""
+    runtime = get_app_runtime(request.app)
+    if not settings.has_vector_search_config():
+        return _check(
+            HealthCheckStatus.NOT_CONFIGURED,
+            required=False,
+            message=_vector_not_configured_message(),
+        )
+    if runtime.vector_index is None:
+        return _check(
+            HealthCheckStatus.FAIL,
+            required=False,
+            message=runtime.error_for("vector_index") or "Vector Search is unavailable",
+        )
+    return _check(
+        HealthCheckStatus.OK,
+        required=False,
+        message="Vector Search index initialized",
+    )
+
+
+async def _ai_check_deep(
+    settings: Settings,
+    request: Request,
+) -> HealthCheckResult:
+    """Full AI health check -- makes a real embedding request."""
     runtime = get_app_runtime(request.app)
     if not settings.has_ai_config():
         return _check(
@@ -177,11 +231,12 @@ async def _ai_check(
     )
 
 
-async def _vector_check(
+async def _vector_check_deep(
     settings: Settings,
     request: Request,
     logger: Logger,
 ) -> HealthCheckResult:
+    """Full vector search health check -- calls describe()."""
     runtime = get_app_runtime(request.app)
     if not settings.has_vector_search_config():
         return _check(
@@ -201,6 +256,11 @@ async def _vector_check(
         required=False,
         probe=lambda: _probe_vector(adapter),
     )
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
 
 
 @router.get("/healthcheck", response_model=HealthReport)
@@ -233,15 +293,66 @@ async def database_healthcheck(
 
 
 @router.get("/health/ready", response_model=HealthReport)
+@limiter.limit("60/minute")
 async def ready(
+    request: Request,
+    response: Response,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> HealthReport:
+    """Lightweight readiness check -- verifies client initialization only."""
+    t0 = time.monotonic()
+    with _tracer.start_as_current_span("health.ready"):
+        checks = {
+            "database": await _database_check(settings, request),
+            "cache": _check(
+                HealthCheckStatus.NOT_CONFIGURED,
+                required=False,
+                message=_optional_stub_message("cache"),
+            ),
+            "broker": _check(
+                HealthCheckStatus.NOT_CONFIGURED,
+                required=False,
+                message=_optional_stub_message("broker"),
+            ),
+            "ai": _ai_check_lightweight(settings, request),
+            "vector_search": _vector_check_lightweight(settings, request),
+        }
+
+        ok, status = _summarise_readiness(checks)
+        result = status.value
+        elapsed = time.monotonic() - t0
+        record_duration("app.health.readiness.duration", elapsed)
+        increment_counter(
+            "app.health.readiness.count", attributes={"result": result}
+        )
+
+    report = HealthReport(ok=ok, status=status, checks=checks)
+    response.status_code = 200 if ok else 503
+    return report
+
+
+@router.get("/health/deep", response_model=HealthReport)
+@limiter.limit("10/minute")
+async def deep(
     request: Request,
     response: Response,
     settings: Annotated[Settings, Depends(get_settings)],
     logger: Annotated[Logger, Depends(get_logger)],
 ) -> HealthReport:
+    """Full dependency health check with network calls (cached)."""
+    runtime = get_app_runtime(request.app)
+
+    # Return cached result if fresh
+    if runtime.last_deep_health is not None:
+        age = time.monotonic() - runtime.last_deep_health_at
+        if age < settings.health_ready_cache_ttl:
+            report = runtime.last_deep_health
+            response.status_code = 200 if report.ok else 503
+            return report
+
     t0 = time.monotonic()
-    with _tracer.start_as_current_span("health.ready"):
-        logger.debug("Running readiness checks")
+    with _tracer.start_as_current_span("health.deep"):
+        logger.debug("Running deep health checks")
 
         checks = {
             "database": await _database_check(settings, request),
@@ -255,18 +366,19 @@ async def ready(
                 required=False,
                 message=_optional_stub_message("broker"),
             ),
-            "ai": await _ai_check(settings, request),
-            "vector_search": await _vector_check(settings, request, logger),
+            "ai": await _ai_check_deep(settings, request),
+            "vector_search": await _vector_check_deep(settings, request, logger),
         }
 
         ok, status = _summarise_readiness(checks)
-        result = status.value
         elapsed = time.monotonic() - t0
-        record_duration("app.health.readiness.duration", elapsed)
+        record_duration("app.health.deep.duration", elapsed)
         increment_counter(
-            "app.health.readiness.count", attributes={"result": result}
+            "app.health.deep.count", attributes={"result": status.value}
         )
 
     report = HealthReport(ok=ok, status=status, checks=checks)
+    runtime.last_deep_health = report
+    runtime.last_deep_health_at = time.monotonic()
     response.status_code = 200 if ok else 503
     return report

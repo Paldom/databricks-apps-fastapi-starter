@@ -191,7 +191,7 @@ async def get_genie_adapter(
     async with AsyncClient(
         base_url=f"https://{ws.config.host}",
         headers={"Authorization": f"Bearer {ws.config.token}"},
-        timeout=30.0,
+        timeout=float(settings.genie_timeout_seconds),
     ) as client:
         yield GenieAdapter(client, logger)
 
