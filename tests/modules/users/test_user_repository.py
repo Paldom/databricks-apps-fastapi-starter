@@ -1,20 +1,14 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from modules.users.repository import get_or_create_user
-from modules.users.models import AppUser
+from app.repositories.user_repository import get_or_create_user
+from app.models.user_model import AppUser
 
 
 @pytest.mark.asyncio
 async def test_creates_new_user():
     session = AsyncMock()
     session.get.return_value = None
-
-    mock_user = MagicMock(spec=AppUser)
-    mock_user.id = "u1"
-    mock_user.email = "a@b.com"
-    mock_user.preferred_username = "alice"
-    mock_user.name = "alice"
 
     async def fake_refresh(obj):
         obj.id = "u1"
@@ -35,7 +29,10 @@ async def test_creates_new_user():
 @pytest.mark.asyncio
 async def test_updates_existing_user():
     existing = AppUser(
-        id="u1", email="old@b.com", preferred_username="old_name", name="old_name"
+        id="u1",
+        email="old@b.com",
+        preferred_username="old_name",
+        name="old_name",
     )
     session = AsyncMock()
     session.get.return_value = existing

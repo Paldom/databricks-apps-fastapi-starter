@@ -7,10 +7,10 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-from modules.base import Base
-from modules import todo  # needed for model discovery
-from modules import users  # needed for model discovery
-from config import settings
+from app.models.base import Base
+import app.models.todo_model  # noqa: F401 – model discovery
+import app.models.user_model  # noqa: F401 – model discovery
+from app.core.config import settings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

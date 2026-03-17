@@ -11,37 +11,37 @@ Sample FastAPI application to showcase how to leverage Databricks services.
 
 A production-ready FastAPI template for building data and AI applications on **Databricks Apps**, featuring built-in authentication, database connectivity, and deployment automation. It demonstrates how a FastAPI backend can call various Databricks capabilities including Jobs, Serving endpoints, Delta tables & Volumes, AI Gateway, Vector Search and Lakebase.
 
-## 🎯 Why This Starter?
+## Why This Starter?
 
 - **Zero to Production**: Deploy a secure API in minutes, sample CI/CD, IaC.
 - **Built for Databricks**: Native integration with Lakebase, Vector Search Index, Unity Catalog, Model Serving.
 - **Modern Stack**: FastAPI, Pydantic 2.0, SQLAlchemy, asyncpg, Alembic. Testing & quality tools like pytest (-asyncio, -cov), Locust, Ruff, MyPy, Bandit.
 - **Enterprise Ready**: Built-in auth, governance, security provided by Databricks, with a scalable and layered FastAPI architecture.
 
-## 🚀 Quickstart
+## Quickstart
 
 1. [Sign up for a free Databricks account](https://www.databricks.com/learn/free-edition).
-2. In the workspace UI open your user icon in the top‑right corner,
+2. In the workspace UI open your user icon in the top-right corner,
    choose **Previews** and enable **Lakebase (OLTP)**.
 3. Still in the **Previews** menu, enable **User authorization for Databricks Apps**. Optionally, you may also need to enable **On-behalf-of-user authentication**.
 4. Create a new PAT, install Databricks CLI, run `databricks configure`.
 5. Set keys properly in `.env` based on `.env.example`. Set up Databricks secrets accordingly.
-6. Init infrastructure by deploying Databricks Asset Bundle `databricks bundle deploy`. 
+6. Init infrastructure by deploying Databricks Asset Bundle `databricks bundle deploy`.
 7. Run database migrations with `alembic upgrade head`.
 8. Clone this repository, set `DATABRICKS_HOST` and `DATABRICKS_TOKEN` secrets for deployment with GitHub actions. Run actions.
-9. Voilá! Up & running Apps instance with Lakebase, AI and scaling ecosystem.
+9. Up & running Apps instance with Lakebase, AI and scaling ecosystem.
 
 ## Databricks Services
 
-The demo controller (`controllers/demo.py`) exercises several Databricks services:
+The integration controllers under `app/api/integrations/` exercise several Databricks services:
 
-- **Serving Endpoint** – queries an MLflow model that can scale seamlessly with no latency. Recommended for complex but critical tasks.
-- **Databricks Jobs** – triggers a job and returns its output. Recommended for heavy duty background tasks, like media conversion, parsing, where latency is not a problem, but a custom cluster can be useful.
-- **AI Gateway** – gateway for embeddings or foundation model's AI query.
-- **Vector Search** – stores and searches embeddings in a vector search index.
-- **Delta Table** – read and persists data in a Unity Catalog Delta table.
-- **Volume** – reads and writes files in a Unity Catalog's Volume.
-- **Genie** – ask natural language questions about your data using the Conversation API.
+- **Serving Endpoint** -- queries an MLflow model that can scale seamlessly with no latency. Recommended for complex but critical tasks.
+- **Databricks Jobs** -- triggers a job and returns its output. Recommended for heavy duty background tasks, like media conversion, parsing, where latency is not a problem, but a custom cluster can be useful.
+- **AI Gateway** -- gateway for embeddings or foundation model's AI query.
+- **Vector Search** -- stores and searches embeddings in a vector search index.
+- **Delta Table** -- read and persists data in a Unity Catalog Delta table.
+- **Volume** -- reads and writes files in a Unity Catalog's Volume.
+- **Genie** -- ask natural language questions about your data using the Conversation API.
 
 ### Genie conversation API
 
@@ -59,7 +59,7 @@ notebook executed by the job resource.
 ## Setup
 
 ### Prerequisites
-- Python 3.11 + uv configured
+- Python 3.11+ with uv configured
 - Databricks CLI configured
 - Access to a Databricks workspace
 
@@ -81,7 +81,7 @@ Install dependencies and start the app:
 ```bash
 uv sync --extra dev
 source .venv/bin/activate
-uv run uvicorn main:app --reload
+uv run uvicorn app.main:app --reload
 ```
 
 > **Note:** When changing dependencies, regenerate both `uv.lock` and `requirements.txt`:
@@ -136,17 +136,100 @@ Apply pending migrations:
 alembic upgrade head
 ```
 
-## Structure
+## Architecture
 
-- **`core/database.py`** – PostgreSQL connection pool and dependency providers
-- **`core/deps.py`** – FastAPI dependency injection (`get_current_user`, `get_current_user_optional`, etc.)
-- **`core/logging.py`** – application logging configuration
-- **`controllers`** – FastAPI routers (`health`, `user`, `demo`, `todo`)
-- **`middlewares`** – HTTP middleware (`authorization`, `workspace_client`, `security_headers`)
-- **`modules/todo`** – example CRUD feature with SQLAlchemy models and services
-- **`modules/users`** – local user model, repository, and schemas for auth context
+The application follows a layered architecture under the `app/` package:
 
-Liveness and readiness endpoints are available at `/health/live` and `/health/ready`. The readiness check performs a lightweight AI Gateway call in addition to database checks.
+```
+app/
+  main.py                         # FastAPI app factory + global error handler
+  api/
+    api.py                        # Central router registry
+    health_controller.py          # /health/live, /health/ready
+    user_controller.py            # /userInfo
+    todo_controller.py            # /todos CRUD
+    integrations/                 # Demo integration controllers (thin HTTP layer)
+      lakebase_controller.py
+      serving_controller.py
+      jobs_controller.py
+      ai_gateway_controller.py
+      vector_search_controller.py
+      sql_delta_controller.py
+      genie_controller.py
+      uc_files_controller.py
+  services/
+    todo_service.py               # Todo business logic
+    integrations/                 # Integration orchestration services
+      serving_service.py
+      jobs_service.py
+      ai_gateway_service.py
+      vector_search_service.py
+      sql_delta_service.py
+      genie_service.py
+      uc_files_service.py
+      lakebase_demo_service.py
+  repositories/
+    todo_repository.py            # SQLAlchemy Todo persistence
+    user_repository.py            # User upsert
+    lakebase_demo_repository.py   # Raw asyncpg demo
+    delta_todo_repository.py      # Delta table access via SQL adapter
+  models/
+    base.py                       # DeclarativeBase + AuditMixin
+    todo_model.py                 # Todo ORM model
+    todo_dto.py                   # Pydantic DTOs + mapper
+    user_model.py                 # AppUser ORM model
+    user_dto.py                   # CurrentUser, UserInfo
+    integrations/                 # Integration request/response DTOs
+  core/
+    bootstrap.py                  # Lifespan (startup/shutdown)
+    config.py                     # Pydantic Settings + Databricks secrets
+    deps.py                       # DI factory functions (adapters, services, repos)
+    errors.py                     # AppError hierarchy + http_error compat
+    logging.py                    # Logging setup
+    database.py                   # asyncpg pool factory
+    sqlalchemy.py                 # Engine + session factory
+    databricks/                   # Databricks SDK adapters
+      workspace.py                # WorkspaceClient singleton
+      serving.py                  # ServingAdapter
+      jobs.py                     # JobsAdapter
+      ai_gateway.py               # AiGatewayAdapter (AsyncOpenAI)
+      vector_search.py            # VectorSearchAdapter
+      sql_delta.py                # SqlDeltaAdapter
+      genie.py                    # GenieAdapter (httpx)
+      uc_files.py                 # UcFilesAdapter
+  middlewares/
+    user_info.py                  # Auth header extraction + user upsert
+    workspace_client.py           # OBO WorkspaceClient
+    security_headers.py           # OWASP security headers
+```
+
+### Dependency Flow
+
+```
+Controller -> Service -> Repository / Adapter -> Shared deps (app.state)
+```
+
+- **Controllers** are thin: route definition, input validation, HTTP response construction only.
+- **Services** own business logic, configuration validation, and adapter orchestration.
+- **Repositories** handle persistence (SQLAlchemy, asyncpg).
+- **Adapters** (`app/core/databricks/`) wrap low-level SDK calls with error mapping, timeouts, and thread bridging.
+
+### Router Registry
+
+`app/api/api.py` is the canonical router registry. All versioned routes are served under `/api/v1` (canonical) and `/v1` (legacy, excluded from OpenAPI schema). Health checks remain unversioned at `/health/*`.
+
+### Error Handling
+
+Adapters raise typed `AppError` subclasses (e.g., `ServingEndpointError`, `ConfigurationError`). A global exception handler in `app/main.py` converts these to appropriate HTTP responses. Controllers do not need try/except blocks for adapter errors.
+
+### DI and Testing
+
+All runtime resources (pg_pool, engine, session_factory, ai_client, vector_index) are stored on `app.state` during bootstrap. DI factory functions in `app/core/deps.py` read from `request.app.state`, making tests simple:
+- **Controller tests**: mock services via `dependency_overrides`
+- **Service tests**: construct with mock adapters/repos (no FastAPI needed)
+- **Adapter tests**: construct with mock SDK clients
+
+Root-level `main.py` and `api.py` are compatibility shims that re-export from the `app` package.
 
 ## API versioning
 
@@ -174,7 +257,7 @@ Once running, access the interactive API documentation, generated by FastAPI at:
 ## Configuration
 
 The application reads its settings from environment variables using a
-Pydantic `Settings` model defined in `config.py`.  When running locally you
+Pydantic `Settings` model defined in `app/core/config.py`.  When running locally you
 can place these variables in a `.env` file which is automatically loaded.
 If a value is not provided via the environment, the settings object will
 attempt to look it up in Databricks secrets using the same key name.
@@ -211,14 +294,11 @@ Databricks SDK secrets are returned base64 encoded.  The traditional
 `dbutils.secrets.get("scope", "key")` helper yields the plain text
 value, but `w().secrets.get_secret()` from `databricks.sdk` returns an
 object whose `value` field is base64 encoded.  The `get_secret` helper in
-`config.py` abstracts this difference. It calls
-`w().secrets.get_secret(scope, key)`, decodes the value and returns the
-decoded secret as a string.  It also exposes a low level `_db_secret`
-function that returns `{"key": key, "value": decoded}` if you need the
-pair directly.  Use `get_secret` whenever you need a secret at runtime:
+`app/core/config.py` abstracts this difference. Use `get_secret` whenever
+you need a secret at runtime:
 
 ```python
-from config import get_secret
+from app.core.config import get_secret
 
 token = get_secret("MY_TOKEN", scope="starter_scope")
 ```
@@ -233,7 +313,7 @@ OWASP recommendations.
 ### Authentication
 
 Databricks Apps authenticates users and forwards identity via HTTP headers.
-The application's `AuthorizationMiddleware` reads these headers and maintains
+The application's `user_info_middleware` reads these headers and maintains
 a local `app_user` table for user persistence:
 
 | Header | Maps to |
@@ -271,10 +351,10 @@ identity. See the [Databricks Apps authentication docs](https://docs.databricks.
 
 The repository includes `.github/workflows/deploy.yml` which deploys the app
 to Databricks using the Databricks CLI. Configure the required secrets and push
-to the `main` branch to trigger a deployment. 
+to the `main` branch to trigger a deployment.
 
 Set `DATABRICKS_HOST` and `DATABRICKS_TOKEN` secrets before first run.
- 
+
 ## Databricks Asset Bundle
 
 To validate and deploy the infrastructure defined in `databricks.yml`, run:

@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
-import main
 from unittest.mock import MagicMock
+import app.main as app_main
+from app.core.config import settings
 
 
 def test_workspace_client_middleware_uses_header(monkeypatch):
@@ -8,25 +9,30 @@ def test_workspace_client_middleware_uses_header(monkeypatch):
 
     class DummyWC:
         def __init__(self, *, host=None, token=None):
-            created['host'] = host
-            created['token'] = token
+            created["host"] = host
+            created["token"] = token
 
-    monkeypatch.setattr(main.settings, "enable_obo", True)
+    monkeypatch.setattr(settings, "enable_obo", True)
 
-    monkeypatch.setattr('middlewares.workspace_client.w', lambda: MagicMock(config=MagicMock(host='http://h')))
-    monkeypatch.setattr('middlewares.workspace_client.WorkspaceClient', DummyWC)
+    monkeypatch.setattr(
+        "app.middlewares.workspace_client.get_workspace_client_singleton",
+        lambda: MagicMock(config=MagicMock(host="http://h")),
+    )
+    monkeypatch.setattr(
+        "app.middlewares.workspace_client.WorkspaceClient", DummyWC
+    )
 
-    with TestClient(main.app) as client:
+    with TestClient(app_main.app) as client:
         response = client.get(
-            '/v1/userInfo',
+            "/v1/userInfo",
             headers={
-                'X-Forwarded-Access-Token': 'pat',
-                'X-Forwarded-User': 'test-user',
+                "X-Forwarded-Access-Token": "pat",
+                "X-Forwarded-User": "test-user",
             },
         )
     assert response.status_code == 200
-    assert created['token'] == 'pat'
-    assert created['host'] == 'http://h'
+    assert created["token"] == "pat"
+    assert created["host"] == "http://h"
 
 
 def test_workspace_client_middleware_ignores_header_when_disabled(monkeypatch):
@@ -36,16 +42,21 @@ def test_workspace_client_middleware_ignores_header_when_disabled(monkeypatch):
         nonlocal called
         called = True
 
-    monkeypatch.setattr(main.settings, "enable_obo", False)
-    monkeypatch.setattr('middlewares.workspace_client.w', lambda: "default")
-    monkeypatch.setattr('middlewares.workspace_client.WorkspaceClient', dummy_wc)
+    monkeypatch.setattr(settings, "enable_obo", False)
+    monkeypatch.setattr(
+        "app.middlewares.workspace_client.get_workspace_client_singleton",
+        lambda: "default",
+    )
+    monkeypatch.setattr(
+        "app.middlewares.workspace_client.WorkspaceClient", dummy_wc
+    )
 
-    with TestClient(main.app) as client:
+    with TestClient(app_main.app) as client:
         response = client.get(
-            '/v1/userInfo',
+            "/v1/userInfo",
             headers={
-                'X-Forwarded-Access-Token': 'ignored',
-                'X-Forwarded-User': 'test-user',
+                "X-Forwarded-Access-Token": "ignored",
+                "X-Forwarded-User": "test-user",
             },
         )
     assert response.status_code == 200

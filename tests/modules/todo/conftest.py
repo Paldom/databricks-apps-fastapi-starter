@@ -1,11 +1,11 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-import main
-from modules.todo.services import TodoService
-from modules.todo.controllers import get_service
-from modules.todo.repositories import TodoRepository
-from modules.users.schemas import CurrentUser
+import app.main as app_main
+from app.services.todo_service import TodoService
+from app.core.deps import get_todo_service
+from app.repositories.todo_repository import TodoRepository
+from app.models.user_dto import CurrentUser
 
 
 @pytest.fixture
@@ -27,6 +27,6 @@ def mock_user():
 @pytest.fixture
 def mock_todo_service(mock_repo, mock_user):
     service = TodoService(mock_repo, mock_user, MagicMock())
-    main.app.dependency_overrides[get_service] = lambda: service
+    app_main.app.dependency_overrides[get_todo_service] = lambda: service
     yield service
-    main.app.dependency_overrides.clear()
+    app_main.app.dependency_overrides.clear()

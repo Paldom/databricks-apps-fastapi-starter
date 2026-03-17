@@ -1,8 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from modules.todo.repositories import TodoRepository
-
+from app.repositories.todo_repository import TodoRepository
 
 
 @pytest.mark.asyncio
@@ -77,4 +76,3 @@ async def test_delete_commits():
 
     session.delete.assert_called_once_with(todo)
     session.commit.assert_called_once()
-
