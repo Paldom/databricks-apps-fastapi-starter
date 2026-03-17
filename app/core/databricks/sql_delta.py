@@ -5,11 +5,15 @@ from databricks import sql
 
 from app.core.config import Settings
 from app.core.errors import SqlDeltaError
+from app.core.observability import get_tracer, tag_exception
 
 try:
     import pyarrow as pa  # type: ignore
 except ModuleNotFoundError:  # pragma: no cover
     pa = None  # noqa: N816
+
+
+_tracer = get_tracer()
 
 
 class SqlDeltaAdapter:
@@ -44,26 +48,42 @@ class SqlDeltaAdapter:
             raise SqlDeltaError(
                 "pyarrow is required for Delta table operations but is not installed"
             )
-        try:
-            self._logger.debug("Executing query: %s", query[:80])
-            with self._connect() as conn, conn.cursor() as cur:
-                cur.execute(query, params or {})
-                tbl = cur.fetchall_arrow()
-            return tbl.to_pandas().to_dict(orient="records")
-        except SqlDeltaError:
-            raise
-        except Exception as exc:
-            raise SqlDeltaError(str(exc), cause=exc) from exc
+        with _tracer.start_as_current_span(
+            "dependency.sql.query",
+            attributes={"dependency": "sql", "operation": "query"},
+        ) as span:
+            try:
+                self._logger.debug("Executing query: %s", query[:80])
+                with self._connect() as conn, conn.cursor() as cur:
+                    cur.execute(query, params or {})
+                    tbl = cur.fetchall_arrow()
+                span.set_attribute("result", "ok")
+                return tbl.to_pandas().to_dict(orient="records")
+            except SqlDeltaError:
+                span.set_attribute("result", "error")
+                raise
+            except Exception as exc:
+                span.set_attribute("result", "error")
+                tag_exception(span, exc)
+                raise SqlDeltaError(str(exc), cause=exc) from exc
 
     def execute_statement(
         self, statement: str, params: dict[str, Any] | None = None
     ) -> None:
         """Execute an INSERT/UPDATE/DELETE statement."""
-        try:
-            self._logger.debug("Executing statement: %s", statement[:80])
-            with self._connect() as conn, conn.cursor() as cur:
-                cur.execute(statement, params or {})
-        except SqlDeltaError:
-            raise
-        except Exception as exc:
-            raise SqlDeltaError(str(exc), cause=exc) from exc
+        with _tracer.start_as_current_span(
+            "dependency.sql.execute",
+            attributes={"dependency": "sql", "operation": "execute"},
+        ) as span:
+            try:
+                self._logger.debug("Executing statement: %s", statement[:80])
+                with self._connect() as conn, conn.cursor() as cur:
+                    cur.execute(statement, params or {})
+                span.set_attribute("result", "ok")
+            except SqlDeltaError:
+                span.set_attribute("result", "error")
+                raise
+            except Exception as exc:
+                span.set_attribute("result", "error")
+                tag_exception(span, exc)
+                raise SqlDeltaError(str(exc), cause=exc) from exc

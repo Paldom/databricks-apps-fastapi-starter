@@ -22,6 +22,13 @@ dependencies = [
     "databricks-vectorsearch==0.66",
     "pyarrow==23.0.1",
     "python-multipart==0.0.22",
+    "opentelemetry-distro",
+    "opentelemetry-exporter-otlp-proto-grpc",
+    "opentelemetry-instrumentation-fastapi",
+    "opentelemetry-instrumentation-logging",
+    "opentelemetry-instrumentation-sqlalchemy",
+    "opentelemetry-instrumentation-requests",
+    "opentelemetry-instrumentation-httpx",
 ]
 
 [project.optional-dependencies]

@@ -189,7 +189,8 @@ app/
     config.py                     # Pydantic Settings + Databricks secrets
     deps.py                       # DI factory functions (adapters, services, repos)
     errors.py                     # AppError hierarchy
-    logging.py                    # Logging setup
+    logging.py                    # Logging setup (OTel-compatible, idempotent)
+    observability.py              # Thin OTel helpers (tracer, meter, spans, metrics)
     db/                           # Centralised database infrastructure
       __init__.py                 # Public API re-exports
       url.py                      # Single-source DB URL builder
@@ -206,6 +207,7 @@ app/
       genie.py                    # GenieAdapter (httpx)
       uc_files.py                 # UcFilesAdapter
   middlewares/
+    request_context.py            # Request-ID propagation + safe span attrs
     user_info.py                  # Auth header extraction + user upsert
     workspace_client.py           # OBO WorkspaceClient
     security_headers.py           # OWASP security headers
@@ -356,6 +358,106 @@ the **Access tokens** scope in your app configuration. When this scope is
 selected Databricks forwards the user's token in the `X-Forwarded-Access-Token`
 header so the middleware can initialize a `WorkspaceClient` with the user's
 identity. See the [Databricks Apps authentication docs](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/auth) for details.
+
+## Observability
+
+This application ships with production-grade observability powered by
+**OpenTelemetry** and **Databricks Apps telemetry**.  When deployed to
+Databricks Apps with telemetry enabled, traces, metrics, and correlated
+application logs are automatically exported to Unity Catalog system tables.
+
+### What is captured
+
+| Signal | Source |
+|--------|--------|
+| HTTP request spans | Auto-instrumented (FastAPI, httpx, requests) |
+| SQL spans | Auto-instrumented (SQLAlchemy) |
+| Dependency boundary spans | Manual spans around Serving, Jobs, AI Gateway, Vector Search, Genie, SQL Delta calls |
+| App lifecycle spans | `app.startup`, `app.shutdown` with per-component child spans |
+| Health / readiness | `health.ready` with per-dependency child spans |
+| Todo operations | `todo.list`, `todo.create`, `todo.update`, `todo.delete` |
+| Log correlation | Every log line includes `trace_id`, `span_id`, and `request_id` |
+| Metrics | Startup/shutdown duration, health check counts, dependency call latency, todo operation counts |
+
+### Enabling telemetry in Databricks
+
+1. Open your Databricks Apps instance in the workspace UI.
+2. Go to **Settings > Telemetry** and toggle telemetry **on**.
+3. Select a Unity Catalog **catalog** and **schema** where telemetry
+   tables will be created.
+4. Optionally set a **table prefix** (ASCII-only characters).
+
+**Requirements and constraints:**
+
+- The telemetry catalog must be in the **same region** as the workspace.
+- Only **managed Delta tables** are supported.
+- Catalog, schema, and table prefix names must use **ASCII characters only**.
+- The identity running the app needs `USE CATALOG`, `USE SCHEMA`, and
+  `CREATE TABLE` permissions on the target catalog and schema.
+- Consider enabling **predictive optimization** on the telemetry schema
+  for better query performance on the Delta tables.
+
+### Telemetry tables
+
+Databricks Apps telemetry creates three tables:
+
+| Table | Contents |
+|-------|----------|
+| `otel_logs` | Application log records with trace/span correlation |
+| `otel_metrics` | Counter and histogram metric data points |
+| `otel_spans` | Distributed trace spans |
+
+> **Note:** The `/logz` endpoint and Apps UI log viewer show live logs but
+> these are **not durable** after compute shutdown.  The system tables above
+> are the persistent observability store.
+
+### Sample validation SQL
+
+After enabling telemetry and sending a few requests, verify data is flowing:
+
+```sql
+-- Recent application logs
+SELECT time, service_name, trace_id, span_id, attributes
+FROM <catalog>.<schema>.otel_logs
+ORDER BY time DESC
+LIMIT 50;
+
+-- Recent trace spans
+SELECT trace_id, span_id, parent_span_id, name, start_time, end_time, attributes
+FROM <catalog>.<schema>.otel_spans
+ORDER BY start_time DESC
+LIMIT 50;
+
+-- Metrics summary
+SELECT metric_name, start_time, value, attributes
+FROM <catalog>.<schema>.otel_metrics
+ORDER BY start_time DESC
+LIMIT 50;
+```
+
+Replace `<catalog>.<schema>` with your configured telemetry destination.
+If you set a table prefix, prepend it to the table names (e.g.,
+`<prefix>_otel_logs`).
+
+### Local development
+
+When running locally without `OTEL_EXPORTER_OTLP_ENDPOINT`, all OTel API
+calls resolve to no-ops -- the app starts and runs normally with zero
+overhead.
+
+To enable local tracing (optional):
+
+```bash
+# Run a local Jaeger instance
+docker run -d -p 16686:16686 -p 4317:4317 jaegertracing/all-in-one
+
+# Set the endpoint and run the app
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
+OTEL_SERVICE_NAME=fastapi-starter-local \
+opentelemetry-instrument uvicorn main:app --reload
+```
+
+Open http://localhost:16686 to explore traces.
 
 ## Deployment
 

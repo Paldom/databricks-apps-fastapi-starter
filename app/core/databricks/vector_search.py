@@ -4,6 +4,10 @@ from typing import Any
 from app.core.config import Settings
 from app.core.databricks._async_bridge import run_sync
 from app.core.errors import VectorSearchError
+from app.core.observability import get_tracer, tag_exception
+
+
+_tracer = get_tracer()
 
 
 class VectorSearchAdapter:
@@ -13,12 +17,26 @@ class VectorSearchAdapter:
 
     async def upsert(self, documents: list[dict]) -> None:
         """Upsert documents into the vector search index."""
-        self._logger.debug("Upserting %d documents", len(documents))
-        await run_sync(
-            self._index.upsert,
-            documents,
-            error_cls=VectorSearchError,
-        )
+        with _tracer.start_as_current_span(
+            "dependency.vector.upsert",
+            attributes={
+                "dependency": "vector",
+                "operation": "upsert",
+                "vector.doc_count": len(documents),
+            },
+        ) as span:
+            self._logger.debug("Upserting %d documents", len(documents))
+            try:
+                await run_sync(
+                    self._index.upsert,
+                    documents,
+                    error_cls=VectorSearchError,
+                )
+                span.set_attribute("result", "ok")
+            except Exception as exc:
+                span.set_attribute("result", "error")
+                tag_exception(span, exc)
+                raise
 
     async def similarity_search(
         self,
@@ -28,15 +46,32 @@ class VectorSearchAdapter:
         num_results: int = 3,
     ) -> Any:
         """Search the vector index by query vector."""
-        self._logger.debug("Searching vector index with %d results", num_results)
-        return await run_sync(
-            self._index.similarity_search,
-            columns=columns,
-            query_vector=query_vector,
-            filters=filters or {},
-            num_results=num_results,
-            error_cls=VectorSearchError,
-        )
+        with _tracer.start_as_current_span(
+            "dependency.vector.search",
+            attributes={
+                "dependency": "vector",
+                "operation": "search",
+                "vector.num_results": num_results,
+            },
+        ) as span:
+            self._logger.debug(
+                "Searching vector index with %d results", num_results
+            )
+            try:
+                result = await run_sync(
+                    self._index.similarity_search,
+                    columns=columns,
+                    query_vector=query_vector,
+                    filters=filters or {},
+                    num_results=num_results,
+                    error_cls=VectorSearchError,
+                )
+                span.set_attribute("result", "ok")
+                return result
+            except Exception as exc:
+                span.set_attribute("result", "error")
+                tag_exception(span, exc)
+                raise
 
     async def describe(self) -> Any:
         """Describe the index (used in health checks)."""

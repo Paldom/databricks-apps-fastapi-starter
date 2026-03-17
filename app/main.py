@@ -7,6 +7,7 @@ from app.api.health_controller import router as health_router
 from app.core.bootstrap import lifespan
 from app.core.config import settings
 from app.core.errors import AppError
+from app.middlewares.request_context import request_context_middleware
 from app.middlewares.security_headers import security_headers_middleware
 from app.middlewares.user_info import user_info_middleware
 from app.middlewares.workspace_client import workspace_client_middleware
@@ -31,6 +32,7 @@ def create_app() -> FastAPI:
     application.middleware("http")(user_info_middleware)
     application.middleware("http")(workspace_client_middleware)
     application.middleware("http")(security_headers_middleware)
+    application.middleware("http")(request_context_middleware)
 
     # Routes
     application.include_router(health_router)
