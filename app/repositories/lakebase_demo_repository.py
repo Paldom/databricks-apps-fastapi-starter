@@ -1,14 +1,21 @@
-import asyncpg
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class LakebaseDemoRepository:
-    def __init__(self, pool: asyncpg.Pool):
-        self._pool = pool
+    """Data-access layer for the Lakebase demo table.
 
-    async def insert_demo(self, text: str) -> dict:
+    Uses raw SQL via SQLAlchemy :func:`text` execution — no ORM model
+    required for the ``demo`` table.
+    """
+
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def insert_demo(self, text_val: str) -> dict:
         """Insert a demo row and return it as a dict."""
-        row = await self._pool.fetchrow(
-            "INSERT INTO demo(text) VALUES ($1) RETURNING id, text",
-            text,
+        result = await self.session.execute(
+            text("INSERT INTO demo(text) VALUES (:text) RETURNING id, text"),
+            {"text": text_val},
         )
-        return dict(row)
+        return dict(result.mappings().one())

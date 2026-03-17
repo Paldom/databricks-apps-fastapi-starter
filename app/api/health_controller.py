@@ -1,12 +1,13 @@
 from logging import Logger
 from typing import Annotated
 
-from asyncpg import Pool
 from fastapi import APIRouter, Depends
 from openai import AsyncOpenAI
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.core.config import Settings
-from app.core.deps import get_ai_client, get_logger, get_pg_pool, get_settings, get_vector_search_adapter
+from app.core.deps import get_ai_client, get_engine, get_logger, get_settings, get_vector_search_adapter
 from app.core.databricks.vector_search import VectorSearchAdapter
 
 router = APIRouter(prefix="/health", tags=["Health"])
@@ -17,9 +18,10 @@ async def live() -> dict[str, bool]:
     return {"ok": True}
 
 
-async def _check_db(pool: Pool) -> bool:
+async def _check_db(engine: AsyncEngine) -> bool:
     try:
-        await pool.fetchval("SELECT 1")
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
         return True
     except Exception:
         return False
@@ -53,14 +55,14 @@ async def _check_vector(adapter: VectorSearchAdapter) -> bool:
 
 @router.get("/ready")
 async def ready(
-    pool: Annotated[Pool, Depends(get_pg_pool)],
+    engine: Annotated[AsyncEngine, Depends(get_engine)],
     client: Annotated[AsyncOpenAI, Depends(get_ai_client)],
     settings: Annotated[Settings, Depends(get_settings)],
     vs_adapter: Annotated[VectorSearchAdapter, Depends(get_vector_search_adapter)],
     logger: Annotated[Logger, Depends(get_logger)],
 ) -> dict[str, bool]:
     logger.debug("Running readiness checks")
-    db_ok = await _check_db(pool)
+    db_ok = await _check_db(engine)
     cache_ok = _check_cache()
     broker_ok = _check_broker()
     ai_ok = await _check_ai(client, settings.serving_endpoint_name)

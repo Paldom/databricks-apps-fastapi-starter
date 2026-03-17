@@ -33,9 +33,9 @@ async def test_get_invokes_session_get():
 
 
 @pytest.mark.asyncio
-async def test_create_persists_and_refreshes():
+async def test_create_flushes_and_refreshes():
     session = MagicMock()
-    session.commit = AsyncMock()
+    session.flush = AsyncMock()
     session.refresh = AsyncMock()
     session.add = MagicMock()
 
@@ -44,35 +44,35 @@ async def test_create_persists_and_refreshes():
     todo = await repo.create(title="test", user="u1")
 
     session.add.assert_called_once()
-    session.commit.assert_called_once()
-    session.refresh.assert_called_once()
+    session.flush.assert_awaited_once()
+    session.refresh.assert_awaited_once()
     assert todo.title == "test"
 
 
 @pytest.mark.asyncio
-async def test_update_commits_and_refreshes():
+async def test_update_flushes_and_refreshes():
     session = MagicMock()
-    session.commit = AsyncMock()
+    session.flush = AsyncMock()
     session.refresh = AsyncMock()
     repo = TodoRepository(session)
     todo = MagicMock()
 
     updated = await repo.update(todo)
 
-    session.commit.assert_called_once()
-    session.refresh.assert_called_once_with(todo)
+    session.flush.assert_awaited_once()
+    session.refresh.assert_awaited_once_with(todo)
     assert updated is todo
 
 
 @pytest.mark.asyncio
-async def test_delete_commits():
+async def test_delete_flushes():
     session = MagicMock()
     session.delete = AsyncMock()
-    session.commit = AsyncMock()
+    session.flush = AsyncMock()
     repo = TodoRepository(session)
     todo = MagicMock()
 
     await repo.delete(todo)
 
-    session.delete.assert_called_once_with(todo)
-    session.commit.assert_called_once()
+    session.delete.assert_awaited_once_with(todo)
+    session.flush.assert_awaited_once()

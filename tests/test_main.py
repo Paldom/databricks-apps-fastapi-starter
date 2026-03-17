@@ -6,19 +6,14 @@ import app.main as app_main
 
 
 @pytest.mark.asyncio
-async def test_lifespan_calls_dependencies(mocker):
-    mock_pool = MagicMock()
-    mock_pool.close = AsyncMock()
-    mocker.patch.object(
-        bootstrap, "create_pg_pool", new=AsyncMock(return_value=mock_pool)
-    )
-
-    context_manager = mocker.AsyncMock()
-    context_manager.__aenter__.return_value.run_sync = AsyncMock()
+async def test_lifespan_creates_engine_and_disposes(mocker):
     fake_engine = MagicMock()
-    fake_engine.begin.return_value = context_manager
     fake_engine.dispose = AsyncMock()
-    mocker.patch.object(bootstrap, "create_engine", return_value=fake_engine)
+    mocker.patch.object(
+        bootstrap,
+        "create_async_engine_from_settings",
+        return_value=fake_engine,
+    )
     mocker.patch.object(bootstrap, "create_session_factory", return_value=MagicMock())
 
     wc = MagicMock()
@@ -32,9 +27,10 @@ async def test_lifespan_calls_dependencies(mocker):
     mocker.patch.object(bootstrap, "init_vector_index", return_value=MagicMock())
 
     async with bootstrap.lifespan(app_main.app):
-        pass
+        # Engine and session factory should be set on app state
+        assert app_main.app.state.engine is fake_engine
+        assert app_main.app.state.session_factory is not None
 
-    mock_pool.close.assert_awaited_once()
-    context_manager.__aenter__.return_value.run_sync.assert_awaited_once()
-    mock_ai.aclose.assert_awaited_once()
+    # Shutdown should dispose engine and close AI client
     fake_engine.dispose.assert_awaited_once()
+    mock_ai.aclose.assert_awaited_once()

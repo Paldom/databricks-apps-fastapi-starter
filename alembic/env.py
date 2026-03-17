@@ -7,10 +7,10 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-from app.models.base import Base
-import app.models.todo_model  # noqa: F401 – model discovery
-import app.models.user_model  # noqa: F401 – model discovery
+from app.core.db.base import Base
+from app.core.db.url import get_database_url
 from app.core.config import settings
+import app.models  # noqa: F401 – register all models with Base.metadata
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -23,17 +23,9 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
-
 
 def get_url() -> str:
-    return (
-        f"postgresql+asyncpg://{settings.lakebase_user}:{settings.lakebase_password}"
-        f"@{settings.lakebase_host}:{settings.lakebase_port}/{settings.lakebase_db}"
-    )
+    return get_database_url(settings)
 
 
 def run_migrations_offline() -> None:

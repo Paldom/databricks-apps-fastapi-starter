@@ -7,6 +7,12 @@ from app.models.todo_model import Todo
 
 
 class TodoRepository:
+    """Data-access layer for :class:`Todo` entities.
+
+    The repository never commits — the request-scoped session dependency
+    owns the transaction lifecycle.
+    """
+
     def __init__(self, session: AsyncSession):
         self.session = session
 
@@ -22,15 +28,15 @@ class TodoRepository:
     async def create(self, title: str, *, user: str) -> Todo:
         todo = Todo(title=title, created_by=user, updated_by=user)
         self.session.add(todo)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(todo)
         return todo
 
     async def update(self, todo: Todo) -> Todo:
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(todo)
         return todo
 
     async def delete(self, todo: Todo) -> None:
         await self.session.delete(todo)
-        await self.session.commit()
+        await self.session.flush()

@@ -15,7 +15,7 @@ A production-ready FastAPI template for building data and AI applications on **D
 
 - **Zero to Production**: Deploy a secure API in minutes, sample CI/CD, IaC.
 - **Built for Databricks**: Native integration with Lakebase, Vector Search Index, Unity Catalog, Model Serving.
-- **Modern Stack**: FastAPI, Pydantic 2.0, SQLAlchemy, asyncpg, Alembic. Testing & quality tools like pytest (-asyncio, -cov), Locust, Ruff, MyPy, Bandit.
+- **Modern Stack**: FastAPI, Pydantic 2.0, SQLAlchemy (async), Alembic. Testing & quality tools like pytest (-asyncio, -cov), Locust, Ruff, MyPy, Bandit.
 - **Enterprise Ready**: Built-in auth, governance, security provided by Databricks, with a scalable and layered FastAPI architecture.
 
 ## Quickstart
@@ -120,9 +120,14 @@ Set `HOST`, `DATABRICKS_HOST`, `DATABRICKS_CLIENT_ID` and
 
 ### Database migrations
 
-The project uses [Alembic](https://alembic.sqlalchemy.org/) for schema
-migrations. Ensure `DATABASE_URL` is set in your environment (see
-`env.example`).
+Alembic is the **sole schema authority** — the application never creates or
+alters tables at runtime.  Migrations must be applied before the application
+starts.  The `app.yaml` command runs `alembic upgrade head` automatically
+before launching the server.
+
+The database URL is resolved from (in order):
+1. The `DATABASE_URL` environment variable (if set).
+2. Constructed from the `LAKEBASE_*` settings.
 
 Create a new migration:
 
@@ -135,6 +140,17 @@ Apply pending migrations:
 ```bash
 alembic upgrade head
 ```
+
+### Transaction architecture
+
+Each request gets a **session with an active transaction** via FastAPI's
+dependency injection.  The transaction commits when the request completes
+successfully, or rolls back on exception.
+
+- **Repositories** never commit — they only `flush()`.
+- The **request-scoped session dependency** owns the transaction lifecycle.
+- The **user middleware** uses its own independent session so user upserts
+  commit regardless of request outcome.
 
 ## Architecture
 
@@ -149,45 +165,37 @@ app/
     user_controller.py            # /userInfo
     todo_controller.py            # /todos CRUD
     integrations/                 # Demo integration controllers (thin HTTP layer)
-      lakebase_controller.py
-      serving_controller.py
-      jobs_controller.py
-      ai_gateway_controller.py
-      vector_search_controller.py
-      sql_delta_controller.py
-      genie_controller.py
-      uc_files_controller.py
   services/
-    todo_service.py               # Todo business logic
+    todo_service.py               # Todo business logic + UoW transaction scopes
     integrations/                 # Integration orchestration services
-      serving_service.py
-      jobs_service.py
-      ai_gateway_service.py
-      vector_search_service.py
-      sql_delta_service.py
-      genie_service.py
-      uc_files_service.py
-      lakebase_demo_service.py
   repositories/
-    todo_repository.py            # SQLAlchemy Todo persistence
-    user_repository.py            # User upsert
-    lakebase_demo_repository.py   # Raw asyncpg demo
+    todo_repository.py            # SQLAlchemy Todo persistence (flush only)
+    user_repository.py            # User upsert (flush only)
+    lakebase_demo_repository.py   # Lakebase demo via SQLAlchemy text()
     delta_todo_repository.py      # Delta table access via SQL adapter
   models/
-    base.py                       # DeclarativeBase + AuditMixin
+    __init__.py                   # Model registry (imports all ORM models)
+    base.py                       # Re-exports from core.db.base
     todo_model.py                 # Todo ORM model
+    user_model.py                 # AppUser ORM model (users table)
+    chat_session_model.py         # ChatSession ORM model
+    message_model.py              # Message ORM model
+    file_record_model.py          # FileRecord ORM model
     todo_dto.py                   # Pydantic DTOs + mapper
-    user_model.py                 # AppUser ORM model
     user_dto.py                   # CurrentUser, UserInfo
     integrations/                 # Integration request/response DTOs
   core/
-    bootstrap.py                  # Lifespan (startup/shutdown)
+    bootstrap.py                  # Lifespan (startup/shutdown) — no schema creation
     config.py                     # Pydantic Settings + Databricks secrets
     deps.py                       # DI factory functions (adapters, services, repos)
-    errors.py                     # AppError hierarchy + http_error compat
+    errors.py                     # AppError hierarchy
     logging.py                    # Logging setup
-    database.py                   # asyncpg pool factory
-    sqlalchemy.py                 # Engine + session factory
+    db/                           # Centralised database infrastructure
+      __init__.py                 # Public API re-exports
+      url.py                      # Single-source DB URL builder
+      base.py                     # Base, TimestampMixin, AuditMixin
+      engine.py                   # Async engine + session factory
+      deps.py                     # FastAPI dependencies (session, engine)
     databricks/                   # Databricks SDK adapters
       workspace.py                # WorkspaceClient singleton
       serving.py                  # ServingAdapter
@@ -210,8 +218,8 @@ Controller -> Service -> Repository / Adapter -> Shared deps (app.state)
 ```
 
 - **Controllers** are thin: route definition, input validation, HTTP response construction only.
-- **Services** own business logic, configuration validation, and adapter orchestration.
-- **Repositories** handle persistence (SQLAlchemy, asyncpg).
+- **Services** own business logic and adapter orchestration.
+- **Repositories** handle persistence (SQLAlchemy) — flush only, never commit.
 - **Adapters** (`app/core/databricks/`) wrap low-level SDK calls with error mapping, timeouts, and thread bridging.
 
 ### Router Registry
@@ -224,7 +232,7 @@ Adapters raise typed `AppError` subclasses (e.g., `ServingEndpointError`, `Confi
 
 ### DI and Testing
 
-All runtime resources (pg_pool, engine, session_factory, ai_client, vector_index) are stored on `app.state` during bootstrap. DI factory functions in `app/core/deps.py` read from `request.app.state`, making tests simple:
+All runtime resources (engine, session_factory, ai_client, vector_index) are stored on `app.state` during bootstrap. DI factory functions in `app/core/deps.py` read from `request.app.state`, making tests simple:
 - **Controller tests**: mock services via `dependency_overrides`
 - **Service tests**: construct with mock adapters/repos (no FastAPI needed)
 - **Adapter tests**: construct with mock SDK clients
@@ -264,6 +272,8 @@ attempt to look it up in Databricks secrets using the same key name.
 
 Configuration keys:
 
+- `DATABASE_URL` - optional override; if set, used as-is for the database
+  connection string (takes precedence over `LAKEBASE_*` settings)
 - `SERVING_ENDPOINT_NAME`
   used by both the serving and AI Gateway demo endpoints
 - `JOB_ID`
@@ -314,7 +324,7 @@ OWASP recommendations.
 
 Databricks Apps authenticates users and forwards identity via HTTP headers.
 The application's `user_info_middleware` reads these headers and maintains
-a local `app_user` table for user persistence:
+a local `users` table for user persistence:
 
 | Header | Maps to |
 |--------|---------|
@@ -354,6 +364,19 @@ to Databricks using the Databricks CLI. Configure the required secrets and push
 to the `main` branch to trigger a deployment.
 
 Set `DATABRICKS_HOST` and `DATABRICKS_TOKEN` secrets before first run.
+
+### Migration-first startup
+
+The application does **not** create database tables at runtime. Alembic
+migrations must be applied before the server starts. The `app.yaml` entry
+point runs `alembic upgrade head` automatically before launching uvicorn.
+
+For fresh environments or CI pipelines where the database is reachable, run
+migrations explicitly:
+
+```bash
+alembic upgrade head
+```
 
 ## Databricks Asset Bundle
 

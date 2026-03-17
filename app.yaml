@@ -1,4 +1,4 @@
 command: [
-  "uvicorn",
-  "main:app"
+  "sh", "-c",
+  "alembic upgrade head && uvicorn main:app"
 ]

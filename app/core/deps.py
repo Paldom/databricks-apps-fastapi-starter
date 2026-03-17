@@ -2,11 +2,10 @@ from collections.abc import AsyncGenerator
 from logging import Logger
 from typing import Annotated, Any
 
-import asyncpg
 from databricks.sdk import WorkspaceClient
 from fastapi import Depends, Request
 from openai import AsyncOpenAI
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.core.config import Settings, settings
 from app.core.databricks.ai_gateway import AiGatewayAdapter
@@ -17,6 +16,7 @@ from app.core.databricks.sql_delta import SqlDeltaAdapter
 from app.core.databricks.uc_files import UcFilesAdapter
 from app.core.databricks.vector_search import VectorSearchAdapter
 from app.core.databricks.workspace import get_workspace_client_singleton
+from app.core.db.deps import get_async_session, get_engine  # noqa: F401 – re-export
 from app.core.errors import AuthenticationError
 from app.core.logging import get_logger as _get_logger
 from app.models.user_dto import CurrentUser, UserInfo
@@ -45,19 +45,6 @@ def get_settings() -> Settings:
 
 def get_logger() -> Logger:
     return _get_logger()
-
-
-def get_pg_pool(request: Request) -> asyncpg.Pool:
-    pool = getattr(request.app.state, "pg_pool", None)
-    if pool is None:
-        raise RuntimeError("PostgreSQL pool not initialised")
-    return pool
-
-
-async def get_async_session(request: Request) -> AsyncGenerator[AsyncSession, None]:
-    factory = request.app.state.session_factory
-    async with factory() as session:
-        yield session
 
 
 def get_workspace_client(request: Request = None) -> WorkspaceClient:  # type: ignore[assignment]
@@ -171,8 +158,10 @@ def get_todo_repo(
     return TodoRepository(session)
 
 
-def get_lakebase_repo(request: Request) -> LakebaseDemoRepository:
-    return LakebaseDemoRepository(get_pg_pool(request))
+def get_lakebase_repo(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+) -> LakebaseDemoRepository:
+    return LakebaseDemoRepository(session)
 
 
 def get_delta_todo_repo(

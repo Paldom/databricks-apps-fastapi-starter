@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import MagicMock
 
 from app.services.todo_service import TodoService
-from app.models.todo_dto import TodoRead, TodoCreate, TodoUpdate, to_dto
+from app.models.todo_dto import TodoRead, TodoCreate, TodoUpdate
 from app.models.user_dto import CurrentUser
 
 
