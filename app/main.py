@@ -142,12 +142,13 @@ def build_root_app(s: Settings) -> FastAPI:
     # Mount the frontend-facing API sub-app
     application.mount("/api", build_api_app(s))
 
+    from app.api.health_controller import router as health_router
+
+    application.include_router(health_router)
+
     # Mount legacy routes behind flag
     if s.enable_legacy_api:
         from app.api.api import api_router
-        from app.api.health_controller import router as health_router
-
-        application.include_router(health_router)
         application.include_router(api_router, prefix="/legacy/v1")
         add_pagination(application)
 

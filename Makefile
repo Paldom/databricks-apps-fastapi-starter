@@ -2,21 +2,25 @@ SHELL := /bin/bash
 PYTHON ?= python
 UV ?= uv
 NPM ?= npm
-FRONTEND_DIR := frontend
+DOCKER_COMPOSE ?= docker compose
+FRONTEND_DIR ?= frontend
+API_CLIENT_DIR ?= client
+MIGRATION_MESSAGE ?= new migration
 
 .PHONY: install install-backend install-frontend \
-	dev dev-backend dev-frontend \
+	dev dev-api dev-backend dev-frontend dev-db dev-db-down dev-compose \
+	migrate-up migrate-new \
 	requirements-export openapi-export frontend-api-gen generate \
 	backend-lint backend-typecheck backend-test \
 	frontend-lint frontend-typecheck frontend-test frontend-build \
-	check load-test
+	lint format typecheck security test check load-test
 
 # ── Install ────────────────────────────────────────────────────────
 
 install: install-backend install-frontend
 
 install-backend:
-	$(UV) pip install -e ".[dev]"
+	$(UV) sync --extra dev
 
 install-frontend:
 	cd $(FRONTEND_DIR) && $(NPM) ci
@@ -27,23 +31,40 @@ requirements-export:
 	$(UV) export --no-hashes --format=requirements.txt > requirements.txt
 
 openapi-export:
-	$(PYTHON) scripts/export_openapi.py
+	$(UV) run python scripts/export_openapi.py
 
 frontend-api-gen:
-	cd $(FRONTEND_DIR) && $(NPM) run api:gen
+	cd $(API_CLIENT_DIR) && $(NPM) run api:gen
 
 generate: requirements-export openapi-export frontend-api-gen
 
-# ── Dev ────────────────────────────────────────────────────────────
+# ── Local development ──────────────────────────────────────────────
 
-dev-backend:
-	$(UV) run uvicorn main:create_app --factory --reload --host 0.0.0.0 --port 8000
+dev-db:
+	$(DOCKER_COMPOSE) up -d postgres
+
+dev-db-down:
+	$(DOCKER_COMPOSE) down
+
+dev-api:
+	$(UV) run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+dev-backend: dev-api
 
 dev-frontend:
 	cd $(FRONTEND_DIR) && $(NPM) run dev
 
+dev-compose:
+	$(DOCKER_COMPOSE) up --build api postgres
+
 dev:
-	bash -lc 'trap "kill 0" EXIT; $(MAKE) dev-backend & $(MAKE) dev-frontend & wait'
+	bash -lc 'trap "kill 0" EXIT; $(MAKE) dev-api & $(MAKE) dev-frontend & wait'
+
+migrate-up:
+	$(UV) run alembic upgrade head
+
+migrate-new:
+	$(UV) run alembic revision --autogenerate -m "$(MIGRATION_MESSAGE)"
 
 # ── Backend checks ─────────────────────────────────────────────────
 
@@ -65,14 +86,27 @@ frontend-typecheck:
 	cd $(FRONTEND_DIR) && $(NPM) run typecheck
 
 frontend-test:
-	cd $(FRONTEND_DIR) && $(NPM) run test
+	cd $(FRONTEND_DIR) && $(NPM) run test -- --run
 
 frontend-build:
 	cd $(FRONTEND_DIR) && $(NPM) run build
 
-# ── Full check ─────────────────────────────────────────────────────
+# ── Combined developer targets ─────────────────────────────────────
 
-check: generate backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test frontend-build
+lint: backend-lint frontend-lint
+
+format:
+	$(UV) run ruff format .
+	cd $(FRONTEND_DIR) && $(NPM) run format
+
+typecheck: backend-typecheck frontend-typecheck
+
+security:
+	$(UV) run bandit -r . -q
+
+test: backend-test frontend-test
+
+check: generate lint typecheck security test frontend-build
 
 # ── Performance ────────────────────────────────────────────────────
 

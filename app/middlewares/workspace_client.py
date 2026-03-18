@@ -12,6 +12,7 @@ async def workspace_client_middleware(request: Request, call_next):
     token = request.headers.get("X-Forwarded-Access-Token")
     if (
         settings.databricks_integrations_enabled()
+        and
         settings.enable_obo
         and token
     ):

@@ -20,8 +20,9 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
-  ApiHealthLive200,
-  ApiHealthReady200
+  IntegrationsHealthResponse,
+  LiveHealthResponse,
+  ReadyHealthResponse
 } from '.././models';
 
 import { customInstance } from '../../client';
@@ -32,10 +33,120 @@ type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
 /**
+ * @summary Health Integrations
+ */
+export type apiHealthIntegrationsResponse200 = {
+  data: IntegrationsHealthResponse
+  status: 200
+}
+    
+export type apiHealthIntegrationsResponseSuccess = (apiHealthIntegrationsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type apiHealthIntegrationsResponse = (apiHealthIntegrationsResponseSuccess)
+
+export const getApiHealthIntegrationsUrl = () => {
+
+
+  
+
+  return `/health/integrations`
+}
+
+export const apiHealthIntegrations = async ( options?: RequestInit): Promise<apiHealthIntegrationsResponse> => {
+  
+  return customInstance<apiHealthIntegrationsResponse>(getApiHealthIntegrationsUrl(),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+);}
+
+
+
+
+
+export const getApiHealthIntegrationsQueryKey = () => {
+    return [
+    `/health/integrations`
+    ] as const;
+    }
+
+    
+export const getApiHealthIntegrationsQueryOptions = <TData = Awaited<ReturnType<typeof apiHealthIntegrations>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof apiHealthIntegrations>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getApiHealthIntegrationsQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof apiHealthIntegrations>>> = ({ signal }) => apiHealthIntegrations({ signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof apiHealthIntegrations>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ApiHealthIntegrationsQueryResult = NonNullable<Awaited<ReturnType<typeof apiHealthIntegrations>>>
+export type ApiHealthIntegrationsQueryError = unknown
+
+
+export function useApiHealthIntegrations<TData = Awaited<ReturnType<typeof apiHealthIntegrations>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof apiHealthIntegrations>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof apiHealthIntegrations>>,
+          TError,
+          Awaited<ReturnType<typeof apiHealthIntegrations>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useApiHealthIntegrations<TData = Awaited<ReturnType<typeof apiHealthIntegrations>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof apiHealthIntegrations>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof apiHealthIntegrations>>,
+          TError,
+          Awaited<ReturnType<typeof apiHealthIntegrations>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useApiHealthIntegrations<TData = Awaited<ReturnType<typeof apiHealthIntegrations>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof apiHealthIntegrations>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Health Integrations
+ */
+
+export function useApiHealthIntegrations<TData = Awaited<ReturnType<typeof apiHealthIntegrations>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof apiHealthIntegrations>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getApiHealthIntegrationsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+/**
  * @summary Health Live
  */
 export type apiHealthLiveResponse200 = {
-  data: ApiHealthLive200
+  data: LiveHealthResponse
   status: 200
 }
     
@@ -145,7 +256,7 @@ export function useApiHealthLive<TData = Awaited<ReturnType<typeof apiHealthLive
  * @summary Health Ready
  */
 export type apiHealthReadyResponse200 = {
-  data: ApiHealthReady200
+  data: ReadyHealthResponse
   status: 200
 }
     

@@ -22,8 +22,16 @@ def test_legacy_health_unaffected():
     with TestClient(app_main.app) as client:
         response = client.get("/health/live")
     assert response.status_code == 200
-    assert response.json()["ok"] is True
     assert response.json()["status"] == "alive"
+
+
+def test_root_health_ready_alias_exists():
+    with TestClient(app_main.app) as client:
+        response = client.get("/health/ready")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ready"
+    assert response.json()["db"]["status"] == "ok"
 
 
 def test_api_openapi_has_contract_routes():
@@ -31,6 +39,7 @@ def test_api_openapi_has_contract_routes():
         response = client.get("/api/openapi.json")
     assert response.status_code == 200
     paths = list(response.json()["paths"].keys())
+    assert "/health/integrations" in paths
     assert "/projects" in paths
     assert "/chat/stream" in paths
     assert "/settings" in paths

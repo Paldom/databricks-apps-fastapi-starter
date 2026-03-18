@@ -31,6 +31,7 @@ from app.core.deps import (
     get_workspace_client,
 )
 from app.core.errors import ConfigurationError, RequestTooLargeError
+from app.core.integrations import databricks_integrations_disabled_message
 from app.core.security.rate_limit import limiter
 from app.models.user_dto import UserInfo
 
@@ -64,7 +65,13 @@ class AgentQuestion(BaseModel):
     messages: list[AgentMessage] = Field(..., min_length=1, max_length=20)
 
 
+def _require_databricks_integrations(settings: Settings) -> None:
+    if not settings.databricks_integrations_enabled():
+        raise ConfigurationError(databricks_integrations_disabled_message())
+
+
 def _require_serving_endpoint(settings: Settings) -> str:
+    _require_databricks_integrations(settings)
     endpoint = settings.serving_endpoint_name
     if not endpoint:
         raise ConfigurationError("SERVING_ENDPOINT_NAME not configured")
@@ -72,12 +79,14 @@ def _require_serving_endpoint(settings: Settings) -> str:
 
 
 def _require_job_id(settings: Settings) -> int:
+    _require_databricks_integrations(settings)
     if not settings.job_id:
         raise ConfigurationError("JOB_ID not configured")
     return int(settings.job_id)
 
 
 def _require_knowledge_assistant_endpoint(settings: Settings) -> str:
+    _require_databricks_integrations(settings)
     endpoint = settings.knowledge_assistant_endpoint
     if not endpoint:
         raise ConfigurationError("KNOWLEDGE_ASSISTANT_ENDPOINT not configured")
@@ -89,6 +98,7 @@ async def _get_genie_adapter(
     settings: Annotated[Settings, Depends(get_settings)],
     logger: Annotated[Logger, Depends(get_logger)],
 ) -> AsyncGenerator[GenieAdapter, None]:
+    _require_databricks_integrations(settings)
     ws = get_workspace_client(request)
     async with AsyncClient(
         base_url=f"https://{ws.config.host}",
@@ -138,9 +148,10 @@ async def run_job(
     logger: Annotated[Logger, Depends(get_logger)],
     params: dict[str, Any] | None = Body(default=None),
 ):
+    job_id = _require_job_id(settings)
     adapter = JobsAdapter(get_workspace_client(request), logger)
     return await adapter.run_and_get_output(
-        job_id=_require_job_id(settings),
+        job_id=job_id,
         notebook_params=params,
         timeout=float(settings.job_timeout_seconds),
     )
@@ -291,6 +302,7 @@ async def _get_ka_adapter(
     settings: Annotated[Settings, Depends(get_settings)],
     logger: Annotated[Logger, Depends(get_logger)],
 ) -> AsyncGenerator[KnowledgeAssistantAdapter, None]:
+    _require_knowledge_assistant_endpoint(settings)
     ws = get_workspace_client(request)
     async with AsyncClient(
         base_url=f"https://{ws.config.host}",

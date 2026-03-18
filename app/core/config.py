@@ -272,6 +272,8 @@ class Settings(BaseSettings):
                 except ValueError:
                     continue
             elif attr in _bool_fields:
+                if val is None:
+                    continue
                 setattr(self, attr, str(val).lower() in {"1", "true", "yes", "y"})
             else:
                 setattr(self, attr, val)

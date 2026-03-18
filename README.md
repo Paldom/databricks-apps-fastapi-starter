@@ -78,44 +78,70 @@ app/
 
 ## Local Development
 
-### Install and run
+The default inner loop is **API on the host + Postgres in Docker**. Databricks integrations are optional and disabled by default for local work.
+
+### Mode A: host API + Docker Postgres
 
 ```bash
 git clone https://github.com/Paldom/databricks-apps-fastapi-starter.git
 cd databricks-apps-fastapi-starter
 
-# Configure environment
 cp env.example .env
-# Edit .env with your Databricks credentials
-
-# Install dependencies
+make dev-db
 uv sync --extra dev
-
-# Run backend
-uv run uvicorn main:create_app --factory --reload --host 0.0.0.0 --port 8000
-
-# Or run both backend and frontend
-make dev
+make migrate-up
+make dev-api
 ```
 
-### Using Databricks local app runner
+With the defaults from `env.example`, the following work locally without Databricks credentials:
+
+- `http://localhost:8000/docs`
+- `http://localhost:8000/api/health/live`
+- `http://localhost:8000/api/health/ready`
+- `http://localhost:8000/health/live`
+- `http://localhost:8000/health/ready`
+- authenticated `/api` routes via the development fallback user
+
+### Mode B: full Docker Compose
+
+```bash
+cp env.example .env
+make dev-compose
+```
+
+This runs both `postgres` and the FastAPI app in containers. The `api` service overrides `DATABASE_URL` to use the Compose hostname `postgres`; the host-run workflow remains the recommended default because reload/debugging is faster.
+
+### Optional remote-integrated local mode
+
+To exercise real Databricks-dependent routes locally, set:
+
+- `ENABLE_DATABRICKS_INTEGRATIONS=true`
+- `DATABRICKS_HOST`
+- one of:
+  - `DATABRICKS_TOKEN`
+  - `DATABRICKS_CLIENT_ID` + `DATABRICKS_CLIENT_SECRET`
+- any route-specific config such as `SERVING_ENDPOINT_NAME`, `JOB_ID`, `VECTOR_SEARCH_*`, or `KNOWLEDGE_ASSISTANT_ENDPOINT`
+
+You can also use the Databricks local app runner:
 
 ```bash
 databricks apps run-local --prepare-environment --debug
 ```
 
+In offline local mode, Databricks example routes return clear `503` responses instead of breaking startup or unrelated endpoints.
+
 ### Static analysis
 
 ```bash
-uv run ruff check .
-uv run mypy --ignore-missing-imports .
-uv run bandit -r . -q
+make lint
+make typecheck
+make security
 ```
 
 ### Testing
 
 ```bash
-uv run pytest --cov .
+make test
 ```
 
 ### Performance testing
@@ -128,26 +154,32 @@ Set `HOST`, `DATABRICKS_HOST`, `DATABRICKS_CLIENT_ID` and `DATABRICKS_CLIENT_SEC
 
 ### Database migrations
 
-Alembic is the sole schema authority. Migrations must be applied before the application starts:
+Alembic is the sole schema authority. Migrations must be applied before the application starts.
+
+Database configuration precedence is:
+
+1. `DATABASE_URL`
+2. `PGHOST` / `PGPORT` / `PGDATABASE` / `PGUSER` / `PGPASSWORD`
+3. legacy `LAKEBASE_HOST` / `LAKEBASE_PORT` / `LAKEBASE_DB` / `LAKEBASE_USER` / `LAKEBASE_PASSWORD`
+
+Common migration commands:
 
 ```bash
-alembic upgrade head
+make migrate-up
 ```
 
 Create a new migration:
 
 ```bash
-alembic revision --autogenerate -m "my change"
+make migrate-new MIGRATION_MESSAGE="my change"
 ```
 
 ### OpenAPI export
 
-Export the API spec for frontend codegen:
+Export the API spec for client codegen:
 
 ```bash
-uv run python scripts/export_openapi.py
-# Or with custom output path:
-uv run python scripts/export_openapi.py --output openapi/openapi.json
+make openapi-export
 ```
 
 ## One-Time Bootstrap
@@ -291,6 +323,12 @@ Key configuration:
 
 | Variable | Description | Bundle-injected |
 |----------|-------------|----------------|
+| `ENABLE_DATABRICKS_INTEGRATIONS` | Enables Databricks-only routes and lazy client initialization | Set to `true` in bundle app envs |
+| `ENABLE_LOCAL_DEV_AUTH_FALLBACK` | Enables development-only fallback identity when forwarded headers are absent | Set to `false` in bundle app envs |
+| `LOCAL_DEV_USER_ID` | Local fallback user id | Manual |
+| `DATABASE_URL` | Canonical DB URL override | Manual |
+| `PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD` | Canonical PG-style DB settings | Manual |
+| `LAKEBASE_HOST/PORT/DB/USER/PASSWORD` | Backward-compatible DB fallback | Manual |
 | `SERVING_ENDPOINT_NAME` | Serving endpoint name | Yes (`valueFrom: serving-endpoint`) |
 | `JOB_ID` | Job ID for background tasks | Yes (`valueFrom: app-job`) |
 | `VOLUME_ROOT` | UC volume path | Yes (`valueFrom: uc-volume`) |
@@ -300,8 +338,6 @@ Key configuration:
 | `ENVIRONMENT` | Runtime environment label | Set in app_config env |
 | `LOG_LEVEL` | Python logging level | Set in app_config env |
 | `ENABLE_OBO` | On-behalf-of user mode | Set in app_config env |
-| `DATABASE_URL` | Override DB connection string | Manual |
-| `LAKEBASE_HOST/PORT/DB/USER` | Lakebase connection | Manual |
 | `VECTOR_SEARCH_ENDPOINT_NAME` | Vector search endpoint | Manual |
 | `VECTOR_SEARCH_INDEX_NAME` | Vector search index | Manual |
 
@@ -319,11 +355,15 @@ Databricks Apps authenticates users and forwards identity via HTTP headers:
 | `X-Forwarded-Email` | `user.email` |
 | `X-Forwarded-Preferred-Username` | `user.preferred_username` |
 
-For local development, pass headers manually:
+For local development you have two options:
+
+- keep `ENABLE_LOCAL_DEV_AUTH_FALLBACK=true` and use the fallback user from `LOCAL_DEV_USER_ID`
+- disable the fallback and pass headers manually
 
 ```bash
-curl http://localhost:8000/api/health/ready \
-  -H "X-Forwarded-User: me@example.com"
+curl http://localhost:8000/api/projects \
+  -H "X-Forwarded-User: me@example.com" \
+  -H "X-Forwarded-Email: me@example.com"
 ```
 
 ### Rate limiting
@@ -351,6 +391,21 @@ uv export --no-hashes --no-editable --format=requirements.txt > requirements.txt
 ```
 
 CI verifies that `requirements.txt` matches the lockfile on every PR.
+
+## Health and Readiness
+
+- `GET /api/health/live` and `GET /health/live` return lightweight process liveness
+- `GET /api/health/ready` and `GET /health/ready` return **core readiness only** (database required)
+- `GET /api/health/integrations` and `GET /health/integrations` return Databricks integration status for `workspace`, `ai`, and `vector_search`
+- `GET /healthcheck` and `GET /databasehealthcheck` remain as compatibility aliases
+
+In offline local mode:
+
+- liveness returns `200`
+- readiness returns `200` once the database is reachable
+- integrations returns `200` with `status=degraded` and per-integration `disabled` entries
+
+Databricks-dependent routes now fail at request time with clear `503` responses when integrations are disabled or unavailable, instead of breaking startup or unrelated routes.
 
 ## Observability
 
@@ -384,12 +439,6 @@ opentelemetry-instrument uvicorn main:app --reload
 - **Redis backend** for production — set `CACHE_BACKEND=redis` and configure `CACHE_REDIS_*` variables
 - Reads use cache-aside pattern; writes explicitly invalidate
 - Cache failures are swallowed and logged; they never break correctness
-
-## Health and Readiness
-
-- `GET /health/live` — basic process health
-- `GET /health/ready` — lightweight readiness (no network calls)
-- `GET /health/deep` — full dependency probes (DB, AI, vector search), cached for `HEALTH_READY_CACHE_TTL` seconds
 
 ## SSE Demo
 

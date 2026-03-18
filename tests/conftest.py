@@ -89,16 +89,24 @@ def mock_lifespan(monkeypatch):
         "create_session_factory",
         lambda e: _mock_session_factory(),
     )
-
-    # Workspace client
-    wc = MagicMock()
-    wc.config.token = "test-token"
-    wc.config.host = "http://localhost"
-    monkeypatch.setattr(bootstrap, "get_workspace_client_singleton", lambda: wc)
     monkeypatch.setattr(bootstrap.settings, "lakebase_host", "db.example.com")
     monkeypatch.setattr(bootstrap.settings, "lakebase_db", "starter")
     monkeypatch.setattr(bootstrap.settings, "lakebase_user", "starter")
     monkeypatch.setattr(bootstrap.settings, "lakebase_password", "secret")
+    monkeypatch.setattr(bootstrap.settings, "pg_host", None)
+    monkeypatch.setattr(bootstrap.settings, "pg_database", None)
+    monkeypatch.setattr(bootstrap.settings, "pg_user", None)
+    monkeypatch.setattr(bootstrap.settings, "pg_password", None)
+    monkeypatch.setattr(bootstrap.settings, "environment", "test")
+    monkeypatch.setattr(
+        bootstrap.settings, "enable_databricks_integrations", False
+    )
+    monkeypatch.setattr(
+        bootstrap.settings, "enable_local_dev_auth_fallback", None
+    )
+    monkeypatch.setattr(bootstrap.settings, "local_dev_user_id", "local-dev-user")
+    monkeypatch.setattr(bootstrap.settings, "databricks_host", "http://localhost")
+    monkeypatch.setattr(bootstrap.settings, "databricks_token", "test-token")
     monkeypatch.setattr(bootstrap.settings, "serving_endpoint_name", "starter-endpoint")
     monkeypatch.setattr(
         bootstrap.settings, "vector_search_endpoint_name", "starter-vs"
@@ -108,14 +116,6 @@ def mock_lifespan(monkeypatch):
         "vector_search_index_name",
         "main.default.starter_index",
     )
-
-    # AI client
-    mock_ai = MagicMock()
-    mock_ai.aclose = AsyncMock()
-    monkeypatch.setattr(bootstrap, "AsyncOpenAI", lambda **_: mock_ai)
-
-    # Vector search
-    monkeypatch.setattr(bootstrap, "init_vector_index", lambda s: MagicMock())
 
     # Cache
     from app.core.cache import NullCache

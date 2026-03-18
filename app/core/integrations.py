@@ -72,6 +72,12 @@ def ensure_workspace_client(runtime: AppRuntime, settings: Settings) -> Workspac
         runtime.clear_error("workspace_client")
         return runtime.workspace_client
 
+    if runtime.state_for("workspace_client") == "fail":
+        detail = runtime.error_for("workspace_client") or "unknown error"
+        raise ServiceUnavailableError(
+            f"Databricks workspace client is unavailable: {detail}"
+        )
+
     try:
         runtime.workspace_client = get_workspace_client_singleton()
         runtime.clear_error("workspace_client")
@@ -96,6 +102,10 @@ def ensure_ai_client(runtime: AppRuntime, settings: Settings) -> AsyncOpenAI:
     if runtime.ai_client is not None:
         runtime.clear_error("ai_client")
         return runtime.ai_client
+
+    if runtime.state_for("ai_client") == "fail":
+        detail = runtime.error_for("ai_client") or "unknown error"
+        raise ServiceUnavailableError(f"AI client is unavailable: {detail}")
 
     if not settings.has_ai_config():
         message = ai_not_configured_message()
@@ -138,6 +148,12 @@ def ensure_vector_index(runtime: AppRuntime, settings: Settings):
     if runtime.vector_index is not None:
         runtime.clear_error("vector_index")
         return runtime.vector_index
+
+    if runtime.state_for("vector_index") == "fail":
+        detail = runtime.error_for("vector_index") or "unknown error"
+        raise ServiceUnavailableError(
+            f"Vector Search index is unavailable: {detail}"
+        )
 
     if not settings.has_vector_search_config():
         message = vector_not_configured_message()

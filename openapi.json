@@ -305,6 +305,49 @@
         "title": "DashboardStats",
         "type": "object"
       },
+      "DependencyHealth": {
+        "properties": {
+          "disabled": {
+            "default": false,
+            "title": "Disabled",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "required": {
+            "default": false,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DependencyHealthStatus"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "DependencyHealth",
+        "type": "object"
+      },
+      "DependencyHealthStatus": {
+        "enum": [
+          "ok",
+          "fail",
+          "not_configured",
+          "disabled"
+        ],
+        "title": "DependencyHealthStatus",
+        "type": "string"
+      },
       "Document": {
         "additionalProperties": false,
         "example": {
@@ -447,6 +490,57 @@
           "message"
         ],
         "title": "ErrorEvent",
+        "type": "object"
+      },
+      "HealthResponseStatus": {
+        "enum": [
+          "alive",
+          "ready",
+          "degraded",
+          "not_ready"
+        ],
+        "title": "HealthResponseStatus",
+        "type": "string"
+      },
+      "IntegrationsHealthResponse": {
+        "properties": {
+          "ai": {
+            "$ref": "#/components/schemas/DependencyHealth"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/HealthResponseStatus"
+          },
+          "vector_search": {
+            "$ref": "#/components/schemas/DependencyHealth"
+          },
+          "workspace": {
+            "$ref": "#/components/schemas/DependencyHealth"
+          }
+        },
+        "required": [
+          "ok",
+          "status",
+          "workspace",
+          "ai",
+          "vector_search"
+        ],
+        "title": "IntegrationsHealthResponse",
+        "type": "object"
+      },
+      "LiveHealthResponse": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/HealthResponseStatus"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "LiveHealthResponse",
         "type": "object"
       },
       "PaginatedChatSearchResults": {
@@ -619,6 +713,27 @@
           "chatCount"
         ],
         "title": "Project",
+        "type": "object"
+      },
+      "ReadyHealthResponse": {
+        "properties": {
+          "db": {
+            "$ref": "#/components/schemas/DependencyHealth"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/HealthResponseStatus"
+          }
+        },
+        "required": [
+          "ok",
+          "status",
+          "db"
+        ],
+        "title": "ReadyHealthResponse",
         "type": "object"
       },
       "TextDeltaEvent": {
@@ -1168,6 +1283,27 @@
         ]
       }
     },
+    "/health/integrations": {
+      "get": {
+        "operationId": "apiHealthIntegrations",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntegrationsHealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health Integrations",
+        "tags": [
+          "health"
+        ]
+      }
+    },
     "/health/live": {
       "get": {
         "operationId": "apiHealthLive",
@@ -1176,9 +1312,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Apihealthlive",
-                  "type": "object"
+                  "$ref": "#/components/schemas/LiveHealthResponse"
                 }
               }
             },
@@ -1199,9 +1333,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Apihealthready",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReadyHealthResponse"
                 }
               }
             },
@@ -1506,6 +1638,40 @@
         "summary": "Update User Settings",
         "tags": [
           "settings"
+        ]
+      }
+    },
+    "/stream/sse": {
+      "get": {
+        "description": "Server-Sent Events demo endpoint.",
+        "operationId": "streamSSE",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "count",
+            "required": false,
+            "schema": {
+              "default": 3,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Count",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Stream Sse",
+        "tags": [
+          "stream"
         ]
       }
     }

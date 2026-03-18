@@ -11,11 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from app.core.cache import Cache, NullCache
 from app.core.config import Settings, settings
 from app.core.db.deps import get_async_session, get_engine  # noqa: F401 – re-export
-from app.core.errors import (
-    AuthenticationError,
-    ConfigurationError,
-    ServiceUnavailableError,
-)
+from app.core.errors import AuthenticationError
 from app.core.integrations import ensure_ai_client, ensure_vector_index, ensure_workspace_client
 from app.core.logging import get_logger as _get_logger
 from app.core.runtime import AppRuntime, get_app_runtime
@@ -45,6 +41,13 @@ def get_logger() -> Logger:
     return _get_logger()
 
 
+def _get_request_settings(request: Request) -> Settings:
+    override = request.app.dependency_overrides.get(get_settings)
+    if override is not None:
+        return override()
+    return settings
+
+
 def get_runtime(request: Request) -> AppRuntime:
     return get_app_runtime(request.app)
 
@@ -55,17 +58,17 @@ def get_workspace_client(request: Request) -> WorkspaceClient:
         return request_client
 
     runtime = get_runtime(request)
-    return ensure_workspace_client(runtime, settings)
+    return ensure_workspace_client(runtime, _get_request_settings(request))
 
 
 def get_ai_client(request: Request) -> AsyncOpenAI:
     runtime = get_runtime(request)
-    return ensure_ai_client(runtime, settings)
+    return ensure_ai_client(runtime, _get_request_settings(request))
 
 
 def get_vector_index(request: Request) -> Any:
     runtime = get_runtime(request)
-    return ensure_vector_index(runtime, settings)
+    return ensure_vector_index(runtime, _get_request_settings(request))
 
 
 def get_current_user(request: Request) -> CurrentUser:

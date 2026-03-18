@@ -1,34 +1,51 @@
 from fastapi.testclient import TestClient
+
 import app.main as app_main
+from app.core.config import settings
 
 
 AUTH_HEADERS = {"X-Forwarded-User": "test-user"}
 
 
-def test_userinfo_401_without_auth():
+def test_userinfo_401_without_auth_when_fallback_disabled(monkeypatch):
+    monkeypatch.setattr(settings, "environment", "test")
+    monkeypatch.setattr(settings, "enable_local_dev_auth_fallback", False)
+
     with TestClient(app_main.app) as client:
         response = client.get("/legacy/v1/userInfo")
+
     assert response.status_code == 401
 
 
 def test_userinfo_200_with_auth():
     with TestClient(app_main.app) as client:
         response = client.get("/legacy/v1/userInfo", headers=AUTH_HEADERS)
+
     assert response.status_code == 200
-    data = response.json()
-    assert data["id"] == "test-user"
+    assert response.json()["id"] == "test-user"
 
 
-def test_request_state_user_set():
-    with TestClient(app_main.app) as client:
-        response = client.get("/legacy/v1/userInfo", headers=AUTH_HEADERS)
-    assert response.status_code == 200
-    data = response.json()
-    assert data["id"] == "test-user"
-    assert "name" in data
+def test_userinfo_uses_local_dev_fallback(monkeypatch):
+    monkeypatch.setattr(settings, "environment", "development")
+    monkeypatch.setattr(settings, "enable_local_dev_auth_fallback", None)
+    monkeypatch.setattr(settings, "local_dev_user_id", "local-dev-user")
 
-
-def test_request_state_none_for_unauth():
     with TestClient(app_main.app) as client:
         response = client.get("/legacy/v1/userInfo")
-    assert response.status_code == 401
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == "local-dev-user"
+    assert data["name"] == "local-dev-user"
+
+
+def test_api_route_uses_local_dev_fallback(monkeypatch):
+    monkeypatch.setattr(settings, "environment", "development")
+    monkeypatch.setattr(settings, "enable_local_dev_auth_fallback", None)
+    monkeypatch.setattr(settings, "local_dev_user_id", "local-dev-user")
+
+    with TestClient(app_main.app) as client:
+        response = client.get("/api/dashboard/stats")
+
+    assert response.status_code == 200
+    assert response.json()["activeUsers"] == 1

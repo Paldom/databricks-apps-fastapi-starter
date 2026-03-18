@@ -66,6 +66,10 @@ variables:
           value: INFO
         - name: ENABLE_OBO
           value: "false"
+        - name: ENABLE_DATABRICKS_INTEGRATIONS
+          value: "true"
+        - name: ENABLE_LOCAL_DEV_AUTH_FALLBACK
+          value: "false"
         - name: OTEL_TRACES_SAMPLER
           value: always_on
         - name: OTEL_PYTHON_LOG_CORRELATION
@@ -105,6 +109,10 @@ targets:
           - name: LOG_LEVEL
             value: DEBUG
           - name: ENABLE_OBO
+            value: "false"
+          - name: ENABLE_DATABRICKS_INTEGRATIONS
+            value: "true"
+          - name: ENABLE_LOCAL_DEV_AUTH_FALLBACK
             value: "false"
           - name: OTEL_TRACES_SAMPLER
             value: always_on
@@ -154,6 +162,10 @@ targets:
             value: INFO
           - name: ENABLE_OBO
             value: "true"
+          - name: ENABLE_DATABRICKS_INTEGRATIONS
+            value: "true"
+          - name: ENABLE_LOCAL_DEV_AUTH_FALLBACK
+            value: "false"
           - name: OTEL_TRACES_SAMPLER
             value: always_on
           - name: OTEL_PYTHON_LOG_CORRELATION

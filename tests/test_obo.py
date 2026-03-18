@@ -13,6 +13,8 @@ def test_workspace_client_middleware_uses_header(monkeypatch):
             created["token"] = token
 
     monkeypatch.setattr(settings, "enable_obo", True)
+    monkeypatch.setattr(settings, "enable_databricks_integrations", True)
+    monkeypatch.setattr(settings, "databricks_host", None)
     monkeypatch.setattr(
         "app.middlewares.workspace_client.WorkspaceClient", DummyWC
     )
@@ -41,6 +43,7 @@ def test_workspace_client_middleware_ignores_header_when_disabled(monkeypatch):
         called = True
 
     monkeypatch.setattr(settings, "enable_obo", False)
+    monkeypatch.setattr(settings, "enable_databricks_integrations", False)
     monkeypatch.setattr(
         "app.middlewares.workspace_client.WorkspaceClient", dummy_wc
     )
