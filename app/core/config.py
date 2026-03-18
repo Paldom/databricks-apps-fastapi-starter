@@ -2,6 +2,7 @@ import base64
 import os
 from typing import Dict, Optional
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -46,11 +47,29 @@ def get_secret(
 class Settings(BaseSettings):
     serving_endpoint_name: Optional[str] = None
     job_id: Optional[str] = None
+    databricks_host: Optional[str] = None
+    databricks_client_id: Optional[str] = None
+    databricks_client_secret: Optional[str] = None
     lakebase_host: Optional[str] = None
     lakebase_port: int = 5432
     lakebase_db: Optional[str] = None
     lakebase_user: Optional[str] = None
     lakebase_password: Optional[str] = None
+    pg_host: Optional[str] = Field(
+        default=None, validation_alias=AliasChoices("PGHOST", "PG_HOST")
+    )
+    pg_port: Optional[int] = Field(
+        default=None, validation_alias=AliasChoices("PGPORT", "PG_PORT")
+    )
+    pg_database: Optional[str] = Field(
+        default=None, validation_alias=AliasChoices("PGDATABASE", "PG_DATABASE")
+    )
+    pg_user: Optional[str] = Field(
+        default=None, validation_alias=AliasChoices("PGUSER", "PG_USER")
+    )
+    pg_password: Optional[str] = Field(
+        default=None, validation_alias=AliasChoices("PGPASSWORD", "PG_PASSWORD")
+    )
     environment: str = "development"
     vector_search_endpoint_name: Optional[str] = None
     vector_search_index_name: Optional[str] = None
@@ -59,6 +78,9 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     volume_root: str = "/Volumes/main/default"
     enable_obo: bool = False
+    enable_databricks_integrations: bool = False
+    enable_local_dev_auth_fallback: Optional[bool] = None
+    local_dev_user_id: str = "local-dev-user"
 
     # Frontend serving
     enable_docs: bool = True
@@ -72,6 +94,10 @@ class Settings(BaseSettings):
     # Request size limits
     max_request_body_bytes: int = 1_048_576  # 1 MiB
     max_upload_bytes: int = 10_485_760  # 10 MiB
+
+    # Knowledge Assistant (Agent Bricks)
+    knowledge_assistant_endpoint: Optional[str] = None
+    knowledge_assistant_timeout_seconds: int = 60
 
     # Timeouts (seconds)
     genie_timeout_seconds: int = 30
@@ -99,33 +125,78 @@ class Settings(BaseSettings):
     def has_database_config(self) -> bool:
         return bool(
             os.getenv("DATABASE_URL")
-            or all(
-                [
-                    self.lakebase_host,
-                    self.lakebase_db,
-                    self.lakebase_user,
-                    self.lakebase_password,
-                ]
-            )
+            or self.has_pg_database_config()
+            or self.has_lakebase_database_config()
         )
 
     def has_ai_config(self) -> bool:
         return bool(self.serving_endpoint_name)
+
+    def has_knowledge_assistant_config(self) -> bool:
+        return bool(self.knowledge_assistant_endpoint)
 
     def has_vector_search_config(self) -> bool:
         return bool(
             self.vector_search_endpoint_name and self.vector_search_index_name
         )
 
+    def has_pg_database_config(self) -> bool:
+        return all(
+            [
+                self.pg_host,
+                self.pg_database,
+                self.pg_user,
+                self.pg_password,
+            ]
+        )
+
+    def has_lakebase_database_config(self) -> bool:
+        return all(
+            [
+                self.lakebase_host,
+                self.lakebase_db,
+                self.lakebase_user,
+                self.lakebase_password,
+            ]
+        )
+
+    def databricks_integrations_enabled(self) -> bool:
+        return self.enable_databricks_integrations
+
+    def local_dev_auth_fallback_enabled(self) -> bool:
+        if self.enable_local_dev_auth_fallback is not None:
+            return self.enable_local_dev_auth_fallback
+        return self.environment == "development"
+
+    def has_explicit_databricks_auth(self) -> bool:
+        return bool(
+            self.databricks_host
+            and (
+                self.databricks_token
+                or (
+                    self.databricks_client_id
+                    and self.databricks_client_secret
+                )
+            )
+        )
+
     def model_post_init(self, __context) -> None:
         mapping = {
             "serving_endpoint_name": "SERVING_ENDPOINT_NAME",
             "job_id": "JOB_ID",
+            "databricks_host": "DATABRICKS_HOST",
+            "databricks_client_id": "DATABRICKS_CLIENT_ID",
+            "databricks_client_secret": "DATABRICKS_CLIENT_SECRET",
             "lakebase_host": "LAKEBASE_HOST",
             "lakebase_port": "LAKEBASE_PORT",
             "lakebase_db": "LAKEBASE_DB",
             "lakebase_user": "LAKEBASE_USER",
             "lakebase_password": "LAKEBASE_PASSWORD",
+            "pg_host": "PGHOST",
+            "pg_port": "PGPORT",
+            "pg_database": "PGDATABASE",
+            "pg_user": "PGUSER",
+            "pg_password": "PGPASSWORD",
             "vector_search_endpoint_name": "VECTOR_SEARCH_ENDPOINT_NAME",
             "vector_search_index_name": "VECTOR_SEARCH_INDEX_NAME",
             "databricks_http_path": "DATABRICKS_HTTP_PATH",
@@ -134,6 +205,9 @@ class Settings(BaseSettings):
             "log_level": "LOG_LEVEL",
             "volume_root": "VOLUME_ROOT",
             "enable_obo": "ENABLE_OBO",
+            "enable_databricks_integrations": "ENABLE_DATABRICKS_INTEGRATIONS",
+            "enable_local_dev_auth_fallback": "ENABLE_LOCAL_DEV_AUTH_FALLBACK",
+            "local_dev_user_id": "LOCAL_DEV_USER_ID",
             "cache_enabled": "CACHE_ENABLED",
             "cache_backend": "CACHE_BACKEND",
             "cache_namespace": "CACHE_NAMESPACE",
@@ -156,9 +230,13 @@ class Settings(BaseSettings):
             "vector_timeout_seconds": "VECTOR_TIMEOUT_SECONDS",
             "openai_timeout_seconds": "OPENAI_TIMEOUT_SECONDS",
             "health_ready_cache_ttl": "HEALTH_READY_CACHE_TTL",
+            "knowledge_assistant_endpoint": "KNOWLEDGE_ASSISTANT_ENDPOINT",
+            "knowledge_assistant_timeout_seconds": "KNOWLEDGE_ASSISTANT_TIMEOUT_SECONDS",
         }
         _bool_fields = {
             "enable_obo",
+            "enable_databricks_integrations",
+            "enable_local_dev_auth_fallback",
             "cache_enabled",
             "rate_limit_enabled",
             "enable_docs",
@@ -167,6 +245,7 @@ class Settings(BaseSettings):
         }
         _int_fields = {
             "lakebase_port",
+            "pg_port",
             "cache_default_ttl",
             "cache_timeout",
             "cache_redis_port",
@@ -179,6 +258,7 @@ class Settings(BaseSettings):
             "vector_timeout_seconds",
             "openai_timeout_seconds",
             "health_ready_cache_ttl",
+            "knowledge_assistant_timeout_seconds",
         }
         for attr, env_key in mapping.items():
             if getattr(self, attr) is not None:

@@ -1,5 +1,6 @@
 from fastapi import Request
 
+from app.core.config import settings
 from app.core.runtime import get_app_runtime
 from app.models.user_dto import CurrentUser
 from app.repositories.user_repository import get_or_create_user
@@ -14,6 +15,14 @@ async def user_info_middleware(request: Request, call_next):
     user_id = request.headers.get("X-Forwarded-User")
     email = request.headers.get("X-Forwarded-Email")
     preferred_username = request.headers.get("X-Forwarded-Preferred-Username")
+
+    if (
+        not user_id
+        and settings.local_dev_auth_fallback_enabled()
+        and settings.environment != "production"
+    ):
+        user_id = settings.local_dev_user_id
+        preferred_username = settings.local_dev_user_id
 
     if user_id:
         request.state.user = CurrentUser(

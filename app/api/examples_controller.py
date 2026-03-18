@@ -3,7 +3,7 @@ import os
 import uuid
 from collections.abc import AsyncGenerator
 from logging import Logger
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import pandas as pd
 from fastapi import APIRouter, Body, Depends, File, Request, UploadFile
@@ -17,6 +17,7 @@ from app.core.config import Settings
 from app.core.databricks.ai_gateway import AiGatewayAdapter
 from app.core.databricks.genie import GenieAdapter
 from app.core.databricks.jobs import JobsAdapter
+from app.core.databricks.knowledge_assistant import KnowledgeAssistantAdapter
 from app.core.databricks.serving import ServingAdapter
 from app.core.databricks.uc_files import UcFilesAdapter
 from app.core.databricks.vector_search import VectorSearchAdapter
@@ -54,6 +55,15 @@ class GenieQuestion(BaseModel):
     content: str = Field(..., min_length=1, max_length=8192)
 
 
+class AgentMessage(BaseModel):
+    role: Literal["user", "assistant"] = "user"
+    content: str = Field(..., min_length=1, max_length=8192)
+
+
+class AgentQuestion(BaseModel):
+    messages: list[AgentMessage] = Field(..., min_length=1, max_length=20)
+
+
 def _require_serving_endpoint(settings: Settings) -> str:
     endpoint = settings.serving_endpoint_name
     if not endpoint:
@@ -65,6 +75,13 @@ def _require_job_id(settings: Settings) -> int:
     if not settings.job_id:
         raise ConfigurationError("JOB_ID not configured")
     return int(settings.job_id)
+
+
+def _require_knowledge_assistant_endpoint(settings: Settings) -> str:
+    endpoint = settings.knowledge_assistant_endpoint
+    if not endpoint:
+        raise ConfigurationError("KNOWLEDGE_ASSISTANT_ENDPOINT not configured")
+    return endpoint
 
 
 async def _get_genie_adapter(
@@ -263,4 +280,50 @@ async def download(
                 f'attachment; filename="{os.path.basename(relative_path)}"'
             )
         },
+    )
+
+
+# ── Knowledge Assistant (Agent Bricks) ────────────────────────────────
+
+
+async def _get_ka_adapter(
+    request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
+    logger: Annotated[Logger, Depends(get_logger)],
+) -> AsyncGenerator[KnowledgeAssistantAdapter, None]:
+    ws = get_workspace_client(request)
+    async with AsyncClient(
+        base_url=f"https://{ws.config.host}",
+        headers={"Authorization": f"Bearer {ws.config.token}"},
+        timeout=float(settings.knowledge_assistant_timeout_seconds),
+    ) as client:
+        yield KnowledgeAssistantAdapter(client, logger)
+
+
+@router.post("/agent/ask")
+@limiter.limit("10/minute")
+async def agent_ask(
+    request: Request,
+    body: AgentQuestion,
+    settings: Annotated[Settings, Depends(get_settings)],
+    adapter: Annotated[KnowledgeAssistantAdapter, Depends(_get_ka_adapter)],
+):
+    endpoint = _require_knowledge_assistant_endpoint(settings)
+    return await adapter.ask(
+        endpoint, [m.model_dump() for m in body.messages]
+    )
+
+
+@router.post("/agent/ask/stream")
+@limiter.limit("10/minute")
+async def agent_ask_stream(
+    request: Request,
+    body: AgentQuestion,
+    settings: Annotated[Settings, Depends(get_settings)],
+    adapter: Annotated[KnowledgeAssistantAdapter, Depends(_get_ka_adapter)],
+):
+    endpoint = _require_knowledge_assistant_endpoint(settings)
+    return StreamingResponse(
+        adapter.ask_stream(endpoint, [m.model_dump() for m in body.messages]),
+        media_type="text/event-stream",
     )

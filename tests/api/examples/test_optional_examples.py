@@ -65,6 +65,21 @@ def test_vector_query_returns_clean_503_when_index_is_unavailable():
     assert "RuntimeError" not in detail
 
 
+def test_agent_ask_returns_503_when_endpoint_not_configured():
+    app_main.app.dependency_overrides[get_settings] = lambda: Settings()
+    try:
+        with TestClient(app_main.app) as client:
+            response = client.post(
+                "/legacy/v1/agent/ask",
+                json={"messages": [{"role": "user", "content": "hello"}]},
+            )
+    finally:
+        app_main.app.dependency_overrides.clear()
+
+    assert response.status_code == 503
+    assert "KNOWLEDGE_ASSISTANT_ENDPOINT" in response.json()["detail"]
+
+
 def test_vector_store_returns_clean_503_when_index_is_unavailable():
     app_main.app.dependency_overrides[get_settings] = lambda: Settings(
         serving_endpoint_name="starter-endpoint",

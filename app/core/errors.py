@@ -80,6 +80,10 @@ class GenieError(ExternalServiceError):
     pass
 
 
+class KnowledgeAssistantError(ExternalServiceError):
+    pass
+
+
 class UcFilesError(ExternalServiceError):
     pass
 

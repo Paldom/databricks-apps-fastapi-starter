@@ -9,6 +9,7 @@ from app.api.public.chats_controller import router as chats_router
 from app.api.public.documents_controller import router as documents_router
 from app.api.public.settings_controller import router as settings_router
 from app.api.public.chat_stream_controller import router as chat_stream_router
+from app.api.public.stream_controller import router as stream_router
 
 
 def build_api_router() -> APIRouter:
@@ -21,4 +22,5 @@ def build_api_router() -> APIRouter:
     router.include_router(documents_router)
     router.include_router(settings_router)
     router.include_router(chat_stream_router)
+    router.include_router(stream_router)
     return router

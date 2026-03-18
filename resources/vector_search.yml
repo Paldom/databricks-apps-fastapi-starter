@@ -1,0 +1,10 @@
+resources:
+  vector_search_indexes:
+    starter_index:
+      name: main.default.starter_index
+      endpoint_name: lakehouse_vector_endpoint
+      primary_key: id
+      embedding_dimension: 1536
+      source_table: main.default.embedded_docs
+      index_type: DELTA_SYNC
+      sync_type: TRIGGERED

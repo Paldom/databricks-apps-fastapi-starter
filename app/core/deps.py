@@ -16,6 +16,7 @@ from app.core.errors import (
     ConfigurationError,
     ServiceUnavailableError,
 )
+from app.core.integrations import ensure_ai_client, ensure_vector_index, ensure_workspace_client
 from app.core.logging import get_logger as _get_logger
 from app.core.runtime import AppRuntime, get_app_runtime
 from app.models.user_dto import CurrentUser, UserInfo
@@ -54,45 +55,17 @@ def get_workspace_client(request: Request) -> WorkspaceClient:
         return request_client
 
     runtime = get_runtime(request)
-    if runtime.workspace_client is not None:
-        return runtime.workspace_client
-
-    detail = runtime.error_for("workspace_client")
-    if detail:
-        raise ServiceUnavailableError(
-            f"Databricks workspace client is unavailable: {detail}"
-        )
-    raise ConfigurationError("Databricks workspace client is not configured")
+    return ensure_workspace_client(runtime, settings)
 
 
 def get_ai_client(request: Request) -> AsyncOpenAI:
     runtime = get_runtime(request)
-    client = runtime.ai_client
-    if client is not None:
-        return client
-
-    detail = runtime.error_for("ai_client") or runtime.error_for("workspace_client")
-    if detail:
-        raise ServiceUnavailableError(f"AI client is unavailable: {detail}")
-    raise ConfigurationError(
-        "AI integration is not configured; set SERVING_ENDPOINT_NAME"
-    )
+    return ensure_ai_client(runtime, settings)
 
 
 def get_vector_index(request: Request) -> Any:
     runtime = get_runtime(request)
-    idx = runtime.vector_index
-    if idx is None:
-        detail = runtime.error_for("vector_index")
-        if detail:
-            raise ServiceUnavailableError(
-                f"Vector Search index is unavailable: {detail}"
-            )
-        raise ConfigurationError(
-            "Vector Search is not configured; set VECTOR_SEARCH_ENDPOINT_NAME and "
-            "VECTOR_SEARCH_INDEX_NAME"
-        )
-    return idx
+    return ensure_vector_index(runtime, settings)
 
 
 def get_current_user(request: Request) -> CurrentUser:

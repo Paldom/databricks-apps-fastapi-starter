@@ -1,0 +1,8 @@
+resources:
+  database_instances:
+    lakebase_oltp:
+      name: starter_oltp_${var.resource_name_suffix}
+      engine: LAKEBASE_POSTGRES
+      size: SMALL
+      storage_gb: 20
+      admin_username: lakebase_admin

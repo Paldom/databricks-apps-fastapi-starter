@@ -80,3 +80,12 @@ jobs:
             echo "::error::requirements.txt is out of sync. Run: uv export --no-hashes --no-editable --format=requirements.txt > requirements.txt"
             exit 1
           }
+
+  bundle-validate:
+    name: Bundle Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: databricks/setup-cli@main
+      - name: Validate bundle (dev)
+        run: databricks bundle validate -t dev

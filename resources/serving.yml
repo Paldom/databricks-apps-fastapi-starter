@@ -1,0 +1,11 @@
+resources:
+  model_serving_endpoints:
+    starter_endpoint:
+      name: starter-endpoint-${var.resource_name_suffix}
+      config:
+        served_models:
+          - name: startermodel-v1
+            model_name: StarterModel
+            model_version: "1"
+            workload_size: Small
+            scale_to_zero: false

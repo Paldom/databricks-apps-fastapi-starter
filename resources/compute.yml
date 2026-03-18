@@ -1,0 +1,19 @@
+resources:
+  clusters:
+    tiny_cluster:
+      spark_version: 15.4.x-scala2.12
+      node_type_id: ${var.cluster_node_type}
+      num_workers: 1
+      autotermination_minutes: 30
+
+  jobs:
+    starter_job:
+      name: StarterJob-${var.resource_name_suffix}
+      job_clusters:
+        - job_cluster_key: tiny
+          new_cluster: ${resources.clusters.tiny_cluster}
+      tasks:
+        - task_key: run_python
+          job_cluster_key: tiny
+          spark_python_task:
+            python_file: notebooks/jobs/starter_job.py

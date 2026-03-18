@@ -43,7 +43,7 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
       - name: Snyk IaC test
-        run: snyk iac test app.yaml databricks.yml --sarif-file-output=snyk-iac.sarif || true
+        run: snyk iac test databricks.yml resources/*.yml --sarif-file-output=snyk-iac.sarif || true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 

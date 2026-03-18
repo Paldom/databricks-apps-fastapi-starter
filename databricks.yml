@@ -1,95 +1,170 @@
 bundle:
   name: databricks-apps-fastapi-starter
+  databricks_cli_version: ">= 0.283.0"
 
-# ---- single environment ----
+include:
+  - resources/*.yml
+
+sync:
+  exclude:
+    - tests/**
+    - frontend/**
+    - client/**
+    - .github/**
+    - .venv/**
+    - .mypy_cache/**
+    - .ruff_cache/**
+    - .pytest_cache/**
+    - notebooks/**
+    - alembic/**
+    - "*.egg-info/**"
+    - .local/**
+    - .coverage
+    - coverage.xml
+    - "*.md"
+
+variables:
+  app_name:
+    description: Databricks app name
+    default: databricks-apps-fastapi-starter
+  resource_name_suffix:
+    description: Environment suffix for resource names
+    default: dev
+  environment:
+    description: Runtime environment label
+    default: development
+  log_level:
+    description: App log level
+    default: INFO
+  enable_obo:
+    description: Whether to enable OBO behavior
+    default: "false"
+  volume_full_name:
+    description: UC volume full name (catalog.schema.volume)
+    default: main.default.starter_volume
+  cluster_node_type:
+    description: Node type for job clusters
+    default: i3.xlarge
+  knowledge_assistant_endpoint_name:
+    description: Name of the Knowledge Assistant serving endpoint (created in Agent Bricks)
+    default: ""
+  app_config:
+    type: complex
+    description: Runtime config for the Databricks app
+    default:
+      command:
+        - python
+        - run_app.py
+      env:
+        - name: SERVE_STATIC
+          value: "true"
+        - name: ENABLE_DOCS
+          value: "false"
+        - name: ENVIRONMENT
+          value: development
+        - name: LOG_LEVEL
+          value: INFO
+        - name: ENABLE_OBO
+          value: "false"
+        - name: OTEL_TRACES_SAMPLER
+          value: always_on
+        - name: OTEL_PYTHON_LOG_CORRELATION
+          value: "true"
+        - name: SERVING_ENDPOINT_NAME
+          valueFrom: serving-endpoint
+        - name: JOB_ID
+          valueFrom: app-job
+        - name: VOLUME_ROOT
+          valueFrom: uc-volume
+        - name: OPENAI_KEY
+          valueFrom: openai-key
+        - name: LAKEBASE_PASSWORD
+          valueFrom: lakebase-password
+        - name: KNOWLEDGE_ASSISTANT_ENDPOINT
+          valueFrom: knowledge-assistant
+
 targets:
   dev:
     mode: development
+    default: true
+    variables:
+      resource_name_suffix: dev
+      environment: development
+      log_level: DEBUG
+      app_config:
+        command:
+          - python
+          - run_app.py
+        env:
+          - name: SERVE_STATIC
+            value: "true"
+          - name: ENABLE_DOCS
+            value: "true"
+          - name: ENVIRONMENT
+            value: development
+          - name: LOG_LEVEL
+            value: DEBUG
+          - name: ENABLE_OBO
+            value: "false"
+          - name: OTEL_TRACES_SAMPLER
+            value: always_on
+          - name: OTEL_PYTHON_LOG_CORRELATION
+            value: "true"
+          - name: SERVING_ENDPOINT_NAME
+            valueFrom: serving-endpoint
+          - name: JOB_ID
+            valueFrom: app-job
+          - name: VOLUME_ROOT
+            valueFrom: uc-volume
+          - name: OPENAI_KEY
+            valueFrom: openai-key
+          - name: LAKEBASE_PASSWORD
+            valueFrom: lakebase-password
+
+  staging:
     workspace:
-      host: https://<your-workspace>
-      root_path: /Users/<you>/databricks-apps-fastapi-starter
+      root_path: /Shared/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      resource_name_suffix: stg
+      environment: staging
+      log_level: INFO
+      app_name: databricks-apps-fastapi-starter-stg
 
-resources:
-
-  # 1. FastAPI App
-  apps:
-    fastapi_app:
-      name: databricks-apps-fastapi-starter
-      description: "FastAPI reference app deployed from bundle"
-      source_code_path: .
-      resources:
-        - name: inference
-          serving_endpoint:
-            id: ${resources.model_serving_endpoints.starter_endpoint.id}
-            permission: CAN_INVOKE
-
-  # 2. Lakebase OLTP instance
-  database_instances:
-    lakebase_oltp:
-      name: starter_oltp
-      engine: LAKEBASE_POSTGRES
-      size: SMALL
-      storage_gb: 20
-      admin_username: lakebase_admin
-
-  # 3. Vector-search index
-  vector_search_indexes:
-    starter_index:
-      name: main.default.starter_index
-      endpoint_name: lakehouse_vector_endpoint
-      primary_key: id
-      embedding_dimension: 1536
-      source_table: main.default.embedded_docs
-      index_type: DELTA_SYNC
-      sync_type: TRIGGERED
-
-  # 4. Serving endpoint (pre-registered model)
-  model_serving_endpoints:
-    starter_endpoint:
-      name: starter-endpoint
-      config:
-        served_models:
-          - name: startermodel-v1
-            model_name: StarterModel
-            model_version: "1"
-            workload_size: Small
-            scale_to_zero: false
-
-  # 5. Minimal cluster for the job
-  clusters:
-    tiny_cluster:
-      spark_version: 15.4.x-scala2.12
-      node_type_id: i3.xlarge
-      num_workers: 1
-      autotermination_minutes: 30
-
-  # 6. Job that runs a simple notebook on the cluster
-  jobs:
-    starter_job:
-      name: StarterJob
-      job_clusters:
-        - job_cluster_key: tiny
-          new_cluster: ${resources.clusters.tiny_cluster}
-      tasks:
-        - task_key: run_python
-          job_cluster_key: tiny
-          spark_python_task:
-            python_file: notebooks/jobs/starter_job.py
-
-  # 7. Secret scope and secrets
-  secret_scopes:
-    starter_scope:
-      name: starter_scope
-      initial_manage_principal: users
-      permissions:
-        - user_name: admins
-          level: WRITE
-        - user_name: users
-          level: READ
-      secrets:
-        SERVING_ENDPOINT_NAME: ""
-        JOB_ID: ""
-        VECTOR_SEARCH_ENDPOINT_NAME: ""
-        VECTOR_SEARCH_INDEX_NAME: ""
-        LAKEBASE_PASSWORD: ""
-        OPENAI_KEY: ""
+  prod:
+    workspace:
+      root_path: /Shared/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      resource_name_suffix: prod
+      environment: production
+      log_level: INFO
+      enable_obo: "true"
+      app_name: databricks-apps-fastapi-starter-prod
+      app_config:
+        command:
+          - python
+          - run_app.py
+        env:
+          - name: SERVE_STATIC
+            value: "true"
+          - name: ENABLE_DOCS
+            value: "false"
+          - name: ENVIRONMENT
+            value: production
+          - name: LOG_LEVEL
+            value: INFO
+          - name: ENABLE_OBO
+            value: "true"
+          - name: OTEL_TRACES_SAMPLER
+            value: always_on
+          - name: OTEL_PYTHON_LOG_CORRELATION
+            value: "true"
+          - name: SERVING_ENDPOINT_NAME
+            valueFrom: serving-endpoint
+          - name: JOB_ID
+            valueFrom: app-job
+          - name: VOLUME_ROOT
+            valueFrom: uc-volume
+          - name: OPENAI_KEY
+            valueFrom: openai-key
+          - name: LAKEBASE_PASSWORD
+            valueFrom: lakebase-password

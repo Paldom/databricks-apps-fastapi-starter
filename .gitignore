@@ -196,5 +196,8 @@ cython_debug/
 # macOS
 .DS_Store
 
+# Databricks bundle artifacts
+.databricks/
+
 # Local notes
 .local/

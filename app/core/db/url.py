@@ -8,7 +8,32 @@ from __future__ import annotations
 
 import os
 
+from sqlalchemy.engine import URL
+
 from app.core.config import Settings
+
+
+DATABASE_NOT_CONFIGURED_MESSAGE = (
+    "DATABASE_URL, PG*, or LAKEBASE_* settings are not configured"
+)
+
+
+def _build_asyncpg_url(
+    *,
+    username: str,
+    password: str,
+    host: str,
+    port: int,
+    database: str,
+) -> str:
+    return URL.create(
+        drivername="postgresql+asyncpg",
+        username=username,
+        password=password,
+        host=host,
+        port=port,
+        database=database,
+    ).render_as_string(hide_password=False)
 
 
 def get_database_url(settings: Settings) -> str:
@@ -16,13 +41,39 @@ def get_database_url(settings: Settings) -> str:
 
     Resolution order:
     1. ``DATABASE_URL`` environment variable (if set).
-    2. Constructed from ``settings.lakebase_*`` fields.
+    2. Constructed from ``PG*`` settings.
+    3. Constructed from ``settings.lakebase_*`` fields.
     """
     explicit = os.environ.get("DATABASE_URL")
     if explicit:
         return explicit
 
-    return (
-        f"postgresql+asyncpg://{settings.lakebase_user}:{settings.lakebase_password}"
-        f"@{settings.lakebase_host}:{settings.lakebase_port}/{settings.lakebase_db}"
-    )
+    pg_host = getattr(settings, "pg_host", None)
+    pg_database = getattr(settings, "pg_database", None)
+    pg_user = getattr(settings, "pg_user", None)
+    pg_password = getattr(settings, "pg_password", None)
+    pg_port = getattr(settings, "pg_port", None) or 5432
+    if all([pg_host, pg_database, pg_user, pg_password]):
+        return _build_asyncpg_url(
+            username=pg_user,
+            password=pg_password,
+            host=pg_host,
+            port=pg_port,
+            database=pg_database,
+        )
+
+    lakebase_host = getattr(settings, "lakebase_host", None)
+    lakebase_db = getattr(settings, "lakebase_db", None)
+    lakebase_user = getattr(settings, "lakebase_user", None)
+    lakebase_password = getattr(settings, "lakebase_password", None)
+    lakebase_port = getattr(settings, "lakebase_port", None) or 5432
+    if all([lakebase_host, lakebase_db, lakebase_user, lakebase_password]):
+        return _build_asyncpg_url(
+            username=lakebase_user,
+            password=lakebase_password,
+            host=lakebase_host,
+            port=lakebase_port,
+            database=lakebase_db,
+        )
+
+    raise ValueError(DATABASE_NOT_CONFIGURED_MESSAGE)

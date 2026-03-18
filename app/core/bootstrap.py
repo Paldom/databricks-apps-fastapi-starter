@@ -2,13 +2,11 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from openai import AsyncOpenAI
 
 from app.core.cache import build_cache
 from app.core.config import settings
-from app.core.databricks.vector_search import init_vector_index
-from app.core.databricks.workspace import get_workspace_client_singleton
 from app.core.db import create_async_engine_from_settings, create_session_factory
+from app.core.integrations import initialise_optional_resource_states
 from app.core.logging import get_logger, setup_logging
 from app.core.observability import get_tracer, record_duration, tag_exception
 from app.core.runtime import AppRuntime
@@ -50,50 +48,13 @@ async def lifespan(application: FastAPI):
                     tag_exception(span, exc)
                     _record_startup_failure(runtime, "database", exc)
             else:
+                runtime.not_configured(
+                    "database",
+                    "DATABASE_URL, PG*, or LAKEBASE_* settings are not configured",
+                )
                 logger.info("Database configuration not provided; skipping startup")
 
-        with tracer.start_as_current_span("startup.workspace.client.init") as span:
-            try:
-                runtime.workspace_client = get_workspace_client_singleton()
-                runtime.clear_error("workspace_client")
-            except Exception as exc:
-                tag_exception(span, exc)
-                _record_startup_failure(runtime, "workspace_client", exc)
-
-        with tracer.start_as_current_span("startup.ai.client.init") as span:
-            if not settings.has_ai_config():
-                logger.info("AI integration not configured; skipping startup")
-            elif runtime.workspace_client is None:
-                runtime.remember_error(
-                    "ai_client",
-                    runtime.error_for("workspace_client")
-                    or "Databricks workspace client is unavailable",
-                )
-            else:
-                try:
-                    cfg = runtime.workspace_client.config
-                    runtime.ai_client = AsyncOpenAI(
-                        api_key=cfg.token,
-                        base_url=f"{cfg.host}/serving-endpoints",
-                        timeout=float(settings.openai_timeout_seconds),
-                    )
-                    runtime.clear_error("ai_client")
-                except Exception as exc:
-                    tag_exception(span, exc)
-                    _record_startup_failure(runtime, "ai_client", exc)
-
-        with tracer.start_as_current_span("startup.vector.index.init") as span:
-            if not settings.has_vector_search_config():
-                logger.info(
-                    "Vector Search configuration not provided; skipping startup"
-                )
-            else:
-                try:
-                    runtime.vector_index = init_vector_index(settings)
-                    runtime.clear_error("vector_index")
-                except Exception as exc:
-                    tag_exception(span, exc)
-                    _record_startup_failure(runtime, "vector_index", exc)
+        initialise_optional_resource_states(runtime, settings)
 
         with tracer.start_as_current_span("startup.cache.init") as span:
             try:
