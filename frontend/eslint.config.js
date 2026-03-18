@@ -18,7 +18,7 @@ export default tseslint.config(
       '.stryker-tmp',
       '.storybook',
       '.scannerwork',
-      'src/shared/api/generated/chat',
+      'src/shared/api/generated',
     ],
   },
   js.configs.recommended,

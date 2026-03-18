@@ -6,6 +6,12 @@ import { documentHandlers } from './handlers/documents-handler'
 import { http, HttpResponse } from 'msw'
 import { db } from './data/seed'
 
+const meHandlers = [
+  http.get('*/api/me', () => {
+    return HttpResponse.json(db.currentUser)
+  }),
+]
+
 // Settings handlers wired to mutable db.settings
 const settingsHandlers = [
   http.get('*/api/settings', () => {
@@ -20,6 +26,7 @@ const settingsHandlers = [
 
 export const handlers = [
   ...getDashboardMock(),
+  ...meHandlers,
   ...settingsHandlers,
   getChatStreamMockHandler(),
   ...projectHandlers,

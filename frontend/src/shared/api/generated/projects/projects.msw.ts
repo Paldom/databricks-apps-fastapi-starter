@@ -23,7 +23,7 @@ import type {
 } from '.././models';
 
 
-export const getListProjectsResponseMock = (overrideResponse: Partial< PaginatedProjects > = {}): PaginatedProjects => ({hasMore: faker.datatype.boolean(), items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({chatCount: faker.number.int({min: undefined, max: undefined}), createdAt: faker.date.past().toISOString().slice(0, 19) + 'Z', id: faker.string.alpha({length: {min: 10, max: 20}}), name: faker.string.alpha({length: {min: 10, max: 20}})})), nextCursor: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), ...overrideResponse})
+export const getListProjectsResponseMock = (overrideResponse: Partial< PaginatedProjects > = {}): PaginatedProjects => ({hasMore: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({chatCount: faker.number.int({min: undefined, max: undefined}), createdAt: faker.date.past().toISOString().slice(0, 19) + 'Z', id: faker.string.alpha({length: {min: 10, max: 20}}), name: faker.string.alpha({length: {min: 10, max: 20}})})), nextCursor: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), ...overrideResponse})
 
 export const getCreateProjectResponseMock = (): Project => ({"chatCount":2,"createdAt":"2024-01-15T10:00:00Z","id":"work","name":"Work"})
 

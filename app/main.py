@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi_pagination import add_pagination
 from slowapi.errors import RateLimitExceeded
@@ -17,6 +18,13 @@ from app.middlewares.request_size import RequestSizeMiddleware
 from app.middlewares.security_headers import security_headers_middleware
 from app.middlewares.user_info import user_info_middleware
 from app.middlewares.workspace_client import workspace_client_middleware
+
+
+def _app_error_response(exc: AppError) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
 
 
 def _patch_openapi_schema(schema: dict) -> None:
@@ -86,6 +94,11 @@ def build_api_app(s: Settings) -> FastAPI:
         docs_url="/docs" if s.enable_docs else None,
         redoc_url="/redoc" if s.enable_docs else None,
     )
+
+    @api_app.exception_handler(AppError)
+    async def api_app_error_handler(request: Request, exc: AppError):
+        return _app_error_response(exc)
+
     api_app.include_router(build_api_router())
 
     # Custom OpenAPI hook to inject streaming event schemas
@@ -119,10 +132,7 @@ def build_root_app(s: Settings) -> FastAPI:
     # Global exception handlers
     @application.exception_handler(AppError)
     async def app_error_handler(request: Request, exc: AppError):
-        return JSONResponse(
-            status_code=exc.status_code,
-            content={"detail": exc.detail},
-        )
+        return _app_error_response(exc)
 
     application.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
@@ -131,6 +141,15 @@ def build_root_app(s: Settings) -> FastAPI:
     application.middleware("http")(workspace_client_middleware)
     application.middleware("http")(security_headers_middleware)
     application.middleware("http")(request_context_middleware)
+
+    if s.environment == "development":
+        application.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
     # Pure ASGI middleware — outermost, runs before all http middleware
     application.add_middleware(

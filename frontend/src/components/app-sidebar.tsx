@@ -58,7 +58,7 @@ import {
   useUpdateChat,
   getListProjectChatsQueryKey,
 } from '@/shared/api/generated/chats/chats'
-import { useGetUserSettings } from '@/shared/api/generated/settings/settings'
+import { useGetMe } from '@/shared/api/generated/me/me'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAui } from '@assistant-ui/react'
 
@@ -69,6 +69,17 @@ function getInitials(name: string) {
     .slice(0, 2)
     .map((s) => s[0]?.toUpperCase() ?? '')
     .join('')
+}
+
+function getUserLabels(user?: {
+  id: string
+  email?: string | null
+  name?: string | null
+  preferred_username?: string | null
+} | null) {
+  const primary = user?.name || user?.preferred_username || user?.email || user?.id || ''
+  const secondary = user?.email || user?.preferred_username || user?.id || ''
+  return { primary, secondary }
 }
 
 function ProjectChatList({ projectId }: Readonly<{ projectId: string }>) {
@@ -194,7 +205,7 @@ export function AppSidebar() {
         lastPage.data.hasMore ? lastPage.data.nextCursor : undefined,
     },
   })
-  const settingsQuery = useGetUserSettings()
+  const currentUserQuery = useGetMe()
 
   const projects = React.useMemo(
     () => projectsQuery.data?.pages.flatMap((page) => page.data.items) ?? [],
@@ -291,8 +302,9 @@ export function AppSidebar() {
     deleteProjectMutation.mutate({ projectId })
   }
 
-  const userName = settingsQuery.data?.data.name ?? ''
-  const userEmail = settingsQuery.data?.data.email ?? ''
+  const { primary: userName, secondary: userEmail } = getUserLabels(
+    currentUserQuery.data?.data
+  )
 
   return (
     <Sidebar collapsible="offcanvas">
@@ -492,11 +504,11 @@ export function AppSidebar() {
                 <SidebarMenuButton>
                   <Avatar className="h-6 w-6">
                     <AvatarFallback>
-                      {settingsQuery.isLoading ? '...' : getInitials(userName)}
+                      {currentUserQuery.isLoading ? '...' : getInitials(userName)}
                     </AvatarFallback>
                   </Avatar>
 
-                  {settingsQuery.isLoading ? (
+                  {currentUserQuery.isLoading ? (
                     <span className="flex min-w-0 flex-col gap-1">
                       <Skeleton className="h-3.5 w-20" />
                       <Skeleton className="h-3 w-28" />

@@ -8,7 +8,7 @@ API_CLIENT_DIR ?= client
 MIGRATION_MESSAGE ?= new migration
 
 .PHONY: install install-backend install-frontend \
-	dev dev-api dev-backend dev-frontend dev-db dev-db-down dev-compose \
+	dev dev-api dev-backend dev-frontend dev-db dev-db-down \
 	migrate-up migrate-new \
 	requirements-export openapi-export frontend-api-gen generate \
 	backend-lint backend-typecheck backend-test \
@@ -53,9 +53,6 @@ dev-backend: dev-api
 
 dev-frontend:
 	cd $(FRONTEND_DIR) && $(NPM) run dev
-
-dev-compose:
-	$(DOCKER_COMPOSE) up --build api postgres
 
 dev:
 	bash -lc 'trap "kill 0" EXIT; $(MAKE) dev-api & $(MAKE) dev-frontend & wait'
@@ -102,7 +99,7 @@ format:
 typecheck: backend-typecheck frontend-typecheck
 
 security:
-	$(UV) run bandit -r . -q
+	$(UV) run bandit -r app -c pyproject.toml -q
 
 test: backend-test frontend-test
 

@@ -22,33 +22,5 @@ services:
       timeout: 5s
       retries: 10
 
-  api:
-    build:
-      context: .
-      target: dev
-    command:
-      [
-        "uv",
-        "run",
-        "uvicorn",
-        "main:app",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "8000",
-        "--reload",
-      ]
-    env_file:
-      - ${ENV_FILE:-.env}
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${PGUSER:-myuser}:${PGPASSWORD:-mypassword}@postgres:5432/${PGDATABASE:-mydb}
-    ports:
-      - "8000:8000"
-    volumes:
-      - .:/app
-    depends_on:
-      postgres:
-        condition: service_healthy
-
 volumes:
   postgres-data:

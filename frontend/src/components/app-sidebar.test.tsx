@@ -47,7 +47,7 @@ describe('AppSidebar', () => {
     expect(screen.getByText('React Starter Pro')).toBeInTheDocument()
     expect(screen.getByText('Enterprise')).toBeInTheDocument()
 
-    // Wait for user profile to load from MSW
+    // Wait for current user identity to load from MSW
     await waitFor(
       () => {
         expect(screen.getByText('John Doe')).toBeInTheDocument()
@@ -78,9 +78,9 @@ describe('AppSidebar', () => {
     expect(screen.getByText('Search chats')).toBeInTheDocument()
   })
 
-  it('shows user settings loading state', () => {
+  it('shows current user loading state', () => {
     server.use(
-      http.get('*/api/settings', async () => {
+      http.get('*/api/me', async () => {
         await new Promise(() => {})
         return HttpResponse.json({})
       })
@@ -89,6 +89,25 @@ describe('AppSidebar', () => {
     renderSidebar()
 
     expect(screen.getByText('...')).toBeInTheDocument()
+  })
+
+  it('falls back to preferred username when name and email are missing', async () => {
+    server.use(
+      http.get('*/api/me', () => {
+        return HttpResponse.json({
+          id: 'user-1',
+          name: null,
+          email: null,
+          preferred_username: 'preferred.user',
+        })
+      })
+    )
+
+    renderSidebar()
+
+    await waitFor(() => {
+      expect(screen.getAllByText('preferred.user')).toHaveLength(2)
+    })
   })
 
   it('creates a project when clicking add project', async () => {

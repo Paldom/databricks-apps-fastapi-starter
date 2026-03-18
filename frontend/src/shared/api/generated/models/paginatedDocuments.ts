@@ -7,7 +7,7 @@
 import type { Document } from './document';
 
 export interface PaginatedDocuments {
-  hasMore: boolean;
+  hasMore?: boolean;
   items: Document[];
-  nextCursor: string | null;
+  nextCursor?: string | null;
 }

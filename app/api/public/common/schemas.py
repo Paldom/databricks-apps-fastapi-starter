@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Generic, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 
 def to_camel(value: str) -> str:
@@ -31,5 +31,5 @@ T = TypeVar("T")
 
 class CursorPage(ApiModel, Generic[T]):
     items: list[T]
-    next_cursor: str | None = Field(alias="nextCursor")
-    has_more: bool = Field(alias="hasMore")
+    next_cursor: str | None = None
+    has_more: bool = False

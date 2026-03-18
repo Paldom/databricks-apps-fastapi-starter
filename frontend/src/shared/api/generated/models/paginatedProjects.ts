@@ -7,7 +7,7 @@
 import type { Project } from './project';
 
 export interface PaginatedProjects {
-  hasMore: boolean;
+  hasMore?: boolean;
   items: Project[];
-  nextCursor: string | null;
+  nextCursor?: string | null;
 }

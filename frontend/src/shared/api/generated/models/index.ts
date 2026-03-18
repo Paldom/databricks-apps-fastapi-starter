@@ -18,6 +18,7 @@ export * from './chatStreamRequest';
 export * from './chatStreamRequestRunConfig';
 export * from './createChatRequest';
 export * from './createProjectRequest';
+export * from './currentUser';
 export * from './dashboardStats';
 export * from './dependencyHealth';
 export * from './dependencyHealthStatus';

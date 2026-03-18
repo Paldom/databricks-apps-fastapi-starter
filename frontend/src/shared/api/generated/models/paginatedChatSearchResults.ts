@@ -7,7 +7,7 @@
 import type { ChatSearchResult } from './chatSearchResult';
 
 export interface PaginatedChatSearchResults {
-  hasMore: boolean;
+  hasMore?: boolean;
   items: ChatSearchResult[];
-  nextCursor: string | null;
+  nextCursor?: string | null;
 }

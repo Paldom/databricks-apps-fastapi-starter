@@ -11,6 +11,12 @@ def test_legacy_prefix_works():
     assert response.status_code == 200
 
 
+def test_api_me_route_works():
+    with TestClient(app_main.app) as client:
+        response = client.get("/api/me", headers=AUTH_HEADERS)
+    assert response.status_code == 200
+
+
 def test_api_health_live():
     with TestClient(app_main.app) as client:
         response = client.get("/api/health/live")
@@ -42,6 +48,7 @@ def test_api_openapi_has_contract_routes():
     assert "/health/integrations" in paths
     assert "/projects" in paths
     assert "/chat/stream" in paths
+    assert "/me" in paths
     assert "/settings" in paths
     assert "/dashboard/stats" in paths
 

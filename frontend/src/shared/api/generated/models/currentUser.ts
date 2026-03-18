@@ -4,10 +4,10 @@
  * Databricks Apps FastAPI Starter API
  * OpenAPI spec version: 0.1.0
  */
-import type { Chat } from './chat';
 
-export interface PaginatedChats {
-  hasMore?: boolean;
-  items: Chat[];
-  nextCursor?: string | null;
+export interface CurrentUser {
+  email?: string | null;
+  id: string;
+  name?: string | null;
+  preferred_username?: string | null;
 }

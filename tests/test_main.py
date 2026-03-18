@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 import app.core.bootstrap as bootstrap
 import app.core.integrations as integrations
 import app.main as app_main
+from app.core.config import Settings
 
 
 @pytest.mark.asyncio
@@ -69,3 +70,54 @@ def test_healthcheck_available_without_databricks_credentials():
 
     assert response.status_code == 200
     assert response.json()["status"] == "alive"
+
+
+def _build_app(**kwargs):
+    return app_main.build_root_app(Settings(**kwargs))
+
+
+def test_dev_cors_allows_any_origin():
+    app = _build_app(environment="development")
+    origin = "https://example.test"
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/health/live",
+            headers={"Origin": origin},
+        )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "*"
+    assert response.headers["access-control-allow-credentials"] == "true"
+
+
+def test_dev_cors_handles_preflight():
+    app = _build_app(environment="development")
+    origin = "https://example.test"
+
+    with TestClient(app) as client:
+        response = client.options(
+            "/api/health/live",
+            headers={
+                "Origin": origin,
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == origin
+    assert response.headers["access-control-allow-credentials"] == "true"
+    assert "GET" in response.headers["access-control-allow-methods"]
+
+
+def test_non_dev_app_does_not_enable_cors():
+    app = _build_app(environment="production")
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/health/live",
+            headers={"Origin": "https://example.test"},
+        )
+
+    assert response.status_code == 200
+    assert "access-control-allow-origin" not in response.headers

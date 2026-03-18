@@ -62,6 +62,7 @@ ignore = ["F401"]
 
 [tool.bandit]
 skips = ["B101", "B105", "B608"]
+exclude_dirs = [".venv", "notebooks"]
 
 [build-system]
 requires = ["setuptools>=64"]

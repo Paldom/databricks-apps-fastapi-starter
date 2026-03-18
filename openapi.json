@@ -270,6 +270,52 @@
         "title": "CreateProjectRequest",
         "type": "object"
       },
+      "CurrentUser": {
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "preferred_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Username"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "CurrentUser",
+        "type": "object"
+      },
       "DashboardStats": {
         "additionalProperties": false,
         "example": {
@@ -547,6 +593,7 @@
         "additionalProperties": false,
         "properties": {
           "hasMore": {
+            "default": false,
             "title": "Hasmore",
             "type": "boolean"
           },
@@ -570,9 +617,7 @@
           }
         },
         "required": [
-          "items",
-          "nextCursor",
-          "hasMore"
+          "items"
         ],
         "title": "PaginatedChatSearchResults",
         "type": "object"
@@ -581,6 +626,7 @@
         "additionalProperties": false,
         "properties": {
           "hasMore": {
+            "default": false,
             "title": "Hasmore",
             "type": "boolean"
           },
@@ -604,9 +650,7 @@
           }
         },
         "required": [
-          "items",
-          "nextCursor",
-          "hasMore"
+          "items"
         ],
         "title": "PaginatedChats",
         "type": "object"
@@ -615,6 +659,7 @@
         "additionalProperties": false,
         "properties": {
           "hasMore": {
+            "default": false,
             "title": "Hasmore",
             "type": "boolean"
           },
@@ -638,9 +683,7 @@
           }
         },
         "required": [
-          "items",
-          "nextCursor",
-          "hasMore"
+          "items"
         ],
         "title": "PaginatedDocuments",
         "type": "object"
@@ -649,6 +692,7 @@
         "additionalProperties": false,
         "properties": {
           "hasMore": {
+            "default": false,
             "title": "Hasmore",
             "type": "boolean"
           },
@@ -672,9 +716,7 @@
           }
         },
         "required": [
-          "items",
-          "nextCursor",
-          "hasMore"
+          "items"
         ],
         "title": "PaginatedProjects",
         "type": "object"
@@ -1343,6 +1385,27 @@
         "summary": "Health Ready",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/me": {
+      "get": {
+        "operationId": "getMe",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentUser"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Me",
+        "tags": [
+          "me"
         ]
       }
     },

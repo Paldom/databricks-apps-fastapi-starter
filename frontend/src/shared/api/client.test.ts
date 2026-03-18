@@ -50,12 +50,12 @@ describe('shared/api/client', () => {
     localStorage.clear()
   })
 
-  it('attaches bearer token from localStorage when present', () => {
+  it('does not attach bearer token (auth is server-side)', () => {
     localStorage.setItem('authToken', 'token-123')
     const initialConfig: AxiosConfig = { headers: {} }
     const config = interceptorRef.current?.(initialConfig) ?? initialConfig
 
-    expect(config.headers.Authorization).toBe('Bearer token-123')
+    expect(config.headers.Authorization).toBeUndefined()
   })
 
   it('configures axios with base URL and timeout defaults', () => {

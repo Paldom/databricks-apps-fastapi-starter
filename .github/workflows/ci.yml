@@ -35,7 +35,7 @@ jobs:
       - name: Mypy
         run: uv run mypy --ignore-missing-imports .
       - name: Bandit
-        run: uv run bandit -r . -q
+        run: uv run bandit -r app -c pyproject.toml -q
       - name: Pytest
         run: uv run pytest --cov .
 

@@ -78,9 +78,9 @@ app/
 
 ## Local Development
 
-The default inner loop is **API on the host + Postgres in Docker**. Databricks integrations are optional and disabled by default for local work.
+The local development workflow is **API on the host + Postgres in Docker**. Databricks integrations are optional and disabled by default for local work.
 
-### Mode A: host API + Docker Postgres
+### Host API + Docker Postgres
 
 ```bash
 git clone https://github.com/Paldom/databricks-apps-fastapi-starter.git
@@ -101,15 +101,6 @@ With the defaults from `env.example`, the following work locally without Databri
 - `http://localhost:8000/health/live`
 - `http://localhost:8000/health/ready`
 - authenticated `/api` routes via the development fallback user
-
-### Mode B: full Docker Compose
-
-```bash
-cp env.example .env
-make dev-compose
-```
-
-This runs both `postgres` and the FastAPI app in containers. The `api` service overrides `DATABASE_URL` to use the Compose hostname `postgres`; the host-run workflow remains the recommended default because reload/debugging is faster.
 
 ### Optional remote-integrated local mode
 
