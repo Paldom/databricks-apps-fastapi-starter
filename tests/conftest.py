@@ -1,9 +1,5 @@
-import os
 import sys
 import types
-
-# Enable legacy API routes for backward-compatible tests
-os.environ.setdefault("ENABLE_LEGACY_API", "true")
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock

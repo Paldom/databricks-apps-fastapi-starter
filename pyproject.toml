@@ -16,7 +16,6 @@ dependencies = [
     "databricks-sdk==0.100.0",
     "sqlalchemy==2.0.48",
     "secure==1.0.1",
-    "fastapi-pagination==0.15.10",
     "openai==2.28.0",
     "databricks-sql-connector==4.2.5",
     "databricks-vectorsearch==0.66",

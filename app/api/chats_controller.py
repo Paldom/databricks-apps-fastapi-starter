@@ -5,7 +5,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import ConfigDict
 
-from app.api.public.common.schemas import ApiModel, CursorPage
+from app.api.common.schemas import ApiModel, CursorPage
 from app.core.deps import get_chat_service
 from app.services.chat_service import ChatService
 

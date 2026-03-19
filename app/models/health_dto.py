@@ -13,10 +13,9 @@ class DependencyHealthStatus(str, Enum):
 
 
 class HealthResponseStatus(str, Enum):
-    ALIVE = "alive"
-    READY = "ready"
+    OK = "ok"
     DEGRADED = "degraded"
-    NOT_READY = "not_ready"
+    FAIL = "fail"
 
 
 class DependencyHealth(BaseModel):
@@ -26,19 +25,16 @@ class DependencyHealth(BaseModel):
     reason: str | None = None
 
 
-class LiveHealthResponse(BaseModel):
-    status: HealthResponseStatus
-
-
-class ReadyHealthResponse(BaseModel):
-    ok: bool
-    status: HealthResponseStatus
-    db: DependencyHealth
-
-
-class IntegrationsHealthResponse(BaseModel):
-    ok: bool
-    status: HealthResponseStatus
+class HealthChecks(BaseModel):
+    database: DependencyHealth
     workspace: DependencyHealth
     ai: DependencyHealth
     vector_search: DependencyHealth
+    jobs: DependencyHealth
+    knowledge_assistant: DependencyHealth
+
+
+class HealthResponse(BaseModel):
+    ok: bool
+    status: HealthResponseStatus
+    checks: HealthChecks

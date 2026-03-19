@@ -1,6 +1,48 @@
 {
   "components": {
     "schemas": {
+      "AgentMessage": {
+        "properties": {
+          "content": {
+            "maxLength": 8192,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "role": {
+            "default": "user",
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "AgentMessage",
+        "type": "object"
+      },
+      "AgentQuestion": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/AgentMessage"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Messages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "messages"
+        ],
+        "title": "AgentQuestion",
+        "type": "object"
+      },
       "Body_uploadDocument": {
         "properties": {
           "file": {
@@ -24,6 +66,20 @@
           "file"
         ],
         "title": "Body_uploadDocument",
+        "type": "object"
+      },
+      "Body_upload_examples_uc_upload_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_examples_uc_upload_post",
         "type": "object"
       },
       "ChartDataPoint": {
@@ -538,27 +594,84 @@
         "title": "ErrorEvent",
         "type": "object"
       },
-      "HealthResponseStatus": {
-        "enum": [
-          "alive",
-          "ready",
-          "degraded",
-          "not_ready"
+      "ExampleMessage": {
+        "properties": {
+          "text": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
         ],
-        "title": "HealthResponseStatus",
-        "type": "string"
+        "title": "ExampleMessage",
+        "type": "object"
       },
-      "IntegrationsHealthResponse": {
+      "ExampleRow": {
+        "properties": {
+          "data": {
+            "maxLength": 65536,
+            "title": "Data",
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 255,
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "data"
+        ],
+        "title": "ExampleRow",
+        "type": "object"
+      },
+      "ExampleTitle": {
+        "properties": {
+          "title": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "ExampleTitle",
+        "type": "object"
+      },
+      "GenieQuestion": {
+        "properties": {
+          "content": {
+            "maxLength": 8192,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "GenieQuestion",
+        "type": "object"
+      },
+      "HealthChecks": {
         "properties": {
           "ai": {
             "$ref": "#/components/schemas/DependencyHealth"
           },
-          "ok": {
-            "title": "Ok",
-            "type": "boolean"
+          "database": {
+            "$ref": "#/components/schemas/DependencyHealth"
           },
-          "status": {
-            "$ref": "#/components/schemas/HealthResponseStatus"
+          "jobs": {
+            "$ref": "#/components/schemas/DependencyHealth"
+          },
+          "knowledge_assistant": {
+            "$ref": "#/components/schemas/DependencyHealth"
           },
           "vector_search": {
             "$ref": "#/components/schemas/DependencyHealth"
@@ -568,26 +681,45 @@
           }
         },
         "required": [
-          "ok",
-          "status",
+          "database",
           "workspace",
           "ai",
-          "vector_search"
+          "vector_search",
+          "jobs",
+          "knowledge_assistant"
         ],
-        "title": "IntegrationsHealthResponse",
+        "title": "HealthChecks",
         "type": "object"
       },
-      "LiveHealthResponse": {
+      "HealthResponse": {
         "properties": {
+          "checks": {
+            "$ref": "#/components/schemas/HealthChecks"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
           "status": {
             "$ref": "#/components/schemas/HealthResponseStatus"
           }
         },
         "required": [
-          "status"
+          "ok",
+          "status",
+          "checks"
         ],
-        "title": "LiveHealthResponse",
+        "title": "HealthResponse",
         "type": "object"
+      },
+      "HealthResponseStatus": {
+        "enum": [
+          "ok",
+          "degraded",
+          "fail"
+        ],
+        "title": "HealthResponseStatus",
+        "type": "string"
       },
       "PaginatedChatSearchResults": {
         "additionalProperties": false,
@@ -755,27 +887,6 @@
           "chatCount"
         ],
         "title": "Project",
-        "type": "object"
-      },
-      "ReadyHealthResponse": {
-        "properties": {
-          "db": {
-            "$ref": "#/components/schemas/DependencyHealth"
-          },
-          "ok": {
-            "title": "Ok",
-            "type": "boolean"
-          },
-          "status": {
-            "$ref": "#/components/schemas/HealthResponseStatus"
-          }
-        },
-        "required": [
-          "ok",
-          "status",
-          "db"
-        ],
-        "title": "ReadyHealthResponse",
         "type": "object"
       },
       "TextDeltaEvent": {
@@ -1325,64 +1436,425 @@
         ]
       }
     },
-    "/health/integrations": {
-      "get": {
-        "operationId": "apiHealthIntegrations",
+    "/examples/agent/ask": {
+      "post": {
+        "operationId": "agent_ask_examples_agent_ask_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentQuestion"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/IntegrationsHealthResponse"
-                }
+                "schema": {}
               }
             },
             "description": "Successful Response"
           }
         },
-        "summary": "Health Integrations",
+        "summary": "Agent Ask",
         "tags": [
-          "health"
+          "examples"
         ]
       }
     },
-    "/health/live": {
-      "get": {
-        "operationId": "apiHealthLive",
+    "/examples/agent/ask/stream": {
+      "post": {
+        "operationId": "agent_ask_stream_examples_agent_ask_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentQuestion"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LiveHealthResponse"
-                }
+                "schema": {}
               }
             },
             "description": "Successful Response"
           }
         },
-        "summary": "Health Live",
+        "summary": "Agent Ask Stream",
         "tags": [
-          "health"
+          "examples"
         ]
       }
     },
-    "/health/ready": {
+    "/examples/embed": {
+      "post": {
+        "operationId": "embed_examples_embed_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExampleTitle"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Embed",
+        "tags": [
+          "examples"
+        ]
+      }
+    },
+    "/examples/genie/{space_id}/ask": {
+      "post": {
+        "operationId": "genie_start_conversation_examples_genie__space_id__ask_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "space_id",
+            "required": true,
+            "schema": {
+              "title": "Space Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenieQuestion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Genie Start Conversation",
+        "tags": [
+          "examples"
+        ]
+      }
+    },
+    "/examples/genie/{space_id}/{conversation_id}/ask": {
+      "post": {
+        "operationId": "genie_follow_up_examples_genie__space_id___conversation_id__ask_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "space_id",
+            "required": true,
+            "schema": {
+              "title": "Space Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenieQuestion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Genie Follow Up",
+        "tags": [
+          "examples"
+        ]
+      }
+    },
+    "/examples/job": {
+      "post": {
+        "operationId": "run_job_examples_job_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Params"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Run Job",
+        "tags": [
+          "examples"
+        ]
+      }
+    },
+    "/examples/pg": {
+      "post": {
+        "operationId": "pg_demo_examples_pg_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExampleMessage"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Pg Demo",
+        "tags": [
+          "examples"
+        ]
+      }
+    },
+    "/examples/serving": {
+      "post": {
+        "operationId": "serving_examples_serving_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "$ref": "#/components/schemas/ExampleRow"
+                },
+                "title": "Rows",
+                "type": "array"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Serving",
+        "tags": [
+          "examples"
+        ]
+      }
+    },
+    "/examples/uc/download": {
       "get": {
-        "operationId": "apiHealthReady",
+        "operationId": "download_examples_uc_download_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "relative_path",
+            "required": true,
+            "schema": {
+              "title": "Relative Path",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Download",
+        "tags": [
+          "examples"
+        ]
+      }
+    },
+    "/examples/uc/upload": {
+      "post": {
+        "operationId": "upload_examples_uc_upload_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "relative_path",
+            "required": true,
+            "schema": {
+              "title": "Relative Path",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_examples_uc_upload_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Upload",
+        "tags": [
+          "examples"
+        ]
+      }
+    },
+    "/examples/vector/query": {
+      "post": {
+        "operationId": "vector_query_examples_vector_query_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExampleTitle"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Vector Query",
+        "tags": [
+          "examples"
+        ]
+      }
+    },
+    "/examples/vector/store": {
+      "post": {
+        "operationId": "vector_store_examples_vector_store_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExampleTitle"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Vector Store",
+        "tags": [
+          "examples"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ReadyHealthResponse"
+                  "$ref": "#/components/schemas/HealthResponse"
                 }
               }
             },
             "description": "Successful Response"
           }
         },
-        "summary": "Health Ready",
+        "summary": "Health",
         "tags": [
           "health"
         ]

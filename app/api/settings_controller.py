@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from pydantic import ConfigDict
 
-from app.api.public.common.schemas import ApiModel
+from app.api.common.schemas import ApiModel
 from app.core.deps import get_user_settings_service
 from app.services.user_settings_service import UserSettingsService
 

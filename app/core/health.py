@@ -4,6 +4,7 @@ from fastapi import Request
 from sqlalchemy import text
 
 from app.core.config import Settings
+from app.core.db.url import DATABASE_NOT_CONFIGURED_MESSAGE
 from app.core.errors import ConfigurationError, ServiceUnavailableError
 from app.core.integrations import (
     ai_not_configured_message,
@@ -17,12 +18,10 @@ from app.core.runtime import AppRuntime, get_app_runtime
 from app.models.health_dto import (
     DependencyHealth,
     DependencyHealthStatus,
+    HealthChecks,
+    HealthResponse,
     HealthResponseStatus,
-    IntegrationsHealthResponse,
-    LiveHealthResponse,
-    ReadyHealthResponse,
 )
-from app.core.db.url import DATABASE_NOT_CONFIGURED_MESSAGE
 
 
 def _dependency(
@@ -164,41 +163,104 @@ def _vector_dependency(runtime: AppRuntime, settings: Settings) -> DependencyHea
         )
 
 
-def build_live_report() -> LiveHealthResponse:
-    return LiveHealthResponse(status=HealthResponseStatus.ALIVE)
+def _configured_dependency(
+    workspace: DependencyHealth,
+    *,
+    configured: bool,
+    missing_reason: str,
+    ready_reason: str,
+) -> DependencyHealth:
+    if workspace.status == DependencyHealthStatus.DISABLED:
+        return _disabled_dependency()
+    if not configured:
+        return _dependency(
+            DependencyHealthStatus.NOT_CONFIGURED,
+            reason=missing_reason,
+        )
+    if workspace.status == DependencyHealthStatus.FAIL:
+        return _dependency(
+            DependencyHealthStatus.FAIL,
+            reason=workspace.reason,
+        )
+    if workspace.status == DependencyHealthStatus.NOT_CONFIGURED:
+        return _dependency(
+            DependencyHealthStatus.NOT_CONFIGURED,
+            reason=workspace.reason,
+        )
+    return _dependency(
+        DependencyHealthStatus.OK,
+        reason=ready_reason,
+    )
 
 
-async def build_ready_report(
+def _jobs_dependency(
+    workspace: DependencyHealth,
+    settings: Settings,
+) -> DependencyHealth:
+    return _configured_dependency(
+        workspace,
+        configured=bool(settings.job_id),
+        missing_reason="JOB_ID not configured",
+        ready_reason="Job ID configured",
+    )
+
+
+def _knowledge_assistant_dependency(
+    workspace: DependencyHealth,
+    settings: Settings,
+) -> DependencyHealth:
+    return _configured_dependency(
+        workspace,
+        configured=settings.has_knowledge_assistant_config(),
+        missing_reason="KNOWLEDGE_ASSISTANT_ENDPOINT not configured",
+        ready_reason="Knowledge Assistant endpoint configured",
+    )
+
+
+async def build_health_report(
     request: Request,
     settings: Settings,
-) -> ReadyHealthResponse:
+) -> HealthResponse:
     runtime = get_app_runtime(request.app)
-    db = await _database_dependency(runtime, settings)
-    ok = db.status == DependencyHealthStatus.OK
-    status = HealthResponseStatus.READY if ok else HealthResponseStatus.NOT_READY
-    return ReadyHealthResponse(ok=ok, status=status, db=db)
-
-
-def build_integrations_report(
-    request: Request,
-    settings: Settings,
-) -> IntegrationsHealthResponse:
-    runtime = get_app_runtime(request.app)
+    database = await _database_dependency(runtime, settings)
     workspace = _workspace_dependency(runtime, settings)
     ai = _ai_dependency(runtime, settings)
     vector_search = _vector_dependency(runtime, settings)
+    jobs = _jobs_dependency(workspace, settings)
+    knowledge_assistant = _knowledge_assistant_dependency(workspace, settings)
 
-    statuses = [workspace.status, ai.status, vector_search.status]
-    ok = DependencyHealthStatus.FAIL not in statuses
-    status = (
-        HealthResponseStatus.READY
-        if all(item == DependencyHealthStatus.OK for item in statuses)
-        else HealthResponseStatus.DEGRADED
+    optional_checks = [workspace, ai, vector_search, jobs, knowledge_assistant]
+    has_failures = database.status != DependencyHealthStatus.OK or any(
+        check.status == DependencyHealthStatus.FAIL for check in optional_checks
     )
-    return IntegrationsHealthResponse(
+    has_degraded = any(
+        check.status
+        in {
+            DependencyHealthStatus.DISABLED,
+            DependencyHealthStatus.NOT_CONFIGURED,
+        }
+        for check in optional_checks
+    )
+
+    if has_failures:
+        ok = False
+        status = HealthResponseStatus.FAIL
+    elif has_degraded:
+        ok = True
+        status = HealthResponseStatus.DEGRADED
+    else:
+        ok = True
+        status = HealthResponseStatus.OK
+
+    return HealthResponse(
         ok=ok,
         status=status,
-        workspace=workspace,
-        ai=ai,
-        vector_search=vector_search,
+        checks=HealthChecks(
+            database=database,
+            workspace=workspace,
+            ai=ai,
+            vector_search=vector_search,
+            jobs=jobs,
+            knowledge_assistant=knowledge_assistant,
+        ),
     )

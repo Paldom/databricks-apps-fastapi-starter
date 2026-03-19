@@ -9,8 +9,7 @@ export type HealthResponseStatus = typeof HealthResponseStatus[keyof typeof Heal
 
 
 export const HealthResponseStatus = {
-  alive: 'alive',
-  ready: 'ready',
+  ok: 'ok',
   degraded: 'degraded',
-  not_ready: 'not_ready',
+  fail: 'fail',
 } as const;

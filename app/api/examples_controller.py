@@ -35,7 +35,7 @@ from app.core.integrations import databricks_integrations_disabled_message
 from app.models.user_dto import UserInfo
 
 
-router = APIRouter(tags=["Examples"])
+router = APIRouter(prefix="/examples", tags=["examples"])
 
 
 class ExampleMessage(BaseModel):
@@ -284,9 +284,6 @@ async def download(
     )
 
 
-# ── Knowledge Assistant (Agent Bricks) ────────────────────────────────
-
-
 async def _get_ka_adapter(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
@@ -310,9 +307,7 @@ async def agent_ask(
     adapter: Annotated[KnowledgeAssistantAdapter, Depends(_get_ka_adapter)],
 ):
     endpoint = _require_knowledge_assistant_endpoint(settings)
-    return await adapter.ask(
-        endpoint, [m.model_dump() for m in body.messages]
-    )
+    return await adapter.ask(endpoint, [m.model_dump() for m in body.messages])
 
 
 @router.post("/agent/ask/stream")

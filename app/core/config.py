@@ -86,7 +86,6 @@ class Settings(BaseSettings):
     enable_docs: bool = True
     serve_static: bool = False
     frontend_dist_dir: str = "frontend/dist"
-    enable_legacy_api: bool = False
 
     # Request size limits
     max_request_body_bytes: int = 1_048_576  # 1 MiB
@@ -194,7 +193,6 @@ class Settings(BaseSettings):
             "enable_docs": "ENABLE_DOCS",
             "serve_static": "SERVE_STATIC",
             "frontend_dist_dir": "FRONTEND_DIST_DIR",
-            "enable_legacy_api": "ENABLE_LEGACY_API",
             "max_request_body_bytes": "MAX_REQUEST_BODY_BYTES",
             "max_upload_bytes": "MAX_UPLOAD_BYTES",
             "genie_timeout_seconds": "GENIE_TIMEOUT_SECONDS",
@@ -211,7 +209,6 @@ class Settings(BaseSettings):
             "enable_local_dev_auth_fallback",
             "enable_docs",
             "serve_static",
-            "enable_legacy_api",
         }
         _int_fields = {
             "lakebase_port",

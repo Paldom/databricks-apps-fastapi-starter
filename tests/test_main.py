@@ -62,14 +62,14 @@ async def test_startup_does_not_eagerly_initialize_databricks_resources(mocker):
     vector_factory.assert_not_called()
 
 
-def test_healthcheck_available_without_databricks_credentials():
+def test_health_available_without_databricks_credentials():
     app = app_main.create_app()
 
     with TestClient(app) as client:
-        response = client.get("/healthcheck")
+        response = client.get("/api/health")
 
     assert response.status_code == 200
-    assert response.json()["status"] == "alive"
+    assert response.json()["status"] == "degraded"
 
 
 def _build_app(**kwargs):
@@ -82,7 +82,7 @@ def test_dev_cors_allows_any_origin():
 
     with TestClient(app) as client:
         response = client.get(
-            "/api/health/live",
+            "/api/health",
             headers={"Origin": origin},
         )
 
@@ -97,7 +97,7 @@ def test_dev_cors_handles_preflight():
 
     with TestClient(app) as client:
         response = client.options(
-            "/api/health/live",
+            "/api/health",
             headers={
                 "Origin": origin,
                 "Access-Control-Request-Method": "GET",
@@ -115,7 +115,7 @@ def test_non_dev_app_does_not_enable_cors():
 
     with TestClient(app) as client:
         response = client.get(
-            "/api/health/live",
+            "/api/health",
             headers={"Origin": "https://example.test"},
         )
 

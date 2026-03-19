@@ -24,7 +24,7 @@ def test_workspace_client_middleware_uses_header(monkeypatch):
             config=MagicMock(host="http://h")
         )
         response = client.get(
-            "/legacy/v1/userInfo",
+            "/api/me",
             headers={
                 "X-Forwarded-Access-Token": "pat",
                 "X-Forwarded-User": "test-user",
@@ -51,7 +51,7 @@ def test_workspace_client_middleware_ignores_header_when_disabled(monkeypatch):
     with TestClient(app_main.app) as client:
         client.app.state.runtime.workspace_client = "default"
         response = client.get(
-            "/legacy/v1/userInfo",
+            "/api/me",
             headers={
                 "X-Forwarded-Access-Token": "ignored",
                 "X-Forwarded-User": "test-user",

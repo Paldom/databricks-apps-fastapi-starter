@@ -4,10 +4,17 @@ from fastapi.testclient import TestClient
 
 import app.core.health as health_core
 import app.main as app_main
-from app.core.config import Settings, settings
+from app.core.config import Settings
 from app.core.deps import get_settings
 from app.core.errors import ServiceUnavailableError
 from app.models.health_dto import DependencyHealth, DependencyHealthStatus
+
+
+def _api_app():
+    for route in app_main.app.routes:
+        if getattr(route, "path", None) == "/api":
+            return route.app
+    raise AssertionError("Mounted /api app not found")
 
 
 def _db_settings(**kwargs) -> Settings:
@@ -20,48 +27,79 @@ def _db_settings(**kwargs) -> Settings:
     )
 
 
-def _db_result(status: DependencyHealthStatus, reason: str) -> DependencyHealth:
+def _dep(status: DependencyHealthStatus, reason: str) -> DependencyHealth:
     return DependencyHealth(status=status, required=True, reason=reason)
 
 
-def test_health_live_aliases_match():
-    with TestClient(app_main.app) as client:
-        healthcheck = client.get("/healthcheck")
-        live = client.get("/health/live")
-
-    assert healthcheck.status_code == 200
-    assert live.status_code == 200
-    assert healthcheck.json() == live.json()
-
-
-def test_databasehealthcheck_returns_ready_when_db_probe_succeeds(monkeypatch):
-    app_main.app.dependency_overrides[get_settings] = lambda: _db_settings()
+def test_health_degraded_when_integrations_are_disabled(monkeypatch):
+    api_app = _api_app()
+    api_app.dependency_overrides[get_settings] = lambda: _db_settings(
+        enable_databricks_integrations=False
+    )
     monkeypatch.setattr(
         health_core,
         "_database_dependency",
-        AsyncMock(return_value=_db_result(DependencyHealthStatus.OK, "SELECT 1 succeeded")),
+        AsyncMock(return_value=_dep(DependencyHealthStatus.OK, "SELECT 1 succeeded")),
     )
     try:
         with TestClient(app_main.app) as client:
-            response = client.get("/databasehealthcheck")
+            response = client.get("/api/health")
     finally:
-        app_main.app.dependency_overrides.clear()
+        api_app.dependency_overrides.clear()
 
     data = response.json()
     assert response.status_code == 200
     assert data["ok"] is True
-    assert data["status"] == "ready"
-    assert data["db"]["status"] == "ok"
-    assert data["db"]["reason"] == "SELECT 1 succeeded"
+    assert data["status"] == "degraded"
+    assert data["checks"]["database"]["status"] == "ok"
+    assert data["checks"]["workspace"]["status"] == "disabled"
+    assert data["checks"]["ai"]["status"] == "disabled"
+    assert data["checks"]["vector_search"]["status"] == "disabled"
 
 
-def test_ready_returns_not_ready_when_database_is_not_configured(monkeypatch):
-    app_main.app.dependency_overrides[get_settings] = lambda: Settings()
+def test_health_ok_when_all_configured_checks_pass(monkeypatch):
+    api_app = _api_app()
+    api_app.dependency_overrides[get_settings] = lambda: _db_settings(
+        enable_databricks_integrations=True,
+        serving_endpoint_name="starter-endpoint",
+        vector_search_endpoint_name="starter-vs",
+        vector_search_index_name="main.default.starter_index",
+        job_id="123",
+        knowledge_assistant_endpoint="starter-agent",
+    )
+    monkeypatch.setattr(
+        health_core,
+        "_database_dependency",
+        AsyncMock(return_value=_dep(DependencyHealthStatus.OK, "SELECT 1 succeeded")),
+    )
+    monkeypatch.setattr(health_core, "ensure_workspace_client", lambda *_: MagicMock())
+    monkeypatch.setattr(health_core, "ensure_ai_client", lambda *_: MagicMock())
+    monkeypatch.setattr(health_core, "ensure_vector_index", lambda *_: MagicMock())
+    try:
+        with TestClient(app_main.app) as client:
+            response = client.get("/api/health")
+    finally:
+        api_app.dependency_overrides.clear()
+
+    data = response.json()
+    assert response.status_code == 200
+    assert data["ok"] is True
+    assert data["status"] == "ok"
+    assert data["checks"]["workspace"]["status"] == "ok"
+    assert data["checks"]["ai"]["status"] == "ok"
+    assert data["checks"]["vector_search"]["status"] == "ok"
+    assert data["checks"]["jobs"]["status"] == "ok"
+    assert data["checks"]["knowledge_assistant"]["status"] == "ok"
+
+
+def test_health_fails_when_database_is_not_configured(monkeypatch):
+    api_app = _api_app()
+    api_app.dependency_overrides[get_settings] = lambda: Settings()
     monkeypatch.setattr(
         health_core,
         "_database_dependency",
         AsyncMock(
-            return_value=_db_result(
+            return_value=_dep(
                 DependencyHealthStatus.NOT_CONFIGURED,
                 "DATABASE_URL, PG*, or LAKEBASE_* settings are not configured",
             )
@@ -69,86 +107,32 @@ def test_ready_returns_not_ready_when_database_is_not_configured(monkeypatch):
     )
     try:
         with TestClient(app_main.app) as client:
-            response = client.get("/health/ready")
+            response = client.get("/api/health")
     finally:
-        app_main.app.dependency_overrides.clear()
+        api_app.dependency_overrides.clear()
 
     data = response.json()
     assert response.status_code == 503
     assert data["ok"] is False
-    assert data["status"] == "not_ready"
-    assert data["db"]["status"] == "not_configured"
+    assert data["status"] == "fail"
+    assert data["checks"]["database"]["status"] == "not_configured"
 
 
-def test_api_ready_only_checks_core_database(monkeypatch):
-    app_main.app.dependency_overrides[get_settings] = lambda: _db_settings(
+def test_health_fails_when_workspace_dependency_errors(monkeypatch):
+    api_app = _api_app()
+    api_app.dependency_overrides[get_settings] = lambda: _db_settings(
         enable_databricks_integrations=True,
         serving_endpoint_name="starter-endpoint",
         vector_search_endpoint_name="starter-vs",
         vector_search_index_name="main.default.starter_index",
+        job_id="123",
+        knowledge_assistant_endpoint="starter-agent",
     )
     monkeypatch.setattr(
         health_core,
         "_database_dependency",
-        AsyncMock(return_value=_db_result(DependencyHealthStatus.OK, "SELECT 1 succeeded")),
+        AsyncMock(return_value=_dep(DependencyHealthStatus.OK, "SELECT 1 succeeded")),
     )
-    monkeypatch.setattr(
-        health_core,
-        "ensure_workspace_client",
-        lambda *_: (_ for _ in ()).throw(AssertionError("workspace should not be called")),
-    )
-    try:
-        with TestClient(app_main.app) as client:
-            response = client.get("/api/health/ready")
-    finally:
-        app_main.app.dependency_overrides.clear()
-
-    assert response.status_code == 200
-    assert response.json()["status"] == "ready"
-
-
-def test_integrations_reports_disabled_when_offline(monkeypatch):
-    monkeypatch.setattr(settings, "enable_databricks_integrations", False)
-
-    with TestClient(app_main.app) as client:
-        response = client.get("/api/health/integrations")
-
-    data = response.json()
-    assert response.status_code == 200
-    assert data["ok"] is True
-    assert data["status"] == "degraded"
-    assert data["workspace"]["status"] == "disabled"
-    assert data["workspace"]["disabled"] is True
-    assert data["ai"]["status"] == "disabled"
-    assert data["vector_search"]["status"] == "disabled"
-
-
-def test_integrations_report_ok_when_resources_initialize(monkeypatch):
-    monkeypatch.setattr(settings, "enable_databricks_integrations", True)
-    monkeypatch.setattr(settings, "serving_endpoint_name", "starter-endpoint")
-    monkeypatch.setattr(settings, "vector_search_endpoint_name", "starter-vs")
-    monkeypatch.setattr(settings, "vector_search_index_name", "main.default.starter_index")
-    monkeypatch.setattr(health_core, "ensure_workspace_client", lambda *_: MagicMock())
-    monkeypatch.setattr(health_core, "ensure_ai_client", lambda *_: MagicMock())
-    monkeypatch.setattr(health_core, "ensure_vector_index", lambda *_: MagicMock())
-
-    with TestClient(app_main.app) as client:
-        response = client.get("/api/health/integrations")
-
-    data = response.json()
-    assert response.status_code == 200
-    assert data["ok"] is True
-    assert data["status"] == "ready"
-    assert data["workspace"]["status"] == "ok"
-    assert data["ai"]["status"] == "ok"
-    assert data["vector_search"]["status"] == "ok"
-
-
-def test_integrations_report_failure_without_crashing(monkeypatch):
-    monkeypatch.setattr(settings, "enable_databricks_integrations", True)
-    monkeypatch.setattr(settings, "serving_endpoint_name", "starter-endpoint")
-    monkeypatch.setattr(settings, "vector_search_endpoint_name", "starter-vs")
-    monkeypatch.setattr(settings, "vector_search_index_name", "main.default.starter_index")
     monkeypatch.setattr(
         health_core,
         "ensure_workspace_client",
@@ -158,13 +142,15 @@ def test_integrations_report_failure_without_crashing(monkeypatch):
     )
     monkeypatch.setattr(health_core, "ensure_ai_client", lambda *_: MagicMock())
     monkeypatch.setattr(health_core, "ensure_vector_index", lambda *_: MagicMock())
-
-    with TestClient(app_main.app) as client:
-        response = client.get("/health/integrations")
+    try:
+        with TestClient(app_main.app) as client:
+            response = client.get("/api/health")
+    finally:
+        api_app.dependency_overrides.clear()
 
     data = response.json()
     assert response.status_code == 503
     assert data["ok"] is False
-    assert data["status"] == "degraded"
-    assert data["workspace"]["status"] == "fail"
-    assert "boom" in data["workspace"]["reason"]
+    assert data["status"] == "fail"
+    assert data["checks"]["workspace"]["status"] == "fail"
+    assert "boom" in data["checks"]["workspace"]["reason"]

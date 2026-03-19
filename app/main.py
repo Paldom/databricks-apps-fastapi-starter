@@ -5,10 +5,9 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
-from fastapi_pagination import add_pagination
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api.public.router import build_api_router
+from app.api.router import build_api_router
 from app.core.bootstrap import lifespan
 from app.core.config import Settings, settings
 from app.core.errors import AppError
@@ -35,7 +34,7 @@ def no_cache(response: Response) -> Response:
 
 def _patch_openapi_schema(schema: dict) -> None:
     """Patch the auto-generated OpenAPI schema for frontend compatibility."""
-    from app.api.public.chat_stream_controller import STREAMING_EVENT_MODELS
+    from app.api.chat_stream_controller import STREAMING_EVENT_MODELS
 
     schemas = schema.setdefault("components", {}).setdefault("schemas", {})
 
@@ -158,18 +157,9 @@ def build_root_app(s: Settings) -> FastAPI:
         max_upload_bytes=s.max_upload_bytes,
     )
 
-    # Mount the frontend-facing API sub-app
-    application.mount("/api", build_api_app(s))
-
-    from app.api.health_controller import router as health_router
-
-    application.include_router(health_router)
-
-    # Mount legacy routes behind flag
-    if s.enable_legacy_api:
-        from app.api.api import api_router
-        application.include_router(api_router, prefix="/legacy/v1")
-        add_pagination(application)
+    api_app = build_api_app(s)
+    api_app.dependency_overrides_provider = application
+    application.mount("/api", api_app)
 
     if s.serve_static:
         static_dir = Path(s.frontend_dist_dir).resolve()
@@ -189,7 +179,7 @@ def build_root_app(s: Settings) -> FastAPI:
             return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
 
         @application.get("/{full_path:path}", include_in_schema=False)
-        async def serve_frontend(full_path: str) -> FileResponse:
+        async def serve_frontend(full_path: str) -> Response:
             if not static_dir.exists():
                 raise HTTPException(status_code=404, detail="Frontend dist not built")
 

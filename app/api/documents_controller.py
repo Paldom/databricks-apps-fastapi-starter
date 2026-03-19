@@ -5,7 +5,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from pydantic import ConfigDict
 
-from app.api.public.common.schemas import ApiModel, CursorPage, DocumentStatus
+from app.api.common.schemas import ApiModel, CursorPage, DocumentStatus
 from app.core.deps import get_document_service
 from app.services.document_service import DocumentService
 

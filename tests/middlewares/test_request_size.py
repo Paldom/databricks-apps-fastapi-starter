@@ -16,7 +16,7 @@ class TestRequestSizeMiddleware:
         # Default limit is 1 MiB; send 1.5 MiB
         big_body = "x" * (1_500_000)
         resp = client.post(
-            "/health/deep",
+            "/api/health",
             content=big_body,
             headers={
                 "Content-Type": "application/json",
@@ -31,7 +31,7 @@ class TestRequestSizeMiddleware:
     def test_allows_small_json_payload(self, client):
         """Small payloads should pass through normally."""
         resp = client.get(
-            "/healthcheck",
+            "/api/health",
             headers={"X-Forwarded-User": "test"},
         )
         assert resp.status_code == 200
@@ -39,7 +39,7 @@ class TestRequestSizeMiddleware:
     def test_rejects_oversized_content_length(self, client):
         """Request with Content-Length exceeding limit should be rejected early."""
         resp = client.post(
-            "/health/deep",
+            "/api/health",
             content=b"small",
             headers={
                 "Content-Type": "application/json",
