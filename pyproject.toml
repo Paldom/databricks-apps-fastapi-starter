@@ -29,8 +29,6 @@ dependencies = [
     "opentelemetry-instrumentation-sqlalchemy",
     "opentelemetry-instrumentation-requests",
     "opentelemetry-instrumentation-httpx",
-    "aiocache[redis]>=0.12,<1",
-    "slowapi>=0.1.9,<1",
 ]
 
 [project.optional-dependencies]

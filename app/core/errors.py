@@ -88,11 +88,6 @@ class UcFilesError(ExternalServiceError):
     pass
 
 
-class RateLimitError(AppError):
-    def __init__(self, detail: str = "Rate limit exceeded", **kw):
-        super().__init__(429, detail, **kw)
-
-
 class RequestTooLargeError(AppError):
     def __init__(self, detail: str = "Request body too large", **kw):
         super().__init__(413, detail, **kw)

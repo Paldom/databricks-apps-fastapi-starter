@@ -88,9 +88,6 @@ class Settings(BaseSettings):
     frontend_dist_dir: str = "frontend/dist"
     enable_legacy_api: bool = False
 
-    # Rate limiting
-    rate_limit_enabled: bool = True
-
     # Request size limits
     max_request_body_bytes: int = 1_048_576  # 1 MiB
     max_upload_bytes: int = 10_485_760  # 10 MiB
@@ -105,20 +102,6 @@ class Settings(BaseSettings):
     job_timeout_seconds: int = 120
     vector_timeout_seconds: int = 30
     openai_timeout_seconds: int = 30
-
-    # Health
-    health_ready_cache_ttl: int = 30
-
-    # Cache
-    cache_enabled: bool = True
-    cache_backend: str = "memory"
-    cache_namespace: str = "databricks-apps-fastapi-starter"
-    cache_default_ttl: int = 60
-    cache_timeout: int = 1
-    cache_redis_endpoint: str = "localhost"
-    cache_redis_port: int = 6379
-    cache_redis_db: int = 0
-    cache_redis_password: Optional[str] = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -208,20 +191,10 @@ class Settings(BaseSettings):
             "enable_databricks_integrations": "ENABLE_DATABRICKS_INTEGRATIONS",
             "enable_local_dev_auth_fallback": "ENABLE_LOCAL_DEV_AUTH_FALLBACK",
             "local_dev_user_id": "LOCAL_DEV_USER_ID",
-            "cache_enabled": "CACHE_ENABLED",
-            "cache_backend": "CACHE_BACKEND",
-            "cache_namespace": "CACHE_NAMESPACE",
-            "cache_default_ttl": "CACHE_DEFAULT_TTL",
-            "cache_timeout": "CACHE_TIMEOUT",
-            "cache_redis_endpoint": "CACHE_REDIS_ENDPOINT",
-            "cache_redis_port": "CACHE_REDIS_PORT",
-            "cache_redis_db": "CACHE_REDIS_DB",
-            "cache_redis_password": "CACHE_REDIS_PASSWORD",
             "enable_docs": "ENABLE_DOCS",
             "serve_static": "SERVE_STATIC",
             "frontend_dist_dir": "FRONTEND_DIST_DIR",
             "enable_legacy_api": "ENABLE_LEGACY_API",
-            "rate_limit_enabled": "RATE_LIMIT_ENABLED",
             "max_request_body_bytes": "MAX_REQUEST_BODY_BYTES",
             "max_upload_bytes": "MAX_UPLOAD_BYTES",
             "genie_timeout_seconds": "GENIE_TIMEOUT_SECONDS",
@@ -229,7 +202,6 @@ class Settings(BaseSettings):
             "job_timeout_seconds": "JOB_TIMEOUT_SECONDS",
             "vector_timeout_seconds": "VECTOR_TIMEOUT_SECONDS",
             "openai_timeout_seconds": "OPENAI_TIMEOUT_SECONDS",
-            "health_ready_cache_ttl": "HEALTH_READY_CACHE_TTL",
             "knowledge_assistant_endpoint": "KNOWLEDGE_ASSISTANT_ENDPOINT",
             "knowledge_assistant_timeout_seconds": "KNOWLEDGE_ASSISTANT_TIMEOUT_SECONDS",
         }
@@ -237,8 +209,6 @@ class Settings(BaseSettings):
             "enable_obo",
             "enable_databricks_integrations",
             "enable_local_dev_auth_fallback",
-            "cache_enabled",
-            "rate_limit_enabled",
             "enable_docs",
             "serve_static",
             "enable_legacy_api",
@@ -246,10 +216,6 @@ class Settings(BaseSettings):
         _int_fields = {
             "lakebase_port",
             "pg_port",
-            "cache_default_ttl",
-            "cache_timeout",
-            "cache_redis_port",
-            "cache_redis_db",
             "max_request_body_bytes",
             "max_upload_bytes",
             "genie_timeout_seconds",
@@ -257,7 +223,6 @@ class Settings(BaseSettings):
             "job_timeout_seconds",
             "vector_timeout_seconds",
             "openai_timeout_seconds",
-            "health_ready_cache_ttl",
             "knowledge_assistant_timeout_seconds",
         }
         for attr, env_key in mapping.items():

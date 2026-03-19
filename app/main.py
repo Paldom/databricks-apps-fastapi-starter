@@ -4,15 +4,14 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi_pagination import add_pagination
-from slowapi.errors import RateLimitExceeded
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.public.router import build_api_router
 from app.core.bootstrap import lifespan
 from app.core.config import Settings, settings
 from app.core.errors import AppError
-from app.core.security.rate_limit import limiter, rate_limit_exceeded_handler
 from app.middlewares.request_context import request_context_middleware
 from app.middlewares.request_size import RequestSizeMiddleware
 from app.middlewares.security_headers import security_headers_middleware
@@ -25,6 +24,13 @@ def _app_error_response(exc: AppError) -> JSONResponse:
         status_code=exc.status_code,
         content={"detail": exc.detail},
     )
+
+
+def no_cache(response: Response) -> Response:
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 def _patch_openapi_schema(schema: dict) -> None:
@@ -126,15 +132,9 @@ def build_root_app(s: Settings) -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Rate limiter state
-    application.state.limiter = limiter
-
-    # Global exception handlers
     @application.exception_handler(AppError)
     async def app_error_handler(request: Request, exc: AppError):
         return _app_error_response(exc)
-
-    application.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
     # Middleware (order matters: last added = first executed)
     application.middleware("http")(user_info_middleware)
@@ -171,9 +171,22 @@ def build_root_app(s: Settings) -> FastAPI:
         application.include_router(api_router, prefix="/legacy/v1")
         add_pagination(application)
 
-    # Serve static SPA assets
     if s.serve_static:
         static_dir = Path(s.frontend_dist_dir).resolve()
+        index_file = static_dir / "index.html"
+
+        @application.exception_handler(StarletteHTTPException)
+        async def spa_404_handler(
+            request: Request,
+            exc: StarletteHTTPException,
+        ) -> Response:
+            if (
+                exc.status_code == 404
+                and not request.url.path.startswith("/api")
+                and index_file.exists()
+            ):
+                return no_cache(FileResponse(index_file))
+            return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
 
         @application.get("/{full_path:path}", include_in_schema=False)
         async def serve_frontend(full_path: str) -> FileResponse:
@@ -187,18 +200,14 @@ def build_root_app(s: Settings) -> FastAPI:
                 raise HTTPException(status_code=404) from exc
 
             if candidate.is_file():
-                headers = (
-                    {"Cache-Control": "public, max-age=31536000, immutable"}
-                    if candidate.name != "index.html"
-                    else {"Cache-Control": "no-cache"}
+                if candidate.name == "index.html":
+                    return no_cache(FileResponse(candidate))
+                return FileResponse(
+                    candidate,
+                    headers={"Cache-Control": "public, max-age=31536000, immutable"},
                 )
-                return FileResponse(candidate, headers=headers)
 
-            index_file = static_dir / "index.html"
-            if index_file.exists():
-                return FileResponse(index_file, headers={"Cache-Control": "no-cache"})
-
-            raise HTTPException(status_code=404, detail="index.html not found")
+            raise HTTPException(status_code=404, detail="Not Found")
 
     return application
 

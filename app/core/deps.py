@@ -8,7 +8,6 @@ from fastapi import Depends, Request
 from openai import AsyncOpenAI
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from app.core.cache import Cache, NullCache
 from app.core.config import Settings, settings
 from app.core.db.deps import get_async_session, get_engine  # noqa: F401 – re-export
 from app.core.errors import AuthenticationError
@@ -91,15 +90,6 @@ def get_user_info(request: Request) -> UserInfo:
             email=user.email,
         )
     return UserInfo()
-
-
-def get_cache(request: Request) -> Cache:
-    """Provide the application-level cache instance."""
-    runtime = get_runtime(request)
-    cache = getattr(runtime, "cache", None)
-    if cache is not None:
-        return cache
-    return NullCache()
 
 
 # ---------------------------------------------------------------------------

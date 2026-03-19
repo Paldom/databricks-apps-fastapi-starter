@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from databricks.sdk import WorkspaceClient
 from openai import AsyncOpenAI
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
-
-if TYPE_CHECKING:
-    from app.core.cache import Cache
 
 
 @dataclass(slots=True)
@@ -18,11 +15,8 @@ class AppRuntime:
     workspace_client: WorkspaceClient | None = None
     ai_client: AsyncOpenAI | None = None
     vector_index: Any | None = None
-    cache: Cache | None = None
     resource_states: dict[str, str] = field(default_factory=dict)
     init_errors: dict[str, str] = field(default_factory=dict)
-    last_deep_health: Any = None
-    last_deep_health_at: float = 0.0
 
     def remember_error(self, name: str, exc: Exception | str) -> None:
         message = exc if isinstance(exc, str) else str(exc)

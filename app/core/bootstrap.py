@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.core.cache import build_cache
 from app.core.config import settings
 from app.core.db import create_async_engine_from_settings, create_session_factory
 from app.core.integrations import initialise_optional_resource_states
@@ -56,14 +55,6 @@ async def lifespan(application: FastAPI):
 
         initialise_optional_resource_states(runtime, settings)
 
-        with tracer.start_as_current_span("startup.cache.init") as span:
-            try:
-                runtime.cache = build_cache(settings)
-                runtime.clear_error("cache")
-            except Exception as exc:
-                tag_exception(span, exc)
-                _record_startup_failure(runtime, "cache", exc)
-
     record_duration("app.startup.duration", time.monotonic() - t0)
 
     try:
@@ -74,10 +65,6 @@ async def lifespan(application: FastAPI):
         with tracer.start_as_current_span("app.shutdown") as shutdown_span:
             logger.debug("Closing AI client and database connections")
             try:
-                if runtime.cache is not None:
-                    with tracer.start_as_current_span("shutdown.cache.close"):
-                        await runtime.cache.close()
-
                 if runtime.ai_client is not None:
                     with tracer.start_as_current_span("shutdown.ai.client.close"):
                         await runtime.ai_client.aclose()

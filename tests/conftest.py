@@ -117,11 +117,6 @@ def mock_lifespan(monkeypatch):
         "main.default.starter_index",
     )
 
-    # Cache
-    from app.core.cache import NullCache
-
-    monkeypatch.setattr(bootstrap, "build_cache", lambda s: NullCache())
-
     yield
 
 
