@@ -14,7 +14,7 @@ from app.core.config import Settings
 
 
 DATABASE_NOT_CONFIGURED_MESSAGE = (
-    "DATABASE_URL, PG*, or LAKEBASE_* settings are not configured"
+    "DATABASE_URL or PG* settings are not configured"
 )
 
 
@@ -60,20 +60,6 @@ def get_database_url(settings: Settings) -> str:
             host=pg_host,
             port=pg_port,
             database=pg_database,
-        )
-
-    lakebase_host = getattr(settings, "lakebase_host", None)
-    lakebase_db = getattr(settings, "lakebase_db", None)
-    lakebase_user = getattr(settings, "lakebase_user", None)
-    lakebase_password = getattr(settings, "lakebase_password", None)
-    lakebase_port = getattr(settings, "lakebase_port", None) or 5432
-    if all([lakebase_host, lakebase_db, lakebase_user, lakebase_password]):
-        return _build_asyncpg_url(
-            username=lakebase_user,
-            password=lakebase_password,
-            host=lakebase_host,
-            port=lakebase_port,
-            database=lakebase_db,
         )
 
     raise ValueError(DATABASE_NOT_CONFIGURED_MESSAGE)

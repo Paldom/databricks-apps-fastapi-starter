@@ -54,34 +54,10 @@ class DatabricksAPIError(ExternalServiceError):
     pass
 
 
-class ServingEndpointError(ExternalServiceError):
-    pass
-
-
-class JobExecutionError(ExternalServiceError):
-    pass
-
-
-class AiGatewayError(ExternalServiceError):
-    pass
-
-
-class VectorSearchError(ExternalServiceError):
-    pass
-
-
 class SqlDeltaError(ExternalServiceError):
     def __init__(self, detail: str = "SQL execution error", **kw):
         super().__init__(detail, **kw)
         self.status_code = 500
-
-
-class GenieError(ExternalServiceError):
-    pass
-
-
-class KnowledgeAssistantError(ExternalServiceError):
-    pass
 
 
 class UcFilesError(ExternalServiceError):

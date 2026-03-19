@@ -2,7 +2,7 @@ from logging import Logger
 
 from openai import AsyncOpenAI, OpenAIError
 
-from app.core.errors import AiGatewayError
+from app.core.errors import ExternalServiceError
 from app.core.observability import get_tracer, safe_attr, tag_exception
 
 
@@ -36,4 +36,4 @@ class AiGatewayAdapter:
             except OpenAIError as exc:
                 span.set_attribute("result", "error")
                 tag_exception(span, exc)
-                raise AiGatewayError(str(exc), cause=exc) from exc
+                raise ExternalServiceError(str(exc), cause=exc) from exc

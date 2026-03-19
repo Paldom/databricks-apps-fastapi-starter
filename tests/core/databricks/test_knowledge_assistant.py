@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 from httpx import AsyncClient, HTTPStatusError, Request, Response
 
 from app.core.databricks.knowledge_assistant import KnowledgeAssistantAdapter
-from app.core.errors import KnowledgeAssistantError
+from app.core.errors import ExternalServiceError
 
 
 @pytest.mark.asyncio
@@ -48,7 +48,7 @@ async def test_ask_wraps_http_error():
     client.post = AsyncMock(return_value=mock_resp)
 
     adapter = KnowledgeAssistantAdapter(client, MagicMock())
-    with pytest.raises(KnowledgeAssistantError, match="500"):
+    with pytest.raises(ExternalServiceError, match="500"):
         await adapter.ask("my-assistant", [{"role": "user", "content": "Hi"}])
 
 
@@ -58,5 +58,5 @@ async def test_ask_wraps_generic_error():
     client.post = AsyncMock(side_effect=RuntimeError("connection lost"))
 
     adapter = KnowledgeAssistantAdapter(client, MagicMock())
-    with pytest.raises(KnowledgeAssistantError, match="connection lost"):
+    with pytest.raises(ExternalServiceError, match="connection lost"):
         await adapter.ask("my-assistant", [{"role": "user", "content": "Hi"}])

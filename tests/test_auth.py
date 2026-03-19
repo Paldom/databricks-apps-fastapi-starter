@@ -55,7 +55,8 @@ def test_api_route_uses_local_dev_fallback(monkeypatch):
     monkeypatch.setattr(settings, "local_dev_user_id", "local-dev-user")
 
     with TestClient(app_main.app) as client:
-        response = client.get("/api/dashboard/stats")
+        response = client.get("/api/me")
 
     assert response.status_code == 200
-    assert response.json()["activeUsers"] == 1
+    data = response.json()
+    assert data["id"] == "local-dev-user"

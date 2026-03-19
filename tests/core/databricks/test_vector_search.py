@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import MagicMock
 
 from app.core.databricks.vector_search import VectorSearchAdapter
-from app.core.errors import VectorSearchError
+from app.core.errors import ExternalServiceError
 
 
 @pytest.mark.asyncio
@@ -27,7 +27,7 @@ async def test_upsert_wraps_error():
     index = MagicMock()
     index.upsert.side_effect = RuntimeError("fail")
     adapter = VectorSearchAdapter(index, MagicMock())
-    with pytest.raises(VectorSearchError, match="fail"):
+    with pytest.raises(ExternalServiceError, match="fail"):
         await adapter.upsert([])
 
 

@@ -2,7 +2,7 @@ from logging import Logger
 
 from httpx import AsyncClient, HTTPStatusError
 
-from app.core.errors import GenieError
+from app.core.errors import ExternalServiceError
 from app.core.observability import get_tracer, safe_attr, tag_exception
 
 
@@ -38,14 +38,14 @@ class GenieAdapter:
             except HTTPStatusError as exc:
                 span.set_attribute("result", "error")
                 tag_exception(span, exc)
-                raise GenieError(
+                raise ExternalServiceError(
                     f"Genie start-conversation failed: {exc.response.status_code}",
                     cause=exc,
                 ) from exc
             except Exception as exc:
                 span.set_attribute("result", "error")
                 tag_exception(span, exc)
-                raise GenieError(str(exc), cause=exc) from exc
+                raise ExternalServiceError(str(exc), cause=exc) from exc
 
     async def follow_up(
         self, space_id: str, conversation_id: str, question: str
@@ -75,11 +75,11 @@ class GenieAdapter:
             except HTTPStatusError as exc:
                 span.set_attribute("result", "error")
                 tag_exception(span, exc)
-                raise GenieError(
+                raise ExternalServiceError(
                     f"Genie follow-up failed: {exc.response.status_code}",
                     cause=exc,
                 ) from exc
             except Exception as exc:
                 span.set_attribute("result", "error")
                 tag_exception(span, exc)
-                raise GenieError(str(exc), cause=exc) from exc
+                raise ExternalServiceError(str(exc), cause=exc) from exc

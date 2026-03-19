@@ -85,14 +85,10 @@ def mock_lifespan(monkeypatch):
         "create_session_factory",
         lambda e: _mock_session_factory(),
     )
-    monkeypatch.setattr(bootstrap.settings, "lakebase_host", "db.example.com")
-    monkeypatch.setattr(bootstrap.settings, "lakebase_db", "starter")
-    monkeypatch.setattr(bootstrap.settings, "lakebase_user", "starter")
-    monkeypatch.setattr(bootstrap.settings, "lakebase_password", "secret")
-    monkeypatch.setattr(bootstrap.settings, "pg_host", None)
-    monkeypatch.setattr(bootstrap.settings, "pg_database", None)
-    monkeypatch.setattr(bootstrap.settings, "pg_user", None)
-    monkeypatch.setattr(bootstrap.settings, "pg_password", None)
+    monkeypatch.setattr(bootstrap.settings, "pg_host", "db.example.com")
+    monkeypatch.setattr(bootstrap.settings, "pg_database", "starter")
+    monkeypatch.setattr(bootstrap.settings, "pg_user", "starter")
+    monkeypatch.setattr(bootstrap.settings, "pg_password", "secret")
     monkeypatch.setattr(bootstrap.settings, "environment", "test")
     monkeypatch.setattr(
         bootstrap.settings, "enable_databricks_integrations", False

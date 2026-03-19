@@ -4,7 +4,7 @@ from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.serving import DataframeSplitInput
 
 from app.core.databricks._async_bridge import run_sync
-from app.core.errors import ServingEndpointError
+from app.core.errors import ExternalServiceError
 from app.core.observability import get_tracer, safe_attr, tag_exception
 
 
@@ -39,7 +39,7 @@ class ServingAdapter:
                     self._ws.serving_endpoints.query,
                     name=endpoint_name,
                     dataframe_split=df_split,
-                    error_cls=ServingEndpointError,
+                    error_cls=ExternalServiceError,
                     timeout=timeout,
                 )
                 span.set_attribute("result", "ok")

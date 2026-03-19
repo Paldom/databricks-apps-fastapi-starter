@@ -3,7 +3,7 @@ from logging import Logger
 
 from httpx import AsyncClient, HTTPStatusError
 
-from app.core.errors import KnowledgeAssistantError
+from app.core.errors import ExternalServiceError
 from app.core.observability import get_tracer, safe_attr, tag_exception
 
 
@@ -44,14 +44,14 @@ class KnowledgeAssistantAdapter:
             except HTTPStatusError as exc:
                 span.set_attribute("result", "error")
                 tag_exception(span, exc)
-                raise KnowledgeAssistantError(
+                raise ExternalServiceError(
                     f"Knowledge Assistant request failed: {exc.response.status_code}",
                     cause=exc,
                 ) from exc
             except Exception as exc:
                 span.set_attribute("result", "error")
                 tag_exception(span, exc)
-                raise KnowledgeAssistantError(str(exc), cause=exc) from exc
+                raise ExternalServiceError(str(exc), cause=exc) from exc
 
     async def ask_stream(
         self, endpoint_name: str, messages: list[dict]
@@ -81,15 +81,15 @@ class KnowledgeAssistantAdapter:
                     if resp.is_error:
                         body = (await resp.aread()).decode("utf-8", errors="ignore")
                         span.set_attribute("result", "error")
-                        raise KnowledgeAssistantError(
+                        raise ExternalServiceError(
                             f"Knowledge Assistant stream failed: {resp.status_code} {body}"
                         )
                     span.set_attribute("result", "ok")
                     async for chunk in resp.aiter_bytes():
                         yield chunk
-            except KnowledgeAssistantError:
+            except ExternalServiceError:
                 raise
             except Exception as exc:
                 span.set_attribute("result", "error")
                 tag_exception(span, exc)
-                raise KnowledgeAssistantError(str(exc), cause=exc) from exc
+                raise ExternalServiceError(str(exc), cause=exc) from exc

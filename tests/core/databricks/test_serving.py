@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import MagicMock
 
 from app.core.databricks.serving import ServingAdapter
-from app.core.errors import ServingEndpointError
+from app.core.errors import ExternalServiceError
 
 
 @pytest.mark.asyncio
@@ -24,5 +24,5 @@ async def test_query_wraps_sdk_error():
     ws = MagicMock()
     ws.serving_endpoints.query.side_effect = RuntimeError("boom")
     adapter = ServingAdapter(ws, MagicMock())
-    with pytest.raises(ServingEndpointError, match="boom"):
+    with pytest.raises(ExternalServiceError, match="boom"):
         await adapter.query("ep", {"columns": [], "data": []})

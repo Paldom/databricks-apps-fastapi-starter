@@ -21,11 +21,11 @@ def test_api_me_route_works():
     assert response.status_code == 200
 
 
-def test_api_health_route_works():
+def test_api_health_live_route_works():
     with TestClient(app_main.app) as client:
-        response = client.get("/api/health")
+        response = client.get("/api/health/live")
     assert response.status_code == 200
-    assert response.json()["status"] == "degraded"
+    assert response.json() == {"ok": True}
 
 
 def test_api_openapi_has_contract_routes():

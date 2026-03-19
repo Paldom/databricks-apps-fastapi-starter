@@ -50,11 +50,6 @@ class Settings(BaseSettings):
     databricks_host: Optional[str] = None
     databricks_client_id: Optional[str] = None
     databricks_client_secret: Optional[str] = None
-    lakebase_host: Optional[str] = None
-    lakebase_port: int = 5432
-    lakebase_db: Optional[str] = None
-    lakebase_user: Optional[str] = None
-    lakebase_password: Optional[str] = None
     pg_host: Optional[str] = Field(
         default=None, validation_alias=AliasChoices("PGHOST", "PG_HOST")
     )
@@ -108,7 +103,6 @@ class Settings(BaseSettings):
         return bool(
             os.getenv("DATABASE_URL")
             or self.has_pg_database_config()
-            or self.has_lakebase_database_config()
         )
 
     def has_ai_config(self) -> bool:
@@ -129,16 +123,6 @@ class Settings(BaseSettings):
                 self.pg_database,
                 self.pg_user,
                 self.pg_password,
-            ]
-        )
-
-    def has_lakebase_database_config(self) -> bool:
-        return all(
-            [
-                self.lakebase_host,
-                self.lakebase_db,
-                self.lakebase_user,
-                self.lakebase_password,
             ]
         )
 
@@ -169,11 +153,6 @@ class Settings(BaseSettings):
             "databricks_host": "DATABRICKS_HOST",
             "databricks_client_id": "DATABRICKS_CLIENT_ID",
             "databricks_client_secret": "DATABRICKS_CLIENT_SECRET",
-            "lakebase_host": "LAKEBASE_HOST",
-            "lakebase_port": "LAKEBASE_PORT",
-            "lakebase_db": "LAKEBASE_DB",
-            "lakebase_user": "LAKEBASE_USER",
-            "lakebase_password": "LAKEBASE_PASSWORD",
             "pg_host": "PGHOST",
             "pg_port": "PGPORT",
             "pg_database": "PGDATABASE",
@@ -211,7 +190,6 @@ class Settings(BaseSettings):
             "serve_static",
         }
         _int_fields = {
-            "lakebase_port",
             "pg_port",
             "max_request_body_bytes",
             "max_upload_bytes",

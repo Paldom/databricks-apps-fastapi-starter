@@ -3,7 +3,7 @@ from typing import Any
 
 from app.core.config import Settings
 from app.core.databricks._async_bridge import run_sync
-from app.core.errors import VectorSearchError
+from app.core.errors import ExternalServiceError
 from app.core.observability import get_tracer, tag_exception
 
 
@@ -30,7 +30,7 @@ class VectorSearchAdapter:
                 await run_sync(
                     self._index.upsert,
                     documents,
-                    error_cls=VectorSearchError,
+                    error_cls=ExternalServiceError,
                     timeout=timeout,
                 )
                 span.set_attribute("result", "ok")
@@ -67,7 +67,7 @@ class VectorSearchAdapter:
                     query_vector=query_vector,
                     filters=filters or {},
                     num_results=num_results,
-                    error_cls=VectorSearchError,
+                    error_cls=ExternalServiceError,
                     timeout=timeout,
                 )
                 span.set_attribute("result", "ok")
@@ -81,7 +81,7 @@ class VectorSearchAdapter:
         """Describe the index (used in health checks)."""
         return await run_sync(
             self._index.describe,
-            error_cls=VectorSearchError,
+            error_cls=ExternalServiceError,
         )
 
 

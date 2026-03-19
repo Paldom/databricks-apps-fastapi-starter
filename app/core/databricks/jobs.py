@@ -4,7 +4,7 @@ from logging import Logger
 from databricks.sdk import WorkspaceClient
 
 from app.core.databricks._async_bridge import run_sync
-from app.core.errors import JobExecutionError
+from app.core.errors import ExternalServiceError
 from app.core.observability import get_tracer, tag_exception
 
 
@@ -34,19 +34,19 @@ class JobsAdapter:
                     self._ws.jobs.run_now_and_wait,
                     job_id=job_id,
                     notebook_params=notebook_params or {},
-                    error_cls=JobExecutionError,
+                    error_cls=ExternalServiceError,
                     timeout=timeout,
                 )
                 last_task_id = finished.tasks[-1].run_id
                 out = await run_sync(
                     self._ws.jobs.get_run_output,
                     run_id=last_task_id,
-                    error_cls=JobExecutionError,
+                    error_cls=ExternalServiceError,
                 )
                 try:
                     result = json.loads(out.notebook_output.result)
                 except (json.JSONDecodeError, AttributeError, TypeError) as exc:
-                    raise JobExecutionError(
+                    raise ExternalServiceError(
                         f"Failed to parse job output: {exc}", cause=exc
                     ) from exc
                 span.set_attribute("result", "ok")

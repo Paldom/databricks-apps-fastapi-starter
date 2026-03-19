@@ -7,7 +7,7 @@ from collections.abc import AsyncGenerator
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from app.core.errors import ConfigurationError, ServiceUnavailableError
+from app.core.errors import ConfigurationError
 from app.core.runtime import get_app_runtime
 
 
@@ -21,9 +21,6 @@ async def get_async_session(request: Request) -> AsyncGenerator[AsyncSession, No
     runtime = get_app_runtime(request.app)
     factory = runtime.session_factory
     if factory is None:
-        detail = runtime.error_for("database")
-        if detail:
-            raise ServiceUnavailableError(f"Database is unavailable: {detail}")
         raise ConfigurationError("Database is not configured")
     async with factory() as session:
         async with session.begin():
@@ -35,8 +32,5 @@ def get_engine(request: Request) -> AsyncEngine:
     runtime = get_app_runtime(request.app)
     engine = runtime.engine
     if engine is None:
-        detail = runtime.error_for("database")
-        if detail:
-            raise ServiceUnavailableError(f"Database is unavailable: {detail}")
         raise ConfigurationError("Database is not configured")
     return engine

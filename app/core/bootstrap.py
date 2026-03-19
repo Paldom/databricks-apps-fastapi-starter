@@ -5,7 +5,6 @@ from fastapi import FastAPI
 
 from app.core.config import settings
 from app.core.db import create_async_engine_from_settings, create_session_factory
-from app.core.integrations import initialise_optional_resource_states
 from app.core.logging import get_logger, setup_logging
 from app.core.observability import get_tracer, record_duration, tag_exception
 from app.core.runtime import AppRuntime
@@ -13,11 +12,6 @@ import app.models  # noqa: F401 – register all models with Base.metadata
 
 setup_logging(settings.log_level)
 logger = get_logger()
-
-
-def _record_startup_failure(runtime: AppRuntime, name: str, exc: Exception) -> None:
-    runtime.remember_error(name, exc)
-    logger.warning("Startup initialisation for %s failed: %s", name, exc)
 
 
 @asynccontextmanager
@@ -42,18 +36,11 @@ async def lifespan(application: FastAPI):
                 try:
                     runtime.engine = create_async_engine_from_settings(settings)
                     runtime.session_factory = create_session_factory(runtime.engine)
-                    runtime.clear_error("database")
                 except Exception as exc:
                     tag_exception(span, exc)
-                    _record_startup_failure(runtime, "database", exc)
+                    logger.warning("Database initialization failed: %s", exc)
             else:
-                runtime.not_configured(
-                    "database",
-                    "DATABASE_URL, PG*, or LAKEBASE_* settings are not configured",
-                )
-                logger.info("Database configuration not provided; skipping startup")
-
-        initialise_optional_resource_states(runtime, settings)
+                logger.info("Database configuration not provided; skipping")
 
     record_duration("app.startup.duration", time.monotonic() - t0)
 

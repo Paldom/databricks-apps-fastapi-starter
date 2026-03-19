@@ -63,27 +63,15 @@ def test_job_returns_503_when_job_id_is_not_configured():
     assert "JOB_ID" in response.json()["detail"]
 
 
-def test_vector_query_returns_clean_503_when_index_is_unavailable():
+def test_vector_query_returns_503_when_integrations_are_disabled():
     api_app = _api_app()
     api_app.dependency_overrides[get_settings] = lambda: Settings(
-        enable_databricks_integrations=True,
         serving_endpoint_name="starter-endpoint",
         vector_search_endpoint_name="starter-vs",
         vector_search_index_name="main.default.starter_index",
     )
     try:
         with TestClient(app_main.app) as client:
-            runtime = client.app.state.runtime
-            mock_ai = MagicMock()
-            mock_ai.aclose = AsyncMock()
-            mock_ai.embeddings.create = AsyncMock(
-                return_value=SimpleNamespace(
-                    data=[SimpleNamespace(embedding=[0.1, 0.2, 0.3])]
-                )
-            )
-            runtime.ai_client = mock_ai
-            runtime.vector_index = None
-            runtime.remember_error("vector_index", "vector index init failed")
             response = client.post(
                 "/api/examples/vector/query", json={"title": "hello"}
             )
@@ -91,9 +79,7 @@ def test_vector_query_returns_clean_503_when_index_is_unavailable():
         api_app.dependency_overrides.clear()
 
     assert response.status_code == 503
-    detail = response.json()["detail"]
-    assert "Vector Search" in detail
-    assert "RuntimeError" not in detail
+    assert "ENABLE_DATABRICKS_INTEGRATIONS" in response.json()["detail"]
 
 
 def test_agent_ask_returns_503_when_integrations_are_disabled():
@@ -114,27 +100,15 @@ def test_agent_ask_returns_503_when_integrations_are_disabled():
     assert "ENABLE_DATABRICKS_INTEGRATIONS" in response.json()["detail"]
 
 
-def test_vector_store_returns_clean_503_when_index_is_unavailable():
+def test_vector_store_returns_503_when_integrations_are_disabled():
     api_app = _api_app()
     api_app.dependency_overrides[get_settings] = lambda: Settings(
-        enable_databricks_integrations=True,
         serving_endpoint_name="starter-endpoint",
         vector_search_endpoint_name="starter-vs",
         vector_search_index_name="main.default.starter_index",
     )
     try:
         with TestClient(app_main.app) as client:
-            runtime = client.app.state.runtime
-            mock_ai = MagicMock()
-            mock_ai.aclose = AsyncMock()
-            mock_ai.embeddings.create = AsyncMock(
-                return_value=SimpleNamespace(
-                    data=[SimpleNamespace(embedding=[0.1, 0.2, 0.3])]
-                )
-            )
-            runtime.ai_client = mock_ai
-            runtime.vector_index = None
-            runtime.remember_error("vector_index", "vector index init failed")
             response = client.post(
                 "/api/examples/vector/store", json={"title": "hello"}
             )
@@ -142,6 +116,4 @@ def test_vector_store_returns_clean_503_when_index_is_unavailable():
         api_app.dependency_overrides.clear()
 
     assert response.status_code == 503
-    detail = response.json()["detail"]
-    assert "Vector Search" in detail
-    assert "RuntimeError" not in detail
+    assert "ENABLE_DATABRICKS_INTEGRATIONS" in response.json()["detail"]

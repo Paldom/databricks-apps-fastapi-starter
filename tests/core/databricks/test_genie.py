@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 from app.core.databricks.genie import GenieAdapter
-from app.core.errors import GenieError
+from app.core.errors import ExternalServiceError
 
 
 def _mock_response(status_code=200, json_data=None):
@@ -33,7 +33,7 @@ async def test_start_conversation_error():
     client = AsyncMock()
     client.post.return_value = _mock_response(500)
     adapter = GenieAdapter(client, MagicMock())
-    with pytest.raises(GenieError, match="500"):
+    with pytest.raises(ExternalServiceError, match="500"):
         await adapter.start_conversation("space-1", "What?")
 
 

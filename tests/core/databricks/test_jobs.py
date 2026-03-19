@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import MagicMock
 
 from app.core.databricks.jobs import JobsAdapter
-from app.core.errors import JobExecutionError
+from app.core.errors import ExternalServiceError
 
 
 @pytest.mark.asyncio
@@ -29,7 +29,7 @@ async def test_run_wraps_sdk_error():
     ws = MagicMock()
     ws.jobs.run_now_and_wait.side_effect = RuntimeError("fail")
     adapter = JobsAdapter(ws, MagicMock())
-    with pytest.raises(JobExecutionError, match="fail"):
+    with pytest.raises(ExternalServiceError, match="fail"):
         await adapter.run_and_get_output(1)
 
 
@@ -45,5 +45,5 @@ async def test_run_raises_on_bad_output():
     ws.jobs.get_run_output.return_value = out
 
     adapter = JobsAdapter(ws, MagicMock())
-    with pytest.raises(JobExecutionError, match="Failed to parse"):
+    with pytest.raises(ExternalServiceError, match="Failed to parse"):
         await adapter.run_and_get_output(1)

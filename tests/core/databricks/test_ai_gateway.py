@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 from app.core.databricks.ai_gateway import AiGatewayAdapter
-from app.core.errors import AiGatewayError
+from app.core.errors import ExternalServiceError
 
 
 @pytest.mark.asyncio
@@ -27,5 +27,5 @@ async def test_embed_wraps_openai_error():
     client.embeddings.create.side_effect = OpenAIError("rate limit")
 
     adapter = AiGatewayAdapter(client, MagicMock())
-    with pytest.raises(AiGatewayError, match="rate limit"):
+    with pytest.raises(ExternalServiceError, match="rate limit"):
         await adapter.embed("model-1", "hello")
