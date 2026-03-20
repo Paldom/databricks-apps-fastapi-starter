@@ -16,4 +16,4 @@ resources:
         - task_key: run_python
           job_cluster_key: tiny
           spark_python_task:
-            python_file: notebooks/jobs/starter_job.py
+            python_file: backend/notebooks/jobs/starter_job.py

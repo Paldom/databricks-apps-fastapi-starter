@@ -17,9 +17,9 @@ jobs:
       - name: Set up Python
         run: uv python install 3.11
       - name: Install deps
-        run: uv sync --extra dev
+        run: cd backend && uv sync --extra dev
       - name: Run tests with coverage
-        run: uv run pytest --cov=. --cov-report=xml
+        run: cd backend && uv run pytest --cov=. --cov-report=xml
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v5
         env:

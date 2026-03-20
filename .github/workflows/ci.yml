@@ -25,19 +25,19 @@ jobs:
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
       - name: Install backend
-        run: uv sync --extra dev
+        run: cd backend && uv sync --extra dev
       - name: Install frontend
         run: cd frontend && npm ci
       - name: Build frontend
         run: cd frontend && npm run build
       - name: Ruff
-        run: uv run ruff check .
+        run: cd backend && uv run ruff check .
       - name: Mypy
-        run: uv run mypy --ignore-missing-imports .
+        run: cd backend && uv run mypy --ignore-missing-imports .
       - name: Bandit
-        run: uv run bandit -r app -c pyproject.toml -q
+        run: cd backend && uv run bandit -r app -c pyproject.toml -q
       - name: Pytest
-        run: uv run pytest --cov .
+        run: cd backend && uv run pytest --cov .
 
   contract-and-frontend:
     name: Contract & Frontend (Node 24)
@@ -54,16 +54,16 @@ jobs:
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
       - name: Install backend
-        run: uv sync --extra dev
+        run: cd backend && uv sync --extra dev
       - name: Install frontend
         run: cd frontend && npm ci
       - name: Export backend OpenAPI
-        run: uv run python scripts/export_openapi.py
+        run: cd backend && uv run python scripts/export_openapi.py
       - name: Regenerate frontend API client
         run: cd frontend && npm run api:gen
       - name: Check generated files are committed
         run: |
-          git diff --exit-code -- requirements.txt openapi.json frontend/src/shared/api/generated || {
+          git diff --exit-code -- backend/requirements.txt backend/openapi.yaml frontend/src/shared/api/generated || {
             echo "::error::Generated files are out of sync. Run: make generate"
             exit 1
           }
@@ -75,9 +75,10 @@ jobs:
         run: cd frontend && npm run test
       - name: Check requirements.txt is in sync
         run: |
+          cd backend
           uv export --no-hashes --no-editable --format=requirements.txt > /tmp/requirements-check.txt
           diff -u requirements.txt /tmp/requirements-check.txt || {
-            echo "::error::requirements.txt is out of sync. Run: uv export --no-hashes --no-editable --format=requirements.txt > requirements.txt"
+            echo "::error::requirements.txt is out of sync. Run: make requirements-export"
             exit 1
           }
 

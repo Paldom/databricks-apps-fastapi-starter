@@ -2,7 +2,7 @@ import { defineConfig } from 'orval'
 
 export default defineConfig({
   api: {
-    input: '../openapi.json',
+    input: '../backend/openapi.yaml',
     output: {
       mode: 'tags-split',
       target: 'src/shared/api/generated/index.ts',

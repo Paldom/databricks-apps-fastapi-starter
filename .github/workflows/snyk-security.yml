@@ -26,14 +26,14 @@ jobs:
         run: uv python install 3.11
 
       - name: Install dependencies
-        run: uv sync
+        run: cd backend && uv sync
 
       - name: Install Snyk CLI
         run: npm install -g snyk
 
       # Failing gate — exits non-zero on high/critical vulnerabilities
       - name: Snyk open-source test
-        run: snyk test --file=requirements.txt --severity-threshold=high --sarif-file-output=snyk-oss.sarif
+        run: snyk test --file=backend/requirements.txt --severity-threshold=high --sarif-file-output=snyk-oss.sarif
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
@@ -70,6 +70,6 @@ jobs:
 
       - name: Snyk monitor (main only)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: snyk monitor --file=requirements.txt
+        run: snyk monitor --file=backend/requirements.txt
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}

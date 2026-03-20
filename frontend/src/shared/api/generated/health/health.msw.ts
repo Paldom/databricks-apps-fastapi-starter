@@ -18,18 +18,23 @@ import type {
 } from 'msw';
 
 import {
-  DependencyHealthStatus,
-  HealthResponseStatus
+  HealthStatus
 } from '.././models';
 import type {
-  HealthResponse
+  DetailedHealthResponse,
+  LiveResponse,
+  ReadyResponse
 } from '.././models';
 
 
-export const getGetHealthResponseMock = (overrideResponse: Partial< HealthResponse > = {}): HealthResponse => ({checks: {ai: {disabled: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), reason: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), required: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), status: faker.helpers.arrayElement(Object.values(DependencyHealthStatus))}, database: {disabled: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), reason: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), required: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), status: faker.helpers.arrayElement(Object.values(DependencyHealthStatus))}, jobs: {disabled: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), reason: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), required: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), status: faker.helpers.arrayElement(Object.values(DependencyHealthStatus))}, knowledge_assistant: {disabled: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), reason: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), required: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), status: faker.helpers.arrayElement(Object.values(DependencyHealthStatus))}, vector_search: {disabled: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), reason: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), required: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), status: faker.helpers.arrayElement(Object.values(DependencyHealthStatus))}, workspace: {disabled: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), reason: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), required: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), status: faker.helpers.arrayElement(Object.values(DependencyHealthStatus))}}, ok: faker.datatype.boolean(), status: faker.helpers.arrayElement(Object.values(HealthResponseStatus)), ...overrideResponse})
+export const getGetHealthResponseMock = (overrideResponse: Partial< DetailedHealthResponse > = {}): DetailedHealthResponse => ({ai: {reason: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), status: faker.helpers.arrayElement(Object.values(HealthStatus))}, database: {reason: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), status: faker.helpers.arrayElement(Object.values(HealthStatus))}, ok: faker.datatype.boolean(), vector_search: {reason: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), status: faker.helpers.arrayElement(Object.values(HealthStatus))}, workspace: {reason: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), status: faker.helpers.arrayElement(Object.values(HealthStatus))}, ...overrideResponse})
+
+export const getHealthLiveResponseMock = (overrideResponse: Partial< LiveResponse > = {}): LiveResponse => ({ok: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), ...overrideResponse})
+
+export const getHealthReadyResponseMock = (overrideResponse: Partial< ReadyResponse > = {}): ReadyResponse => ({db: faker.datatype.boolean(), ok: faker.datatype.boolean(), ...overrideResponse})
 
 
-export const getGetHealthMockHandler = (overrideResponse?: HealthResponse | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<HealthResponse> | HealthResponse), options?: RequestHandlerOptions) => {
+export const getGetHealthMockHandler = (overrideResponse?: DetailedHealthResponse | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<DetailedHealthResponse> | DetailedHealthResponse), options?: RequestHandlerOptions) => {
   return http.get('*/health', async (info) => {await delay(100);
   
     return new HttpResponse(JSON.stringify(overrideResponse !== undefined
@@ -40,6 +45,32 @@ export const getGetHealthMockHandler = (overrideResponse?: HealthResponse | ((in
       })
   }, options)
 }
+
+export const getHealthLiveMockHandler = (overrideResponse?: LiveResponse | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<LiveResponse> | LiveResponse), options?: RequestHandlerOptions) => {
+  return http.get('*/health/live', async (info) => {await delay(100);
+  
+    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getHealthLiveResponseMock()),
+      { status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+  }, options)
+}
+
+export const getHealthReadyMockHandler = (overrideResponse?: ReadyResponse | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<ReadyResponse> | ReadyResponse), options?: RequestHandlerOptions) => {
+  return http.get('*/health/ready', async (info) => {await delay(100);
+  
+    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getHealthReadyResponseMock()),
+      { status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+  }, options)
+}
 export const getHealthMock = () => [
-  getGetHealthMockHandler()
+  getGetHealthMockHandler(),
+  getHealthLiveMockHandler(),
+  getHealthReadyMockHandler()
 ]

@@ -7,20 +7,19 @@ include:
 
 sync:
   exclude:
-    - tests/**
+    - backend/tests/**
     - frontend/**
-    - client/**
     - .github/**
-    - .venv/**
-    - .mypy_cache/**
-    - .ruff_cache/**
-    - .pytest_cache/**
-    - notebooks/**
-    - alembic/**
+    - backend/.venv/**
+    - backend/.mypy_cache/**
+    - backend/.ruff_cache/**
+    - backend/.pytest_cache/**
+    - backend/notebooks/**
+    - backend/alembic/**
     - "*.egg-info/**"
-    - .local/**
-    - .coverage
-    - coverage.xml
+    - backend/.local/**
+    - backend/.coverage
+    - backend/coverage.xml
     - "*.md"
 
 variables:
@@ -54,7 +53,7 @@ variables:
     default:
       command:
         - python
-        - run_app.py
+        - backend/run_app.py
       env:
         - name: SERVE_STATIC
           value: "true"
@@ -98,7 +97,7 @@ targets:
       app_config:
         command:
           - python
-          - run_app.py
+          - backend/run_app.py
         env:
           - name: SERVE_STATIC
             value: "true"
@@ -150,7 +149,7 @@ targets:
       app_config:
         command:
           - python
-          - run_app.py
+          - backend/run_app.py
         env:
           - name: SERVE_STATIC
             value: "true"

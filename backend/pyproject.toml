@@ -43,6 +43,7 @@ dev = [
     "httpx",
     "pytest-mock",
     "pyyaml",
+    "types-PyYAML",
 ]
 
 [tool.mypy]

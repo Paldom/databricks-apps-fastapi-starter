@@ -1,11 +1,7 @@
 SHELL := /bin/bash
-PYTHON ?= python
-UV ?= uv
 NPM ?= npm
-DOCKER_COMPOSE ?= docker compose
 FRONTEND_DIR ?= frontend
-API_CLIENT_DIR ?= client
-MIGRATION_MESSAGE ?= new migration
+BACKEND_DIR ?= backend
 
 .PHONY: install install-backend install-frontend \
 	dev dev-api dev-backend dev-frontend dev-db dev-db-down \
@@ -20,7 +16,7 @@ MIGRATION_MESSAGE ?= new migration
 install: install-backend install-frontend
 
 install-backend:
-	$(UV) sync --extra dev
+	$(MAKE) -C $(BACKEND_DIR) install
 
 install-frontend:
 	cd $(FRONTEND_DIR) && $(NPM) ci
@@ -28,26 +24,26 @@ install-frontend:
 # ── Generate ───────────────────────────────────────────────────────
 
 requirements-export:
-	$(UV) export --no-hashes --format=requirements.txt > requirements.txt
+	$(MAKE) -C $(BACKEND_DIR) requirements-export
 
 openapi-export:
-	$(UV) run python scripts/export_openapi.py
+	$(MAKE) -C $(BACKEND_DIR) openapi-export
 
 frontend-api-gen:
-	cd $(API_CLIENT_DIR) && $(NPM) run api:gen
+	cd $(FRONTEND_DIR) && $(NPM) run api:gen
 
 generate: requirements-export openapi-export frontend-api-gen
 
 # ── Local development ──────────────────────────────────────────────
 
 dev-db:
-	$(DOCKER_COMPOSE) up -d postgres
+	$(MAKE) -C $(BACKEND_DIR) dev-db
 
 dev-db-down:
-	$(DOCKER_COMPOSE) down
+	$(MAKE) -C $(BACKEND_DIR) dev-db-down
 
 dev-api:
-	$(UV) run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+	$(MAKE) -C $(BACKEND_DIR) dev-api
 
 dev-backend: dev-api
 
@@ -58,21 +54,21 @@ dev:
 	bash -lc 'trap "kill 0" EXIT; $(MAKE) dev-api & $(MAKE) dev-frontend & wait'
 
 migrate-up:
-	$(UV) run alembic upgrade head
+	$(MAKE) -C $(BACKEND_DIR) migrate-up
 
 migrate-new:
-	$(UV) run alembic revision --autogenerate -m "$(MIGRATION_MESSAGE)"
+	$(MAKE) -C $(BACKEND_DIR) migrate-new
 
 # ── Backend checks ─────────────────────────────────────────────────
 
 backend-lint:
-	$(UV) run ruff check .
+	$(MAKE) -C $(BACKEND_DIR) lint
 
 backend-typecheck:
-	$(UV) run mypy --ignore-missing-imports .
+	$(MAKE) -C $(BACKEND_DIR) typecheck
 
 backend-test:
-	$(UV) run pytest --cov .
+	$(MAKE) -C $(BACKEND_DIR) test
 
 # ── Frontend checks ────────────────────────────────────────────────
 
@@ -93,13 +89,13 @@ frontend-build:
 lint: backend-lint frontend-lint
 
 format:
-	$(UV) run ruff format .
+	$(MAKE) -C $(BACKEND_DIR) format
 	cd $(FRONTEND_DIR) && $(NPM) run format
 
 typecheck: backend-typecheck frontend-typecheck
 
 security:
-	$(UV) run bandit -r app -c pyproject.toml -q
+	$(MAKE) -C $(BACKEND_DIR) security
 
 test: backend-test frontend-test
 
@@ -108,4 +104,4 @@ check: generate lint typecheck security test frontend-build
 # ── Performance ────────────────────────────────────────────────────
 
 load-test:
-	$(UV) run locust -f tests/performance/locustfile.py --headless -u 50 -r 10 -t 2m
+	$(MAKE) -C $(BACKEND_DIR) load-test

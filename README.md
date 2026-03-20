@@ -52,19 +52,31 @@ The app is granted access to specific Databricks resources with least-privilege 
 
 These bindings are used with `valueFrom` in the app's env config, so the app receives resolved values as environment variables at runtime.
 
-### Application layers
+### Repository layout
 
 ```
-app/
-  api/public/          # Frontend-facing API routes (mounted at /api)
-  services/            # Business logic
-  repositories/        # SQLAlchemy persistence (flush only)
-  core/databricks/     # Databricks SDK adapters (serving, jobs, vector search, etc.)
-  core/db/             # Async SQLAlchemy engine, session, URL builder
-  core/security/       # Rate limiting, path validation
-  middlewares/         # Auth, OBO, security headers, request size
-  models/              # ORM models and DTOs
+backend/                 # Self-contained Python project (uv, pyproject.toml)
+  app/                   # FastAPI application package
+    api/                 # Frontend-facing API routes (mounted at /api)
+    services/            # Business logic
+    repositories/        # SQLAlchemy persistence (flush only)
+    core/databricks/     # Databricks SDK adapters (serving, jobs, vector search, etc.)
+    core/db/             # Async SQLAlchemy engine, session, URL builder
+    core/security/       # Path validation
+    middlewares/         # Auth, OBO, security headers, request size
+    models/              # ORM models and DTOs
+  alembic/               # Database migrations
+  tests/                 # Backend tests (pytest)
+  scripts/               # OpenAPI export, helpers
+  notebooks/             # Databricks notebooks (jobs, serving)
+  openapi.yaml           # Committed OpenAPI contract (YAML)
+frontend/                # React + TypeScript + Vite
+resources/               # Databricks bundle resource definitions
+databricks.yml           # Bundle config (root level)
+Makefile                 # Root orchestration — delegates to backend/Makefile
 ```
+
+All root-level `make` commands continue to work. The backend can also be used directly: `cd backend && uv run uvicorn app.main:app --reload`.
 
 ## Prerequisites
 
@@ -86,14 +98,14 @@ The local development workflow is **API on the host + Postgres in Docker**. Data
 git clone https://github.com/Paldom/databricks-apps-fastapi-starter.git
 cd databricks-apps-fastapi-starter
 
-cp env.example .env
+cp backend/env.example backend/.env
+make install-backend
 make dev-db
-uv sync --extra dev
 make migrate-up
 make dev-api
 ```
 
-With the defaults from `env.example`, the following work locally without Databricks credentials:
+With the defaults from `backend/env.example`, the following work locally without Databricks credentials:
 
 - `http://localhost:8000/docs`
 - `http://localhost:8000/api/health/live`
@@ -295,7 +307,7 @@ databricks bundle summary -t dev
 
 ## Databricks Services
 
-The legacy example router in `app/api/examples_controller.py` exercises several Databricks services:
+The legacy example router in `backend/app/api/examples_controller.py` exercises several Databricks services:
 
 - **Serving Endpoint** -- queries an MLflow model with seamless scaling
 - **Databricks Jobs** -- triggers a job and returns its output
@@ -308,7 +320,7 @@ The legacy example router in `app/api/examples_controller.py` exercises several 
 
 ## Configuration
 
-The application reads settings from environment variables using Pydantic `Settings` in `app/core/config.py`. When running locally, place variables in a `.env` file. When deployed via bundles, resource-backed values are injected automatically via `valueFrom`.
+The application reads settings from environment variables using Pydantic `Settings` in `backend/app/core/config.py`. When running locally, place variables in `backend/.env`. When deployed via bundles, resource-backed values are injected automatically via `valueFrom`.
 
 Key configuration:
 
@@ -332,7 +344,7 @@ Key configuration:
 | `VECTOR_SEARCH_ENDPOINT_NAME` | Vector search endpoint | Manual |
 | `VECTOR_SEARCH_INDEX_NAME` | Vector search index | Manual |
 
-See `env.example` for the full list of configuration variables.
+See `backend/env.example` for the full list of configuration variables.
 
 ## Security
 
@@ -374,14 +386,13 @@ The application applies OWASP-recommended HTTP security headers (HSTS, content t
 
 ### Dependency management
 
-This project uses [uv](https://docs.astral.sh/uv/) for dependency management. `requirements.txt` is generated — do not edit manually:
+This project uses [uv](https://docs.astral.sh/uv/) for dependency management. `backend/requirements.txt` is generated — do not edit manually:
 
 ```bash
-uv lock
-uv export --no-hashes --no-editable --format=requirements.txt > requirements.txt
+make requirements-export
 ```
 
-CI verifies that `requirements.txt` matches the lockfile on every PR.
+CI verifies that `backend/requirements.txt` matches the lockfile on every PR.
 
 ## Health and Readiness
 
@@ -421,7 +432,7 @@ The application ships with OpenTelemetry instrumentation. When deployed to Datab
 docker run -d -p 16686:16686 -p 4317:4317 jaegertracing/all-in-one
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
 OTEL_SERVICE_NAME=fastapi-starter-local \
-opentelemetry-instrument uvicorn main:app --reload
+cd backend && opentelemetry-instrument uvicorn app.main:app --reload
 ```
 
 ## Caching
@@ -478,8 +489,8 @@ If GitHub Actions deploy fails with auth errors when using OIDC, verify:
 
 ### App returns 502
 
-The app must bind to `0.0.0.0` and use the `DATABRICKS_APP_PORT` environment variable. The `run_app.py` launcher handles this automatically. If you see 502 errors, check:
-- `run_app.py` is the entry point in your app config
+The app must bind to `0.0.0.0` and use the `DATABRICKS_APP_PORT` environment variable. The `backend/run_app.py` launcher handles this automatically. If you see 502 errors, check:
+- `backend/run_app.py` is the entry point in your app config
 - The app starts without import errors (check `/logz` in the Apps UI)
 
 ### Bundle validation fails
