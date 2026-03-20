@@ -241,7 +241,7 @@ sqlalchemy==2.0.48
     # via databricks-apps-fastapi-starter
 sqlparse==0.5.5
     # via mlflow-skinny
-starlette==0.46.2
+starlette==0.52.1
     # via fastapi
 thrift==0.20.0
     # via databricks-sql-connector
