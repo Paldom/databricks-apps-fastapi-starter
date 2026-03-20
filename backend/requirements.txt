@@ -37,7 +37,7 @@ colorama==0.4.6 ; sys_platform == 'win32'
     #   tqdm
 cryptography==46.0.5
     # via google-auth
-databricks-sdk==0.100.0
+databricks-sdk==0.102.0
     # via
     #   databricks-apps-fastapi-starter
     #   mlflow-skinny
@@ -96,7 +96,7 @@ numpy==2.4.3
     #   pandas
 oauthlib==3.3.1
     # via databricks-sql-connector
-openai==2.28.0
+openai==2.29.0
     # via databricks-apps-fastapi-starter
 openpyxl==3.1.5
     # via databricks-sql-connector
@@ -172,7 +172,7 @@ packaging==26.0
     #   mlflow-skinny
     #   opentelemetry-instrumentation
     #   opentelemetry-instrumentation-sqlalchemy
-pandas==2.3.3
+pandas==3.0.1
     # via
     #   databricks-apps-fastapi-starter
     #   databricks-sql-connector
