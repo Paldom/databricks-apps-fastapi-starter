@@ -176,7 +176,7 @@ pandas==2.3.3
     # via
     #   databricks-apps-fastapi-starter
     #   databricks-sql-connector
-protobuf==5.29.6
+protobuf==7.34.0
     # via
     #   databricks-sdk
     #   databricks-vectorsearch
