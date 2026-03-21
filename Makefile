@@ -9,7 +9,8 @@ BACKEND_DIR ?= backend
 	requirements-export openapi-export frontend-api-gen generate \
 	backend-lint backend-typecheck backend-test \
 	frontend-lint frontend-typecheck frontend-test frontend-build \
-	lint format typecheck security test check load-test
+	lint format typecheck security test check load-test \
+	bundle-validate
 
 # ── Install ────────────────────────────────────────────────────────
 
@@ -84,6 +85,11 @@ frontend-test:
 frontend-build:
 	cd $(FRONTEND_DIR) && $(NPM) run build
 
+# ── Bundle validation ──────────────────────────────────────────────
+
+bundle-validate:
+	databricks bundle validate -t dev
+
 # ── Combined developer targets ─────────────────────────────────────
 
 lint: backend-lint frontend-lint
@@ -99,7 +105,7 @@ security:
 
 test: backend-test frontend-test
 
-check: generate lint typecheck security test frontend-build
+check: generate lint typecheck security test frontend-build bundle-validate
 
 # ── Performance ────────────────────────────────────────────────────
 

@@ -17,12 +17,12 @@ from app.core.runtime import AppRuntime, get_app_runtime
 from app.models.user_dto import CurrentUser, UserInfo
 
 if TYPE_CHECKING:
+    from app.chat.orchestrator import ChatOrchestrator
     from app.repositories.chat_repository import ChatRepository
     from app.repositories.document_repository import DocumentRepository
     from app.repositories.project_repository import ProjectRepository
     from app.repositories.user_settings_repository import UserSettingsRepository
     from app.services.chat_service import ChatService
-    from app.services.chat_stream_service import ChatStreamService
     from app.services.document_service import DocumentService
     from app.services.project_service import ProjectService
     from app.services.user_settings_service import UserSettingsService
@@ -161,9 +161,66 @@ def get_user_settings_service(
     )
 
 
-def get_chat_stream_service(
+def _try_get_workspace_client(request: Request) -> Any:
+    """Return the workspace client or ``None`` if not available."""
+    try:
+        return get_workspace_client(request)
+    except Exception:
+        return None
+
+
+def _try_get_vector_index(request: Request) -> Any:
+    """Return the vector index or ``None`` if not available."""
+    try:
+        return get_vector_index(request)
+    except Exception:
+        return None
+
+
+def get_chat_orchestrator(
     request: Request,
-) -> ChatStreamService:
-    from app.services.chat_stream_service import ChatStreamService
+) -> ChatOrchestrator:
+    from langchain_openai import ChatOpenAI
+
+    from app.chat.agent import build_agent
+    from app.chat.memory import create_checkpointer
+    from app.chat.orchestrator import ChatOrchestrator
+    from app.chat.registry import build_supervisor_prompt, get_enabled_specs
+    from app.chat.tools import build_tools
+
+    runtime = get_runtime(request)
+    s = _get_request_settings(request)
     ai_client = get_ai_client(request)
-    return ChatStreamService(ai_client)
+    log = _get_logger()
+
+    # Checkpointer (from runtime if initialized at startup)
+    checkpointer = getattr(runtime, "langgraph_checkpointer", None)
+    if checkpointer is None:
+        checkpointer = create_checkpointer(s)
+
+    # Registry → enabled specs → tools + prompt
+    enabled_specs = get_enabled_specs(s)
+    tools = build_tools(
+        enabled_specs, s,
+        ai_client=ai_client,
+        workspace_client=_try_get_workspace_client(request),
+        vector_index=_try_get_vector_index(request),
+        logger=log,
+    )
+    prompt = build_supervisor_prompt(enabled_specs)
+
+    # Build agent
+    model_name = (
+        s.supervisor_model
+        or s.serving_endpoint_name
+        or "databricks-meta-llama-3-1-70b-instruct"
+    )
+    supervisor_llm = ChatOpenAI(
+        model=model_name,
+        api_key=ai_client.api_key,
+        base_url=str(ai_client.base_url),
+        timeout=float(s.openai_timeout_seconds),
+    )
+    agent = build_agent(supervisor_llm, tools, prompt, checkpointer)
+
+    return ChatOrchestrator(agent, checkpointer, log)

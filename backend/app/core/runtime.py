@@ -15,6 +15,7 @@ class AppRuntime:
     workspace_client: WorkspaceClient | None = None
     ai_client: AsyncOpenAI | None = None
     vector_index: Any | None = None
+    langgraph_checkpointer: Any | None = None
 
 
 def get_app_runtime(container: Any) -> AppRuntime:

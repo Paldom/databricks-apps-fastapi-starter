@@ -30,7 +30,6 @@ async def request_context_middleware(request: Request, call_next):
     # request.state (user_info, workspace_client).
     span = trace.get_current_span()
     if span.is_recording():
-        span.set_attribute("app.request_id", request_id)
         span.set_attribute(
             "app.user.present",
             getattr(request.state, "user", None) is not None,

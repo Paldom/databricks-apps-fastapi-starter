@@ -47,11 +47,45 @@ variables:
   knowledge_assistant_endpoint_name:
     description: Name of the Knowledge Assistant serving endpoint (created in Agent Bricks)
     default: ""
+  app_agent_name:
+    description: Name of the remote Databricks App specialist agent
+    default: ""
+  genie_space_id:
+    description: Genie space ID for data specialist
+    default: ""
+  supervisor_model:
+    description: Model name for the LangGraph supervisor
+    default: ""
+  serving_specialist_endpoint:
+    description: Serving specialist endpoint name
+    default: ""
+  ai_gateway_embedding_model:
+    description: Embedding model for knowledge specialist
+    default: ""
+  title_model:
+    description: Model for chat title generation (defaults to supervisor model)
+    default: ""
+  serving_specialist_api_mode:
+    description: Serving specialist API mode (chat_completions or responses)
+    default: chat_completions
+  langgraph_memory_backend:
+    description: LangGraph memory backend (inmemory or lakebase)
+    default: inmemory
+  knowledge_volume_root:
+    description: UC Volume root path for knowledge specialist
+    default: ""
+  vector_search_endpoint_name:
+    description: Vector Search endpoint name for knowledge specialist
+    default: ""
+  vector_search_index_name:
+    description: Vector Search index name for knowledge specialist
+    default: ""
   app_config:
     type: complex
     description: Runtime config for the Databricks app
     default:
       command:
+        - opentelemetry-instrument
         - python
         - backend/run_app.py
       env:
@@ -79,12 +113,38 @@ variables:
           valueFrom: app-job
         - name: VOLUME_ROOT
           valueFrom: uc-volume
-        - name: OPENAI_KEY
-          valueFrom: openai-key
-        - name: LAKEBASE_PASSWORD
-          valueFrom: lakebase-password
+        - name: PGHOST
+          valueFrom: lakebase-db
+        - name: PGDATABASE
+          valueFrom: lakebase-db
+        - name: PGUSER
+          valueFrom: lakebase-db
         - name: KNOWLEDGE_ASSISTANT_ENDPOINT
           valueFrom: knowledge-assistant
+        - name: APP_AGENT_NAME
+          value: ${var.app_agent_name}
+        - name: GENIE_SPACE_ID
+          value: ${var.genie_space_id}
+        - name: SUPERVISOR_MODEL
+          value: ${var.supervisor_model}
+        - name: SERVING_SPECIALIST_ENDPOINT
+          valueFrom: serving-specialist
+        - name: AI_GATEWAY_EMBEDDING_MODEL
+          value: ${var.ai_gateway_embedding_model}
+        - name: TITLE_MODEL
+          value: ${var.title_model}
+        - name: SERVING_SPECIALIST_API_MODE
+          value: ${var.serving_specialist_api_mode}
+        - name: LANGGRAPH_MEMORY_BACKEND
+          value: ${var.langgraph_memory_backend}
+        - name: KNOWLEDGE_VOLUME_ROOT
+          value: ${var.knowledge_volume_root}
+        - name: VECTOR_SEARCH_ENDPOINT_NAME
+          value: ${var.vector_search_endpoint_name}
+        - name: VECTOR_SEARCH_INDEX_NAME
+          value: ${var.vector_search_index_name}
+        - name: ENABLE_CHAT_TITLE_GENERATION
+          value: "true"
 
 targets:
   dev:
@@ -123,10 +183,36 @@ targets:
             valueFrom: app-job
           - name: VOLUME_ROOT
             valueFrom: uc-volume
-          - name: OPENAI_KEY
-            valueFrom: openai-key
-          - name: LAKEBASE_PASSWORD
-            valueFrom: lakebase-password
+          - name: PGHOST
+            valueFrom: lakebase-db
+          - name: PGDATABASE
+            valueFrom: lakebase-db
+          - name: PGUSER
+            valueFrom: lakebase-db
+          - name: CHAT_BACKEND
+            value: ${var.chat_backend}
+          - name: GENIE_SPACE_ID
+            value: ${var.genie_space_id}
+          - name: SUPERVISOR_MODEL
+            value: ${var.supervisor_model}
+          - name: SERVING_SPECIALIST_ENDPOINT
+            valueFrom: serving-specialist
+          - name: AI_GATEWAY_EMBEDDING_MODEL
+            value: ${var.ai_gateway_embedding_model}
+          - name: APP_SPECIALIST_MODEL
+            value: ${var.app_specialist_model}
+          - name: SERVING_SPECIALIST_API_MODE
+            value: ${var.serving_specialist_api_mode}
+          - name: LANGGRAPH_MEMORY_BACKEND
+            value: ${var.langgraph_memory_backend}
+          - name: KNOWLEDGE_VOLUME_ROOT
+            value: ${var.knowledge_volume_root}
+          - name: VECTOR_SEARCH_ENDPOINT_NAME
+            value: ${var.vector_search_endpoint_name}
+          - name: VECTOR_SEARCH_INDEX_NAME
+            value: ${var.vector_search_index_name}
+          - name: ENABLE_CHAT_TITLE_GENERATION
+            value: "true"
 
   staging:
     workspace:
@@ -175,7 +261,33 @@ targets:
             valueFrom: app-job
           - name: VOLUME_ROOT
             valueFrom: uc-volume
-          - name: OPENAI_KEY
-            valueFrom: openai-key
-          - name: LAKEBASE_PASSWORD
-            valueFrom: lakebase-password
+          - name: PGHOST
+            valueFrom: lakebase-db
+          - name: PGDATABASE
+            valueFrom: lakebase-db
+          - name: PGUSER
+            valueFrom: lakebase-db
+          - name: CHAT_BACKEND
+            value: ${var.chat_backend}
+          - name: GENIE_SPACE_ID
+            value: ${var.genie_space_id}
+          - name: SUPERVISOR_MODEL
+            value: ${var.supervisor_model}
+          - name: SERVING_SPECIALIST_ENDPOINT
+            valueFrom: serving-specialist
+          - name: AI_GATEWAY_EMBEDDING_MODEL
+            value: ${var.ai_gateway_embedding_model}
+          - name: APP_SPECIALIST_MODEL
+            value: ${var.app_specialist_model}
+          - name: SERVING_SPECIALIST_API_MODE
+            value: ${var.serving_specialist_api_mode}
+          - name: LANGGRAPH_MEMORY_BACKEND
+            value: ${var.langgraph_memory_backend}
+          - name: KNOWLEDGE_VOLUME_ROOT
+            value: ${var.knowledge_volume_root}
+          - name: VECTOR_SEARCH_ENDPOINT_NAME
+            value: ${var.vector_search_endpoint_name}
+          - name: VECTOR_SEARCH_INDEX_NAME
+            value: ${var.vector_search_index_name}
+          - name: ENABLE_CHAT_TITLE_GENERATION
+            value: "true"

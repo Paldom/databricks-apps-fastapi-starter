@@ -22,17 +22,15 @@ resources:
             securable_type: VOLUME
             securable_full_name: ${var.volume_full_name}
             permission: WRITE_VOLUME
-        - name: openai-key
-          secret:
-            scope: ${resources.secret_scopes.starter_scope.name}
-            key: OPENAI_KEY
-            permission: READ
-        - name: lakebase-password
-          secret:
-            scope: ${resources.secret_scopes.starter_scope.name}
-            key: LAKEBASE_PASSWORD
-            permission: READ
+        - name: lakebase-db
+          database:
+            name: ${resources.database_instances.lakebase_oltp.name}
+            permission: USE
         - name: knowledge-assistant
           serving_endpoint:
             name: ${var.knowledge_assistant_endpoint_name}
+            permission: CAN_QUERY
+        - name: serving-specialist
+          serving_endpoint:
+            name: ${var.serving_specialist_endpoint}
             permission: CAN_QUERY

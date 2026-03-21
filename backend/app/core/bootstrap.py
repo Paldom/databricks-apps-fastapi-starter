@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from app.core.config import settings
 from app.core.db import create_async_engine_from_settings, create_session_factory
 from app.core.logging import get_logger, setup_logging
-from app.core.observability import get_tracer, record_duration, tag_exception
+from app.core.observability import get_tracer, tag_exception
 from app.core.runtime import AppRuntime
 import app.models  # noqa: F401 – register all models with Base.metadata
 
@@ -28,7 +28,7 @@ async def lifespan(application: FastAPI):
 
     # ── Startup ──────────────────────────────────────────────────────
     t0 = time.monotonic()
-    with tracer.start_as_current_span("app.startup"):
+    with tracer.start_as_current_span("app.startup") as startup_span:
         logger.info("Starting application")
 
         with tracer.start_as_current_span("startup.db.pool.init") as span:
@@ -42,7 +42,23 @@ async def lifespan(application: FastAPI):
             else:
                 logger.info("Database configuration not provided; skipping")
 
-    record_duration("app.startup.duration", time.monotonic() - t0)
+        # ── MLflow tracing ─────────────────────────────────────────
+        try:
+            _init_mlflow_tracing()
+        except Exception as exc:
+            logger.debug("MLflow tracing init failed: %s", exc)
+
+        # ── LangGraph checkpointer ───────────────────────────────
+        try:
+            from app.chat.memory import create_checkpointer
+
+            runtime.langgraph_checkpointer = create_checkpointer(settings)
+        except ImportError:
+            logger.warning("LangGraph not installed; skipping checkpointer init")
+        except Exception as exc:
+            logger.warning("LangGraph checkpointer init failed: %s", exc)
+
+        startup_span.set_attribute("duration_s", time.monotonic() - t0)
 
     try:
         yield
@@ -64,5 +80,25 @@ async def lifespan(application: FastAPI):
                 tag_exception(shutdown_span, exc)
                 raise
             finally:
-                record_duration("app.shutdown.duration", time.monotonic() - t1)
+                shutdown_span.set_attribute("duration_s", time.monotonic() - t1)
                 logger.info("Shutdown complete")
+
+
+def _init_mlflow_tracing() -> None:
+    """Bootstrap MLflow tracing if an experiment ID is configured."""
+    import os
+
+    experiment_id = os.getenv("MLFLOW_EXPERIMENT_ID")
+    if not experiment_id:
+        logger.info("MLFLOW_EXPERIMENT_ID not set; MLflow tracing is disabled")
+        return
+
+    import mlflow
+
+    mlflow.set_experiment(experiment_id=experiment_id)
+    mlflow.langchain.autolog()
+    logger.info("MLflow LangChain autolog enabled (experiment=%s)", experiment_id)
+    try:
+        mlflow.openai.autolog()
+    except Exception:
+        logger.debug("MLflow OpenAI autolog unavailable", exc_info=True)

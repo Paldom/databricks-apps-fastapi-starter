@@ -1,0 +1,4 @@
+
+[mcp_servers.databricks]
+command = "/Users/dpal/.ai-dev-kit/.venv/bin/python"
+args = ["/Users/dpal/.ai-dev-kit/repo/databricks-mcp-server/run_server.py"]

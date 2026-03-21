@@ -7,14 +7,14 @@ _CONFIGURED = False
 _LOCAL_FORMAT = (
     "%(asctime)s %(levelname)s %(name)s "
     "[request_id=%(request_id)s] "
-    "[trace=%(otelTraceId)s span=%(otelSpanId)s]: "
+    "[trace=%(otelTraceID)s span=%(otelSpanID)s]: "
     "%(message)s"
 )
 
 _FORMAT_DEFAULTS = {
     "request_id": "-",
-    "otelTraceId": "0",
-    "otelSpanId": "0",
+    "otelTraceID": "0",
+    "otelSpanID": "0",
 }
 
 

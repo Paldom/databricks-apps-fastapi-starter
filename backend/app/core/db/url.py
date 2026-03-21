@@ -21,7 +21,7 @@ DATABASE_NOT_CONFIGURED_MESSAGE = (
 def _build_asyncpg_url(
     *,
     username: str,
-    password: str,
+    password: str | None,
     host: str,
     port: int,
     database: str,
@@ -29,7 +29,7 @@ def _build_asyncpg_url(
     return URL.create(
         drivername="postgresql+asyncpg",
         username=username,
-        password=password,
+        password=password or "",
         host=host,
         port=port,
         database=database,
@@ -41,8 +41,8 @@ def get_database_url(settings: Settings) -> str:
 
     Resolution order:
     1. ``DATABASE_URL`` environment variable (if set).
-    2. Constructed from ``PG*`` settings.
-    3. Constructed from ``settings.lakebase_*`` fields.
+    2. Constructed from ``PG*`` settings (password is optional for
+       Lakebase OAuth token flow).
     """
     explicit = os.environ.get("DATABASE_URL")
     if explicit:
@@ -53,7 +53,7 @@ def get_database_url(settings: Settings) -> str:
     pg_user = getattr(settings, "pg_user", None)
     pg_password = getattr(settings, "pg_password", None)
     pg_port = getattr(settings, "pg_port", None) or 5432
-    if all([pg_host, pg_database, pg_user, pg_password]):
+    if all([pg_host, pg_database, pg_user]):
         return _build_asyncpg_url(
             username=pg_user,
             password=pg_password,

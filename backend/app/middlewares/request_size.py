@@ -5,7 +5,6 @@ import logging
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from app.core.observability import increment_counter
 
 logger = logging.getLogger(__name__)
 
@@ -74,11 +73,7 @@ class RequestSizeMiddleware:
 
     @staticmethod
     async def _send_413(send: Send, limit: int) -> None:
-        logger.warning(
-            "Request body too large | limit=%d",
-            limit,
-        )
-        increment_counter("app.security.request_too_large")
+        logger.warning("Request body too large | limit=%d", limit)
 
         body = json.dumps(
             {

@@ -90,6 +90,25 @@ class Settings(BaseSettings):
     knowledge_assistant_endpoint: Optional[str] = None
     knowledge_assistant_timeout_seconds: int = 60
 
+    # Chat orchestrator
+    langgraph_memory_backend: str = "inmemory"  # "inmemory" | "lakebase"
+    supervisor_model: Optional[str] = None
+
+    # Specialists
+    app_agent_name: Optional[str] = None
+    serving_specialist_endpoint: Optional[str] = None
+    serving_specialist_api_mode: str = "chat_completions"  # "responses" | "chat_completions"
+    genie_space_id: Optional[str] = None
+    knowledge_volume_root: Optional[str] = None
+    ai_gateway_embedding_model: Optional[str] = None
+
+    # Title generation
+    enable_chat_title_generation: bool = True
+    title_model: Optional[str] = None
+
+    # MLflow
+    mlflow_experiment_id: Optional[str] = None
+
     # Timeouts (seconds)
     genie_timeout_seconds: int = 30
     serving_timeout_seconds: int = 30
@@ -116,15 +135,17 @@ class Settings(BaseSettings):
             self.vector_search_endpoint_name and self.vector_search_index_name
         )
 
+    def has_genie_config(self) -> bool:
+        return bool(self.genie_space_id)
+
+    def has_serving_specialist_config(self) -> bool:
+        return bool(self.serving_specialist_endpoint)
+
+    def has_knowledge_specialist_config(self) -> bool:
+        return bool(self.ai_gateway_embedding_model and self.has_vector_search_config())
+
     def has_pg_database_config(self) -> bool:
-        return all(
-            [
-                self.pg_host,
-                self.pg_database,
-                self.pg_user,
-                self.pg_password,
-            ]
-        )
+        return all([self.pg_host, self.pg_database, self.pg_user])
 
     def databricks_integrations_enabled(self) -> bool:
         return self.enable_databricks_integrations
@@ -181,6 +202,17 @@ class Settings(BaseSettings):
             "openai_timeout_seconds": "OPENAI_TIMEOUT_SECONDS",
             "knowledge_assistant_endpoint": "KNOWLEDGE_ASSISTANT_ENDPOINT",
             "knowledge_assistant_timeout_seconds": "KNOWLEDGE_ASSISTANT_TIMEOUT_SECONDS",
+            "langgraph_memory_backend": "LANGGRAPH_MEMORY_BACKEND",
+            "supervisor_model": "SUPERVISOR_MODEL",
+            "app_agent_name": "APP_AGENT_NAME",
+            "serving_specialist_endpoint": "SERVING_SPECIALIST_ENDPOINT",
+            "serving_specialist_api_mode": "SERVING_SPECIALIST_API_MODE",
+            "genie_space_id": "GENIE_SPACE_ID",
+            "knowledge_volume_root": "KNOWLEDGE_VOLUME_ROOT",
+            "ai_gateway_embedding_model": "AI_GATEWAY_EMBEDDING_MODEL",
+            "enable_chat_title_generation": "ENABLE_CHAT_TITLE_GENERATION",
+            "title_model": "TITLE_MODEL",
+            "mlflow_experiment_id": "MLFLOW_EXPERIMENT_ID",
         }
         _bool_fields = {
             "enable_obo",
@@ -188,6 +220,7 @@ class Settings(BaseSettings):
             "enable_local_dev_auth_fallback",
             "enable_docs",
             "serve_static",
+            "enable_chat_title_generation",
         }
         _int_fields = {
             "pg_port",

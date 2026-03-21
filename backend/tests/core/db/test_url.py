@@ -37,6 +37,14 @@ def test_pg_settings_with_custom_port(monkeypatch):
     assert "5433" in url
 
 
+def test_builds_url_without_password_for_oauth(monkeypatch):
+    """When no password is set (Lakebase OAuth flow), URL is built with empty password."""
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    s = _make_settings(pg_password=None)
+    url = get_database_url(s)
+    assert url == "postgresql+asyncpg://admin:@db.example.com:5432/mydb"
+
+
 def test_raises_when_no_config(monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
     s = MagicMock()

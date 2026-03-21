@@ -60,6 +60,58 @@ sys.modules.setdefault("databricks.vector_search", vector_module)
 sys.modules.setdefault("databricks.vector_search.index", index_module)
 sys.modules.setdefault("databricks.vector_search.client", client_module)
 
+# Provide stubs for optional packages when not installed.
+_OPTIONAL_STUBS = [
+    "langchain_core",
+    "langchain_core.messages",
+    "langchain_core.messages.base",
+    "langchain_core.language_models",
+    "langchain_core.language_models.chat_models",
+    "langchain_core.tools",
+    "langchain_core.tools.base",
+    "langchain_core.runnables",
+    "langchain_core.runnables.base",
+    "langchain_core.prompt_values",
+    "langchain_openai",
+    "langgraph",
+    "langgraph.graph",
+    "langgraph.graph.message",
+    "langgraph.graph.state",
+    "langgraph.prebuilt",
+    "langgraph.prebuilt.tool_node",
+    "langgraph.checkpoint",
+    "langgraph.checkpoint.base",
+    "langgraph.checkpoint.memory",
+    "langgraph.runtime",
+    "langgraph._internal",
+    "langgraph._internal._runnable",
+    "mlflow",
+    "mlflow.langchain",
+    "mlflow.openai",
+    "mlflow.genai",
+    "mlflow.genai.agent_server",
+]
+for mod_name in _OPTIONAL_STUBS:
+    if mod_name not in sys.modules:
+        try:
+            __import__(mod_name)
+        except ImportError:
+            stub = types.ModuleType(mod_name)
+            # Commonly referenced names
+            for attr in (
+                "BaseChatModel", "BaseTool", "ToolNode", "StateGraph", "AnyMessage",
+                "HumanMessage", "SystemMessage", "AIMessage", "ChatOpenAI",
+                "MemorySaver", "BaseCheckpointSaver", "CompiledStateGraph",
+                "set_experiment", "update_current_trace", "autolog", "trace",
+                "create_react_agent", "BaseStore",
+            ):
+                setattr(stub, attr, MagicMock)
+            stub.tool = lambda f=None, **kw: f if f else (lambda fn: fn)  # type: ignore[attr-defined]
+            stub.END = "__end__"  # type: ignore[attr-defined]
+            stub.add_messages = MagicMock  # type: ignore[attr-defined]
+            stub.get_active_trace_id = MagicMock(return_value=None)  # type: ignore[attr-defined]
+            sys.modules[mod_name] = stub
+
 # ---------------------------------------------------------------------------
 # Now safe to import the application
 # ---------------------------------------------------------------------------
@@ -108,6 +160,7 @@ def mock_lifespan(monkeypatch):
         "vector_search_index_name",
         "main.default.starter_index",
     )
+    # No chat_backend setting to override; single LangGraph runtime
 
     yield
 
