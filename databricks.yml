@@ -14,7 +14,6 @@ sync:
     - backend/.mypy_cache/**
     - backend/.ruff_cache/**
     - backend/.pytest_cache/**
-    - backend/notebooks/**
     - backend/alembic/**
     - "*.egg-info/**"
     - backend/.local/**
@@ -46,6 +45,9 @@ variables:
     default: i3.xlarge
   knowledge_assistant_endpoint_name:
     description: Name of the Knowledge Assistant serving endpoint (created in Agent Bricks)
+    default: ""
+  knowledge_assistant_name:
+    description: Knowledge Assistant entity name for bootstrap source registration
     default: ""
   app_agent_name:
     description: Name of the remote Databricks App specialist agent
@@ -89,6 +91,27 @@ variables:
   vector_search_index_name:
     description: Vector Search index name for knowledge specialist
     default: ""
+  rag_catalog_name:
+    description: Catalog for RAG schema/tables/volume
+    default: main
+  rag_schema_name:
+    description: Schema for RAG objects
+    default: starter_rag
+  rag_volume_name:
+    description: Managed volume name for uploaded knowledge files
+    default: uploads
+  knowledge_upload_root:
+    description: Volume subpath monitored by file-arrival trigger
+    default: /Volumes/main/starter_rag/uploads/knowledge/uploads
+  rag_checkpoint_root:
+    description: Checkpoint root for raw ingestion (outside upload subtree)
+    default: /Volumes/main/starter_rag/uploads/system/checkpoints/rag_ingestion
+  rag_raw_table_name:
+    description: Raw uploaded documents Delta table
+    default: main.starter_rag.rag_raw_documents
+  rag_chunk_table_name:
+    description: Parsed and chunked documents Delta table
+    default: main.starter_rag.rag_document_chunks
   app_config:
     type: complex
     description: Runtime config for the Databricks app
@@ -154,6 +177,8 @@ variables:
           value: ${var.vector_search_index_name}
         - name: ENABLE_CHAT_TITLE_GENERATION
           value: "true"
+        - name: MAX_UPLOAD_BYTES
+          value: "52428800"
 
 targets:
   dev:
@@ -225,6 +250,8 @@ targets:
             value: ${var.vector_search_index_name}
           - name: ENABLE_CHAT_TITLE_GENERATION
             value: "true"
+          - name: MAX_UPLOAD_BYTES
+            value: "52428800"
 
   staging:
     workspace:
@@ -307,3 +334,5 @@ targets:
             value: ${var.vector_search_index_name}
           - name: ENABLE_CHAT_TITLE_GENERATION
             value: "true"
+          - name: MAX_UPLOAD_BYTES
+            value: "52428800"

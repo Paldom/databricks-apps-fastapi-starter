@@ -169,6 +169,62 @@ def _build_knowledge_tool(
     vector_index: Any | None = None,
     **_: Any,
 ) -> Any:
+    ka_endpoint = settings.knowledge_assistant_endpoint
+
+    # Prefer Knowledge Assistant endpoint when configured (higher-level,
+    # includes citations). Fall back to direct embed + vector search.
+    if ka_endpoint:
+        return _build_ka_endpoint_tool(spec, ka_endpoint, ai_client=ai_client)
+
+    return _build_direct_vs_tool(
+        spec, settings, ai_client=ai_client, vector_index=vector_index,
+    )
+
+
+def _build_ka_endpoint_tool(
+    spec: SpecialistSpec,
+    endpoint: str,
+    *,
+    ai_client: AsyncOpenAI,
+) -> Any:
+    """Build a knowledge tool backed by a Knowledge Assistant serving endpoint."""
+    from langchain_core.tools import tool
+
+    @tool
+    async def knowledge_assistant(question: str) -> str:  # noqa: D401
+        """Search the knowledge base for relevant documents."""
+        with _tracer.start_as_current_span(
+            "tool.knowledge",
+            attributes={
+                "tool": "knowledge",
+                "knowledge.mode": "ka_endpoint",
+                "ka.endpoint": safe_attr(endpoint),
+            },
+        ) as span:
+            try:
+                resp = await ai_client.responses.create(
+                    model=endpoint,
+                    input=[{"role": "user", "content": question}],
+                )
+                text = getattr(resp, "output_text", "") or ""
+                span.set_attribute("result", "ok")
+                return text if text else "No relevant documents found."
+            except Exception as exc:
+                tag_exception(span, exc)
+                return f"Knowledge assistant error: {exc}"
+
+    knowledge_assistant.__doc__ = spec.description
+    return knowledge_assistant
+
+
+def _build_direct_vs_tool(
+    spec: SpecialistSpec,
+    settings: Settings,
+    *,
+    ai_client: AsyncOpenAI,
+    vector_index: Any | None = None,
+) -> Any:
+    """Build a knowledge tool backed by direct embed + vector search."""
     from langchain_core.tools import tool
 
     embedding_model = settings.ai_gateway_embedding_model or ""
@@ -182,6 +238,7 @@ def _build_knowledge_tool(
             "tool.knowledge",
             attributes={
                 "tool": "knowledge",
+                "knowledge.mode": "direct_vs",
                 "knowledge.index": safe_attr(index_name),
             },
         ) as span:

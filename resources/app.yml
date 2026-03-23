@@ -2,9 +2,11 @@ resources:
   apps:
     fastapi_app:
       name: ${var.app_name}
-      description: "FastAPI reference app deployed from bundle"
+      description: "FastAPI RAG starter deployed from bundle"
       source_code_path: .
       config: ${var.app_config}
+      user_api_scopes:
+        - files.files
       permissions:
         - level: CAN_USE
           group_name: users
@@ -15,7 +17,7 @@ resources:
             permission: CAN_QUERY
         - name: app-job
           job:
-            id: ${resources.jobs.starter_job.id}
+            id: ${resources.jobs.rag_ingestion_job.id}
             permission: CAN_MANAGE_RUN
         - name: uc-volume
           uc_securable:

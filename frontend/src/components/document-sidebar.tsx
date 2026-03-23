@@ -17,12 +17,11 @@ import { cn } from '@/lib/utils'
 import type { TFunction } from 'i18next'
 import {
   useListDocuments,
-  useUploadDocument,
   useDeleteDocument,
   getListDocumentsQueryKey,
 } from '@/shared/api/generated/documents/documents'
 import type { Document, DocumentStatus } from '@/shared/api/generated/models'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, useMutation } from '@tanstack/react-query'
 
 function formatFileSize(bytes: number, t: TFunction): string {
   if (bytes === 0) return `0 ${t('common.units.byte')}`
@@ -86,6 +85,26 @@ function DocumentItem({
   )
 }
 
+async function uploadKnowledgeFile(file: File): Promise<unknown> {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const response = await fetch('/api/knowledge/files', {
+    method: 'POST',
+    body: formData,
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    const error = (await response
+      .json()
+      .catch(() => ({ detail: 'Upload failed' }))) as { detail?: string }
+    throw new Error(error.detail ?? 'Upload failed')
+  }
+
+  return (await response.json()) as unknown
+}
+
 export function DocumentSidebar() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -107,13 +126,27 @@ export function DocumentSidebar() {
     return () => clearInterval(interval)
   }, [hasPending, queryClient])
 
-  const uploadMutation = useUploadDocument({
-    mutation: {
-      onSuccess: () => {
-        void queryClient.invalidateQueries({
-          queryKey: getListDocumentsQueryKey(),
-        })
-      },
+  const [uploadStatus, setUploadStatus] = React.useState<
+    'idle' | 'uploading' | 'success' | 'error'
+  >('idle')
+  const [uploadError, setUploadError] = React.useState<string | null>(null)
+
+  const knowledgeUpload = useMutation({
+    mutationFn: uploadKnowledgeFile,
+    onMutate: () => {
+      setUploadStatus('uploading')
+      setUploadError(null)
+    },
+    onSuccess: () => {
+      setUploadStatus('success')
+      void queryClient.invalidateQueries({
+        queryKey: getListDocumentsQueryKey(),
+      })
+      setTimeout(() => setUploadStatus('idle'), 4000)
+    },
+    onError: (err: Error) => {
+      setUploadStatus('error')
+      setUploadError(err.message)
     },
   })
 
@@ -129,7 +162,7 @@ export function DocumentSidebar() {
 
   const handleFilesAdded = (files: File[]) => {
     files.forEach((file) => {
-      uploadMutation.mutate({ data: { file } })
+      knowledgeUpload.mutate(file)
     })
   }
 
@@ -182,10 +215,29 @@ export function DocumentSidebar() {
           </div>
         )}
 
-        {uploadMutation.isPending && (
+        {uploadStatus === 'uploading' && (
           <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            {t('common.loading')}
+            Uploading to knowledge base...
+          </div>
+        )}
+
+        {uploadStatus === 'success' && (
+          <div className="mb-4 flex items-center gap-2 text-sm text-green-600">
+            <CheckCircle2 className="h-4 w-4" />
+            Uploaded. Available in chat after ingestion completes.
+          </div>
+        )}
+
+        {uploadStatus === 'error' && (
+          <div className="mb-4 text-sm text-destructive">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              Upload failed
+            </div>
+            {uploadError && (
+              <p className="mt-1 text-xs opacity-80">{uploadError}</p>
+            )}
           </div>
         )}
 
@@ -198,9 +250,12 @@ export function DocumentSidebar() {
           <h3 className="mb-2 shrink-0 text-sm font-medium text-muted-foreground">
             {t('document.uploadNew')}
           </h3>
+          <p className="mb-2 text-xs text-muted-foreground">
+            PDF, DOC/DOCX, PPT/PPTX, JPG/JPEG, PNG. Max 50 MB.
+          </p>
           <Dropzone
             onFilesAdded={handleFilesAdded}
-            accept=".pdf,.doc,.docx,.txt,.md"
+            accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png"
             className="flex-1"
             labels={{
               idle: t('document.dropzoneIdle'),

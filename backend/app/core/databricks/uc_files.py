@@ -20,7 +20,12 @@ class UcFilesAdapter:
         return f"{root}/{validated}"
 
     async def upload(
-        self, volume_root: str, relative_path: str, data: bytes
+        self,
+        volume_root: str,
+        relative_path: str,
+        data: bytes,
+        *,
+        overwrite: bool = True,
     ) -> int:
         """Upload bytes to a UC volume. Returns bytes written."""
         uri = self._vol_uri(volume_root, relative_path)
@@ -29,7 +34,7 @@ class UcFilesAdapter:
             self._ws.files.upload,
             uri,
             io.BytesIO(data),
-            overwrite=True,
+            overwrite=overwrite,
             error_cls=UcFilesError,
         )
         return len(data)

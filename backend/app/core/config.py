@@ -84,7 +84,7 @@ class Settings(BaseSettings):
 
     # Request size limits
     max_request_body_bytes: int = 1_048_576  # 1 MiB
-    max_upload_bytes: int = 10_485_760  # 10 MiB
+    max_upload_bytes: int = 52_428_800  # 50 MiB
 
     # Knowledge Assistant (Agent Bricks)
     knowledge_assistant_endpoint: Optional[str] = None

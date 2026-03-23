@@ -17,6 +17,7 @@ def _settings(**overrides):
     s.app_agent_name = overrides.get("app_agent_name", None)
     s.genie_space_id = overrides.get("genie_space_id", None)
     s.ai_gateway_embedding_model = overrides.get("ai_gateway_embedding_model", None)
+    s.knowledge_assistant_endpoint = overrides.get("knowledge_assistant_endpoint", None)
     s.serving_agent_endpoint = overrides.get("serving_agent_endpoint", None)
     return s
 

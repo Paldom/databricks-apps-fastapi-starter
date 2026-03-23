@@ -17,7 +17,7 @@ class SpecialistSpec:
     key: str
     description: str
     kind: str
-    config_key: str | None = None  # Settings field; None = always enabled
+    config_key: str | tuple[str, ...] | None = None  # Settings field(s); None = always enabled
 
 
 SPECIALISTS: list[SpecialistSpec] = [
@@ -46,7 +46,7 @@ SPECIALISTS: list[SpecialistSpec] = [
             "volume-backed knowledge via Vector Search."
         ),
         kind="knowledge",
-        config_key="ai_gateway_embedding_model",
+        config_key=("knowledge_assistant_endpoint", "ai_gateway_embedding_model"),
     ),
     SpecialistSpec(
         key="serving_endpoint",
@@ -66,6 +66,9 @@ def get_enabled_specs(settings: Settings) -> list[SpecialistSpec]:
     for spec in SPECIALISTS:
         if spec.config_key is None:
             enabled.append(spec)
+        elif isinstance(spec.config_key, tuple):
+            if any(getattr(settings, k, None) for k in spec.config_key):
+                enabled.append(spec)
         elif getattr(settings, spec.config_key, None):
             enabled.append(spec)
     return enabled

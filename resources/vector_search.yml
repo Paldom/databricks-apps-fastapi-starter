@@ -1,10 +1,17 @@
-resources:
-  vector_search_indexes:
-    starter_index:
-      name: main.default.starter_index
-      endpoint_name: lakehouse_vector_endpoint
-      primary_key: id
-      embedding_dimension: 1536
-      source_table: main.default.embedded_docs
-      index_type: DELTA_SYNC
-      sync_type: TRIGGERED
+# Vector Search
+#
+# The bootstrap job (bootstrap_rag_resources.py) is the primary provisioning
+# path for the Vector Search endpoint and Delta Sync index. It runs once
+# after bundle deploy so the first real user upload does not pay provisioning
+# cost. The ingestion notebook retains idempotent fallback creation logic as
+# a safety net.
+#
+# Bundle variables used:
+#   - vector_search_endpoint_name
+#   - vector_search_index_name
+#   - rag_chunk_table_name (source for Delta Sync)
+#   - embedding_model_name (databricks-gte-large-en)
+#
+# Knowledge Assistant source registration:
+#   - text_col: chunk_text
+#   - doc_uri_col: doc_uri

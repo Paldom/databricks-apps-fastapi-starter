@@ -154,7 +154,7 @@ def _attach_trace_metadata(
         if context is not None:
             metadata["chat_id"] = context.chat_id or ""
             metadata["user_id"] = context.user_id or ""
-        mlflow.update_current_trace(metadata=metadata)
+        mlflow.update_current_trace(tags=metadata)
     except Exception:
         pass
 

@@ -31,8 +31,36 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
       - name: Install Databricks CLI
         uses: databricks/setup-cli@main
+
+      - name: Install backend deps
+        run: cd backend && uv sync --extra dev
+
+      - name: Install frontend deps
+        run: cd frontend && npm ci
+
+      - name: Export backend OpenAPI
+        run: cd backend && uv run python scripts/export_openapi.py
+
+      - name: Regenerate frontend API client
+        run: cd frontend && npm run api:gen
+
+      - name: Build frontend
+        run: cd frontend && npm run build
 
       - name: Validate bundle
         run: databricks bundle validate -t ${{ inputs.target || 'prod' }}
@@ -42,6 +70,20 @@ jobs:
 
       - name: Deploy serving agent
         run: databricks bundle run -t ${{ inputs.target || 'prod' }} deploy_serving_agent
+        continue-on-error: true
+
+      - name: Bootstrap RAG resources
+        if: ${{ vars.VECTOR_SEARCH_INDEX_NAME != '' }}
+        run: databricks bundle run -t ${{ inputs.target || 'prod' }} rag_bootstrap_job
+        continue-on-error: true
+
+      - name: Bootstrap Knowledge Assistant index source (fallback)
+        if: ${{ vars.KNOWLEDGE_ASSISTANT_NAME != '' }}
+        run: cd backend && uv run python scripts/upsert_knowledge_assistant_source.py
+        env:
+          KNOWLEDGE_ASSISTANT_NAME: ${{ vars.KNOWLEDGE_ASSISTANT_NAME }}
+          VECTOR_SEARCH_INDEX_NAME: ${{ vars.VECTOR_SEARCH_INDEX_NAME }}
+        continue-on-error: true
 
       - name: Run app
         run: databricks bundle run -t ${{ inputs.target || 'prod' }} fastapi_app
