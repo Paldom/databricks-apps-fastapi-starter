@@ -69,8 +69,8 @@ class TestServingTool:
 
         spec = SpecialistSpec(key="serving_endpoint", description="test", kind="serving_endpoint")
         settings = MagicMock()
-        settings.serving_specialist_endpoint = "my-endpoint"
-        settings.serving_specialist_api_mode = "chat_completions"
+        settings.serving_agent_endpoint = "my-endpoint"
+        settings.serving_agent_api_mode = "chat_completions"
 
         tool = _build_serving_tool(spec, settings, ai_client=ai_client)
         # Tool may be a StructuredTool (real langchain) or raw function (stub)
@@ -92,8 +92,8 @@ class TestServingTool:
 
         spec = SpecialistSpec(key="serving_endpoint", description="test", kind="serving_endpoint")
         settings = MagicMock()
-        settings.serving_specialist_endpoint = "my-endpoint"
-        settings.serving_specialist_api_mode = "responses"
+        settings.serving_agent_endpoint = "my-endpoint"
+        settings.serving_agent_api_mode = "responses"
 
         tool = _build_serving_tool(spec, settings, ai_client=ai_client)
         if hasattr(tool, "ainvoke"):

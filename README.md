@@ -72,13 +72,49 @@ If you want to use the LangGraph supervisor with specialist tools, these additio
 | Resource | Variable | What it enables |
 |----------|----------|----------------|
 | Serving endpoint for supervisor LLM | `supervisor_model` | LangGraph supervisor routing |
-| Serving endpoint for remote specialist | `serving_specialist_endpoint` | Serving specialist tool |
+| Serving agent endpoint | `serving_agent_endpoint` | Serving agent tool (Responses API) |
 | Genie space | `genie_space_id` | Genie data specialist tool |
 | AI Gateway embedding endpoint | `ai_gateway_embedding_model` | Knowledge specialist embeddings |
 | Vector Search index + endpoint | `vector_search_index_name`, `vector_search_endpoint_name` | Knowledge specialist retrieval |
 | MLflow experiment | set `MLFLOW_EXPERIMENT_ID` env var | GenAI tracing |
 
 These are all optional. The app starts and serves chat with just the base deployment.
+
+#### Deploying the serving agent
+
+The repo includes a built-in serving agent under `notebooks/serving/`. It is a minimal `ResponsesAgent` that forwards to an upstream AI Gateway model. To deploy it:
+
+**1. Create the `serving-agent` secret scope** with service principal credentials that the endpoint runtime will use:
+
+```bash
+# Create the scope (one-time)
+databricks secrets create-scope serving-agent
+
+# Store a service principal's credentials
+databricks secrets put-secret serving-agent databricks-client-id --string-value "<SP_CLIENT_ID>"
+databricks secrets put-secret serving-agent databricks-client-secret --string-value "<SP_CLIENT_SECRET>"
+```
+
+The service principal must have permission to call the upstream AI Gateway / Foundation Model endpoint configured in `serving_agent_chat_model`.
+
+**2. Set the required bundle variables** in `databricks.yml` or via CLI overrides:
+
+```yaml
+variables:
+  serving_agent_endpoint: serving-agent-dev
+  serving_agent_uc_model_name: main.default.serving_agent_dev
+  serving_agent_chat_model: databricks-claude-sonnet-4  # or your preferred model
+```
+
+**3. Deploy:**
+
+```bash
+databricks bundle deploy -t dev
+databricks bundle run -t dev deploy_serving_agent
+databricks bundle run -t dev fastapi_app
+```
+
+The deploy job logs the agent model, registers it in Unity Catalog, creates or updates the endpoint with the secret-backed auth, and waits for readiness.
 
 ## Bundle-First Deployment
 
@@ -102,7 +138,8 @@ There is no workspace Repo sync, no Git credential registration, and no manual `
 | Resource | File | Purpose |
 |----------|------|---------|
 | FastAPI App | `resources/app.yml` | App definition with resource bindings and runtime config |
-| Serving Endpoint | `resources/serving.yml` | MLflow model serving (StarterModel) |
+| Serving Endpoint | `resources/serving.yml` | MLflow model serving (starter) |
+| Serving Agent Deploy | `resources/serving_agent.yml` | Job + experiment to deploy the serving agent |
 | Job + Cluster | `resources/compute.yml` | Spark job for background tasks |
 | Lakebase Instance | `resources/database.yml` | PostgreSQL-compatible OLTP database |
 | Vector Search Index | `resources/vector_search.yml` | Delta Sync vector index |
@@ -193,7 +230,7 @@ Set `CHAT_BACKEND` to switch. The factory falls back to `openai_compat` if LangG
 The supervisor is a small `StateGraph` that routes requests to specialist tools:
 
 1. **App Specialist** (always available) -- in-process LLM for clarification, synthesis, formatting, and fallback help.
-2. **Serving Specialist** (optional) -- queries a remote Databricks Model Serving endpoint. Supports both `chat_completions` and `responses` API modes via `SERVING_SPECIALIST_API_MODE`.
+2. **Serving Agent** (optional) -- queries a ResponsesAgent deployed on Databricks Model Serving via `SERVING_AGENT_ENDPOINT`. Defaults to the Responses API (`SERVING_AGENT_API_MODE=responses`).
 3. **Genie Specialist** (optional) -- structured analytics, KPIs, trends, and SQL-like questions via the Databricks Genie Conversation API.
 4. **Knowledge Specialist** (optional) -- unstructured document retrieval using AI Gateway embeddings and Vector Search. Returns citations tied to UC Volume paths.
 
@@ -552,8 +589,8 @@ Key configuration:
 | `LANGGRAPH_MEMORY_BACKEND` | Memory backend (`inmemory` or `lakebase`) | Yes (via variable) |
 | `SUPERVISOR_MODEL` | Model for the LangGraph supervisor | Yes (via variable) |
 | `APP_SPECIALIST_MODEL` | Model for the app specialist | Yes (via variable) |
-| `SERVING_SPECIALIST_ENDPOINT` | Serving specialist endpoint | Yes (`valueFrom: serving-specialist`) |
-| `SERVING_SPECIALIST_API_MODE` | `chat_completions` or `responses` | Yes (via variable) |
+| `SERVING_AGENT_ENDPOINT` | Serving agent endpoint | Yes (`valueFrom: serving-agent`) |
+| `SERVING_AGENT_API_MODE` | `responses` or `chat_completions` | Yes (via variable) |
 | `GENIE_SPACE_ID` | Genie space for data specialist | Yes (via variable) |
 | `KNOWLEDGE_VOLUME_ROOT` | UC Volume root for knowledge specialist | Yes (via variable) |
 | `AI_GATEWAY_EMBEDDING_MODEL` | Embedding model for knowledge specialist | Yes (via variable) |

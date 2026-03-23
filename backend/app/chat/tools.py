@@ -257,8 +257,8 @@ def _build_serving_tool(
 ) -> Any:
     from langchain_core.tools import tool
 
-    endpoint = settings.serving_specialist_endpoint or ""
-    api_mode = settings.serving_specialist_api_mode
+    endpoint = settings.serving_agent_endpoint or ""
+    api_mode = settings.serving_agent_api_mode
 
     @tool
     async def serving_endpoint(question: str) -> str:  # noqa: D401
@@ -282,6 +282,17 @@ def _build_serving_tool(
                         extra_body=extra_body,
                     )
                     text = getattr(resp, "output_text", "") or ""
+                    # Capture downstream trace ID
+                    metadata = getattr(resp, "metadata", None) or {}
+                    trace_id = (
+                        metadata.get("trace_id")
+                        if isinstance(metadata, dict)
+                        else None
+                    )
+                    if trace_id:
+                        span.set_attribute(
+                            "downstream.trace_id", str(trace_id)
+                        )
                 else:
                     completion = await ai_client.chat.completions.create(
                         model=endpoint,
@@ -289,6 +300,17 @@ def _build_serving_tool(
                         extra_body=extra_body,
                     )
                     text = completion.choices[0].message.content or ""
+                    # Capture downstream trace ID
+                    db_out = getattr(completion, "databricks_output", None)
+                    trace_id = (
+                        db_out.get("trace", {}).get("trace_id")
+                        if isinstance(db_out, dict)
+                        else None
+                    )
+                    if trace_id:
+                        span.set_attribute(
+                            "downstream.trace_id", str(trace_id)
+                        )
                 span.set_attribute("result", "ok")
                 return text
             except Exception as exc:

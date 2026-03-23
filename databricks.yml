@@ -56,18 +56,27 @@ variables:
   supervisor_model:
     description: Model name for the LangGraph supervisor
     default: ""
-  serving_specialist_endpoint:
-    description: Serving specialist endpoint name
+  serving_agent_endpoint:
+    description: Name of the serving agent endpoint
     default: ""
+  serving_agent_api_mode:
+    description: Serving agent API mode (responses or chat_completions)
+    default: responses
+  serving_agent_uc_model_name:
+    description: Unity Catalog model name for the serving agent
+    default: ""
+  serving_agent_chat_model:
+    description: Upstream LLM model name the serving agent calls via AI Gateway
+    default: databricks-claude-sonnet-4
+  serving_agent_experiment_name:
+    description: MLflow experiment path for serving agent traces
+    default: /Shared/databricks-apps-fastapi-starter/serving-agent
   ai_gateway_embedding_model:
     description: Embedding model for knowledge specialist
     default: ""
   title_model:
     description: Model for chat title generation (defaults to supervisor model)
     default: ""
-  serving_specialist_api_mode:
-    description: Serving specialist API mode (chat_completions or responses)
-    default: chat_completions
   langgraph_memory_backend:
     description: LangGraph memory backend (inmemory or lakebase)
     default: inmemory
@@ -127,14 +136,14 @@ variables:
           value: ${var.genie_space_id}
         - name: SUPERVISOR_MODEL
           value: ${var.supervisor_model}
-        - name: SERVING_SPECIALIST_ENDPOINT
-          valueFrom: serving-specialist
+        - name: SERVING_AGENT_ENDPOINT
+          valueFrom: serving-agent
         - name: AI_GATEWAY_EMBEDDING_MODEL
           value: ${var.ai_gateway_embedding_model}
         - name: TITLE_MODEL
           value: ${var.title_model}
-        - name: SERVING_SPECIALIST_API_MODE
-          value: ${var.serving_specialist_api_mode}
+        - name: SERVING_AGENT_API_MODE
+          value: ${var.serving_agent_api_mode}
         - name: LANGGRAPH_MEMORY_BACKEND
           value: ${var.langgraph_memory_backend}
         - name: KNOWLEDGE_VOLUME_ROOT
@@ -154,6 +163,7 @@ targets:
       resource_name_suffix: dev
       environment: development
       log_level: DEBUG
+      serving_agent_endpoint: serving-agent-dev
       app_config:
         command:
           - python
@@ -189,20 +199,22 @@ targets:
             valueFrom: lakebase-db
           - name: PGUSER
             valueFrom: lakebase-db
-          - name: CHAT_BACKEND
-            value: ${var.chat_backend}
+          - name: KNOWLEDGE_ASSISTANT_ENDPOINT
+            valueFrom: knowledge-assistant
+          - name: APP_AGENT_NAME
+            value: ${var.app_agent_name}
           - name: GENIE_SPACE_ID
             value: ${var.genie_space_id}
           - name: SUPERVISOR_MODEL
             value: ${var.supervisor_model}
-          - name: SERVING_SPECIALIST_ENDPOINT
-            valueFrom: serving-specialist
+          - name: SERVING_AGENT_ENDPOINT
+            valueFrom: serving-agent
           - name: AI_GATEWAY_EMBEDDING_MODEL
             value: ${var.ai_gateway_embedding_model}
-          - name: APP_SPECIALIST_MODEL
-            value: ${var.app_specialist_model}
-          - name: SERVING_SPECIALIST_API_MODE
-            value: ${var.serving_specialist_api_mode}
+          - name: TITLE_MODEL
+            value: ${var.title_model}
+          - name: SERVING_AGENT_API_MODE
+            value: ${var.serving_agent_api_mode}
           - name: LANGGRAPH_MEMORY_BACKEND
             value: ${var.langgraph_memory_backend}
           - name: KNOWLEDGE_VOLUME_ROOT
@@ -222,6 +234,7 @@ targets:
       environment: staging
       log_level: INFO
       app_name: databricks-apps-fastapi-starter-stg
+      serving_agent_endpoint: serving-agent-stg
 
   prod:
     workspace:
@@ -232,6 +245,7 @@ targets:
       log_level: INFO
       enable_obo: "true"
       app_name: databricks-apps-fastapi-starter-prod
+      serving_agent_endpoint: serving-agent-prod
       app_config:
         command:
           - python
@@ -267,20 +281,22 @@ targets:
             valueFrom: lakebase-db
           - name: PGUSER
             valueFrom: lakebase-db
-          - name: CHAT_BACKEND
-            value: ${var.chat_backend}
+          - name: KNOWLEDGE_ASSISTANT_ENDPOINT
+            valueFrom: knowledge-assistant
+          - name: APP_AGENT_NAME
+            value: ${var.app_agent_name}
           - name: GENIE_SPACE_ID
             value: ${var.genie_space_id}
           - name: SUPERVISOR_MODEL
             value: ${var.supervisor_model}
-          - name: SERVING_SPECIALIST_ENDPOINT
-            valueFrom: serving-specialist
+          - name: SERVING_AGENT_ENDPOINT
+            valueFrom: serving-agent
           - name: AI_GATEWAY_EMBEDDING_MODEL
             value: ${var.ai_gateway_embedding_model}
-          - name: APP_SPECIALIST_MODEL
-            value: ${var.app_specialist_model}
-          - name: SERVING_SPECIALIST_API_MODE
-            value: ${var.serving_specialist_api_mode}
+          - name: TITLE_MODEL
+            value: ${var.title_model}
+          - name: SERVING_AGENT_API_MODE
+            value: ${var.serving_agent_api_mode}
           - name: LANGGRAPH_MEMORY_BACKEND
             value: ${var.langgraph_memory_backend}
           - name: KNOWLEDGE_VOLUME_ROOT

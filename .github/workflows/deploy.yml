@@ -40,5 +40,8 @@ jobs:
       - name: Deploy bundle
         run: databricks bundle deploy -t ${{ inputs.target || 'prod' }}
 
+      - name: Deploy serving agent
+        run: databricks bundle run -t ${{ inputs.target || 'prod' }} deploy_serving_agent
+
       - name: Run app
         run: databricks bundle run -t ${{ inputs.target || 'prod' }} fastapi_app

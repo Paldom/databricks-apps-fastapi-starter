@@ -30,7 +30,7 @@ resources:
           serving_endpoint:
             name: ${var.knowledge_assistant_endpoint_name}
             permission: CAN_QUERY
-        - name: serving-specialist
+        - name: serving-agent
           serving_endpoint:
-            name: ${var.serving_specialist_endpoint}
+            name: ${var.serving_agent_endpoint}
             permission: CAN_QUERY

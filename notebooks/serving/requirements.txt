@@ -1,0 +1,4 @@
+mlflow[databricks]>=3.1.0
+databricks-openai>=0.6.0
+databricks-sdk>=0.65.0
+pydantic>=2,<3

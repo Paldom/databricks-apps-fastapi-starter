@@ -51,11 +51,11 @@ SPECIALISTS: list[SpecialistSpec] = [
     SpecialistSpec(
         key="serving_endpoint",
         description=(
-            "Query a model on a Databricks Model Serving endpoint "
+            "Query a model or agent on a Databricks Model Serving endpoint "
             "for specialized inference."
         ),
         kind="serving_endpoint",
-        config_key="serving_specialist_endpoint",
+        config_key="serving_agent_endpoint",
     ),
 ]
 

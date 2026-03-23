@@ -96,8 +96,18 @@ class Settings(BaseSettings):
 
     # Specialists
     app_agent_name: Optional[str] = None
-    serving_specialist_endpoint: Optional[str] = None
-    serving_specialist_api_mode: str = "chat_completions"  # "responses" | "chat_completions"
+    serving_agent_endpoint: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "SERVING_AGENT_ENDPOINT", "SERVING_SPECIALIST_ENDPOINT"
+        ),
+    )
+    serving_agent_api_mode: str = Field(
+        default="responses",
+        validation_alias=AliasChoices(
+            "SERVING_AGENT_API_MODE", "SERVING_SPECIALIST_API_MODE"
+        ),
+    )
     genie_space_id: Optional[str] = None
     knowledge_volume_root: Optional[str] = None
     ai_gateway_embedding_model: Optional[str] = None
@@ -138,8 +148,8 @@ class Settings(BaseSettings):
     def has_genie_config(self) -> bool:
         return bool(self.genie_space_id)
 
-    def has_serving_specialist_config(self) -> bool:
-        return bool(self.serving_specialist_endpoint)
+    def has_serving_agent_config(self) -> bool:
+        return bool(self.serving_agent_endpoint)
 
     def has_knowledge_specialist_config(self) -> bool:
         return bool(self.ai_gateway_embedding_model and self.has_vector_search_config())
@@ -205,8 +215,8 @@ class Settings(BaseSettings):
             "langgraph_memory_backend": "LANGGRAPH_MEMORY_BACKEND",
             "supervisor_model": "SUPERVISOR_MODEL",
             "app_agent_name": "APP_AGENT_NAME",
-            "serving_specialist_endpoint": "SERVING_SPECIALIST_ENDPOINT",
-            "serving_specialist_api_mode": "SERVING_SPECIALIST_API_MODE",
+            "serving_agent_endpoint": "SERVING_AGENT_ENDPOINT",
+            "serving_agent_api_mode": "SERVING_AGENT_API_MODE",
             "genie_space_id": "GENIE_SPACE_ID",
             "knowledge_volume_root": "KNOWLEDGE_VOLUME_ROOT",
             "ai_gateway_embedding_model": "AI_GATEWAY_EMBEDDING_MODEL",

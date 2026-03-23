@@ -17,7 +17,7 @@ def _settings(**overrides):
     s.app_agent_name = overrides.get("app_agent_name", None)
     s.genie_space_id = overrides.get("genie_space_id", None)
     s.ai_gateway_embedding_model = overrides.get("ai_gateway_embedding_model", None)
-    s.serving_specialist_endpoint = overrides.get("serving_specialist_endpoint", None)
+    s.serving_agent_endpoint = overrides.get("serving_agent_endpoint", None)
     return s
 
 
@@ -32,7 +32,7 @@ class TestGetEnabledSpecs:
                 app_agent_name="my-app",
                 genie_space_id="genie-123",
                 ai_gateway_embedding_model="bge-large",
-                serving_specialist_endpoint="my-endpoint",
+                serving_agent_endpoint="my-endpoint",
             )
         )
         assert len(specs) == 4
