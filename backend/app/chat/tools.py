@@ -1,12 +1,12 @@
 """Tool builders for each specialist kind.
 
 Each builder produces a LangChain ``@tool`` from a ``SpecialistSpec``.
-All builders follow the same pattern: OTel span → try/except → return text.
+Tools delegate to the unified agent adapters for app, serving, and Genie
+backends, keeping trace-ID extraction and response normalization in one place.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 
@@ -56,7 +56,7 @@ def build_tools(
 
 
 # ---------------------------------------------------------------------------
-# App agent — remote Databricks App via Responses API
+# App agent — delegates to DatabricksAppAdapter
 # ---------------------------------------------------------------------------
 
 
@@ -69,8 +69,11 @@ def _build_app_agent_tool(
 ) -> Any:
     from langchain_core.tools import tool
 
+    from app.agents.adapters.app_adapter import DatabricksAppAdapter
+    from app.agents.contracts import ResponsesAgentRequest
+
     app_name = settings.app_agent_name
-    model = f"apps/{app_name}"
+    adapter = DatabricksAppAdapter(ai_client, app_name or "")
 
     @tool
     async def app_agent(question: str) -> str:  # noqa: D401
@@ -80,19 +83,14 @@ def _build_app_agent_tool(
             attributes={"tool": "app_agent", "app_name": safe_attr(app_name)},
         ) as span:
             try:
-                resp = await ai_client.responses.create(
-                    model=model,
+                request = ResponsesAgentRequest(
                     input=[{"role": "user", "content": question}],
-                    extra_headers={"x-mlflow-return-trace-id": "true"},
                 )
-                text = getattr(resp, "output_text", "") or ""
-                # Capture downstream trace ID
-                db_out = getattr(resp, "databricks_output", None)
-                trace_id = db_out.get("trace", {}).get("trace_id") if isinstance(db_out, dict) else None
-                if trace_id:
-                    span.set_attribute("downstream.trace_id", str(trace_id))
+                result = await adapter.invoke(request)
+                if result.downstream_trace_id:
+                    span.set_attribute("downstream.trace_id", result.downstream_trace_id)
                 span.set_attribute("result", "ok")
-                return text
+                return result.text
             except Exception as exc:
                 tag_exception(span, exc)
                 return f"App agent error: {exc}"
@@ -102,7 +100,7 @@ def _build_app_agent_tool(
 
 
 # ---------------------------------------------------------------------------
-# Genie — Databricks SDK
+# Genie — delegates to GenieAdapter
 # ---------------------------------------------------------------------------
 
 
@@ -115,10 +113,13 @@ def _build_genie_tool(
 ) -> Any:
     from langchain_core.tools import tool
 
+    from app.agents.adapters.genie_adapter import GenieAdapter
+    from app.agents.contracts import ResponsesAgentRequest
+
     space_id = settings.genie_space_id or ""
 
     @tool
-    def genie(question: str) -> str:  # noqa: D401
+    async def genie(question: str) -> str:  # noqa: D401
         """Query Databricks Genie for data analysis and SQL-based insights."""
         with _tracer.start_as_current_span(
             "tool.genie",
@@ -127,12 +128,13 @@ def _build_genie_tool(
             try:
                 if workspace_client is None:
                     return "Genie unavailable: workspace client not configured"
-                rsp = workspace_client.genie.start_conversation_and_wait(
-                    space_id=space_id,
-                    content=question,
+                adapter = GenieAdapter(workspace_client, space_id)
+                request = ResponsesAgentRequest(
+                    input=[{"role": "user", "content": question}],
                 )
+                result = await adapter.invoke(request)
                 span.set_attribute("result", "ok")
-                return _format_genie_response(rsp)
+                return result.text
             except Exception as exc:
                 tag_exception(span, exc)
                 return f"Genie error: {exc}"
@@ -141,23 +143,8 @@ def _build_genie_tool(
     return genie
 
 
-def _format_genie_response(rsp: Any) -> str:
-    """Normalize a Genie SDK response to text."""
-    parts: list[str] = []
-    for att in getattr(rsp, "attachments", []):
-        text_content = getattr(att, "text", None)
-        if text_content and hasattr(text_content, "content"):
-            parts.append(text_content.content)
-        query = getattr(att, "query", None)
-        if query and hasattr(query, "query"):
-            parts.append(f"SQL: {query.query}")
-    if parts:
-        return "\n\n".join(parts)
-    return str(rsp)
-
-
 # ---------------------------------------------------------------------------
-# Knowledge assistant — embed + vector search
+# Knowledge assistant — embed + vector search (unchanged, no adapter yet)
 # ---------------------------------------------------------------------------
 
 
@@ -301,7 +288,7 @@ def _format_knowledge_results(results: Any, volume_root: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Serving endpoint — dual-mode (responses / chat_completions)
+# Serving endpoint — delegates to ServingEndpointAdapter
 # ---------------------------------------------------------------------------
 
 
@@ -314,8 +301,12 @@ def _build_serving_tool(
 ) -> Any:
     from langchain_core.tools import tool
 
+    from app.agents.adapters.serving_adapter import ServingEndpointAdapter
+    from app.agents.contracts import ResponsesAgentRequest
+
     endpoint = settings.serving_agent_endpoint or ""
     api_mode = settings.serving_agent_api_mode
+    adapter = ServingEndpointAdapter(ai_client, endpoint, api_mode=api_mode)
 
     @tool
     async def serving_endpoint(question: str) -> str:  # noqa: D401
@@ -328,48 +319,15 @@ def _build_serving_tool(
                 "serving.api_mode": safe_attr(api_mode),
             },
         ) as span:
-            extra_body: dict[str, Any] = {
-                "databricks_options": {"return_trace": True},
-            }
             try:
-                if api_mode == "responses":
-                    resp = await ai_client.responses.create(
-                        model=endpoint,
-                        input=[{"role": "user", "content": question}],
-                        extra_body=extra_body,
-                    )
-                    text = getattr(resp, "output_text", "") or ""
-                    # Capture downstream trace ID
-                    metadata = getattr(resp, "metadata", None) or {}
-                    trace_id = (
-                        metadata.get("trace_id")
-                        if isinstance(metadata, dict)
-                        else None
-                    )
-                    if trace_id:
-                        span.set_attribute(
-                            "downstream.trace_id", str(trace_id)
-                        )
-                else:
-                    completion = await ai_client.chat.completions.create(
-                        model=endpoint,
-                        messages=[{"role": "user", "content": question}],
-                        extra_body=extra_body,
-                    )
-                    text = completion.choices[0].message.content or ""
-                    # Capture downstream trace ID
-                    db_out = getattr(completion, "databricks_output", None)
-                    trace_id = (
-                        db_out.get("trace", {}).get("trace_id")
-                        if isinstance(db_out, dict)
-                        else None
-                    )
-                    if trace_id:
-                        span.set_attribute(
-                            "downstream.trace_id", str(trace_id)
-                        )
+                request = ResponsesAgentRequest(
+                    input=[{"role": "user", "content": question}],
+                )
+                result = await adapter.invoke(request)
+                if result.downstream_trace_id:
+                    span.set_attribute("downstream.trace_id", result.downstream_trace_id)
                 span.set_attribute("result", "ok")
-                return text
+                return result.text
             except Exception as exc:
                 tag_exception(span, exc)
                 return f"Serving endpoint error: {exc}"

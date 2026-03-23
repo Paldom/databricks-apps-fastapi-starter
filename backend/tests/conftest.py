@@ -90,6 +90,11 @@ _OPTIONAL_STUBS = [
     "mlflow.openai",
     "mlflow.genai",
     "mlflow.genai.agent_server",
+    "mlflow.types",
+    "mlflow.types.responses",
+    "mlflow.pyfunc",
+    "mlflow.entities",
+    "mlflow.models",
 ]
 for mod_name in _OPTIONAL_STUBS:
     if mod_name not in sys.modules:
@@ -104,6 +109,7 @@ for mod_name in _OPTIONAL_STUBS:
                 "MemorySaver", "BaseCheckpointSaver", "CompiledStateGraph",
                 "set_experiment", "update_current_trace", "autolog", "trace",
                 "create_react_agent", "BaseStore",
+                "ResponsesAgent", "set_model", "SpanType",
             ):
                 setattr(stub, attr, MagicMock)
             stub.tool = lambda f=None, **kw: f if f else (lambda fn: fn)  # type: ignore[attr-defined]
@@ -111,6 +117,38 @@ for mod_name in _OPTIONAL_STUBS:
             stub.add_messages = MagicMock  # type: ignore[attr-defined]
             stub.get_active_trace_id = MagicMock(return_value=None)  # type: ignore[attr-defined]
             sys.modules[mod_name] = stub
+
+# Ensure mlflow.types.responses has proper Pydantic models for contracts
+try:
+    from mlflow.types.responses import ResponsesAgentRequest, ResponsesAgentResponse
+except (ImportError, AttributeError):
+    # Build minimal Pydantic stubs so agent contracts work in tests
+    from pydantic import BaseModel as _BM
+
+    class _ResponsesAgentRequest(_BM):
+        input: list = []
+        custom_inputs: dict = {}
+
+    class _ResponsesAgentResponse(_BM):
+        output: list = []
+        custom_outputs: dict = {}
+
+    class _ResponsesAgentStreamEvent(_BM):
+        type: str = ""
+
+    _resp_mod = sys.modules.get("mlflow.types.responses")
+    if _resp_mod is None:
+        _resp_mod = types.ModuleType("mlflow.types.responses")
+        sys.modules["mlflow.types.responses"] = _resp_mod
+    _resp_mod.ResponsesAgentRequest = _ResponsesAgentRequest  # type: ignore[attr-defined]
+    _resp_mod.ResponsesAgentResponse = _ResponsesAgentResponse  # type: ignore[attr-defined]
+    _resp_mod.ResponsesAgentStreamEvent = _ResponsesAgentStreamEvent  # type: ignore[attr-defined]
+
+    _types_mod = sys.modules.get("mlflow.types")
+    if _types_mod is None:
+        _types_mod = types.ModuleType("mlflow.types")
+        sys.modules["mlflow.types"] = _types_mod
+    _types_mod.responses = _resp_mod  # type: ignore[attr-defined]
 
 # ---------------------------------------------------------------------------
 # Now safe to import the application

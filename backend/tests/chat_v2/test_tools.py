@@ -6,28 +6,31 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 from app.chat.registry import SpecialistSpec
-from app.chat.tools import _format_genie_response, _format_knowledge_results
+from app.chat.tools import _format_knowledge_results
+from app.agents.adapters.genie_adapter import parse_genie_response
 
 
-class TestFormatGenieResponse:
+class TestParseGenieResponse:
     def test_formats_text_attachment(self):
         att = MagicMock()
         att.text = MagicMock(content="Revenue is $1M")
         att.query = None
         rsp = MagicMock(attachments=[att])
-        result = _format_genie_response(rsp)
-        assert "Revenue is $1M" in result
+        result = parse_genie_response(rsp)
+        assert "Revenue is $1M" in result["text"]
 
     def test_handles_empty_attachments(self):
         rsp = MagicMock(attachments=[])
-        result = _format_genie_response(rsp)
-        assert result  # falls back to str(rsp)
+        rsp.conversation_id = None
+        result = parse_genie_response(rsp)
+        assert result["text"] == "No Genie response text"
 
     def test_handles_no_attachments_attr(self):
         rsp = MagicMock(spec=[])
         del rsp.attachments
-        result = _format_genie_response(rsp)
-        assert result
+        rsp.conversation_id = None
+        result = parse_genie_response(rsp)
+        assert result["text"] == "No Genie response text"
 
 
 class TestFormatKnowledgeResults:
@@ -63,7 +66,10 @@ class TestServingTool:
         msg.content = "Answer from serving"
         choice = MagicMock()
         choice.message = msg
-        ai_client.chat.completions.create.return_value = MagicMock(choices=[choice])
+        completion_resp = MagicMock(choices=[choice])
+        completion_resp.metadata = None
+        completion_resp.databricks_output = None
+        ai_client.chat.completions.create.return_value = completion_resp
 
         from app.chat.tools import _build_serving_tool
 
@@ -85,7 +91,21 @@ class TestServingTool:
         ai_client = AsyncMock()
         resp = MagicMock()
         resp.output_text = "Response answer"
+        resp.metadata = {}
         resp.databricks_output = None
+        resp.to_dict.return_value = {
+            "output": [
+                {
+                    "type": "message",
+                    "id": "msg_test",
+                    "role": "assistant",
+                    "status": "completed",
+                    "content": [
+                        {"type": "output_text", "text": "Response answer", "annotations": []}
+                    ],
+                }
+            ]
+        }
         ai_client.responses.create.return_value = resp
 
         from app.chat.tools import _build_serving_tool

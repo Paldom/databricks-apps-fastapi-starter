@@ -36,3 +36,7 @@ resources:
           serving_endpoint:
             name: ${var.serving_agent_endpoint}
             permission: CAN_QUERY
+        - name: experiment
+          experiment:
+            experiment_id: ${resources.experiments.app_experiment.id}
+            permission: CAN_MANAGE

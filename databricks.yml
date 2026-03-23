@@ -73,6 +73,9 @@ variables:
   serving_agent_experiment_name:
     description: MLflow experiment path for serving agent traces
     default: /Shared/databricks-apps-fastapi-starter/serving-agent
+  app_experiment_name:
+    description: MLflow experiment path for app traces and evaluations
+    default: /Shared/databricks-apps-fastapi-starter/app
   ai_gateway_embedding_model:
     description: Embedding model for knowledge specialist
     default: ""
@@ -179,6 +182,12 @@ variables:
           value: "true"
         - name: MAX_UPLOAD_BYTES
           value: "52428800"
+        - name: MLFLOW_TRACKING_URI
+          value: "databricks"
+        - name: MLFLOW_REGISTRY_URI
+          value: "databricks-uc"
+        - name: MLFLOW_EXPERIMENT_ID
+          valueFrom: experiment
 
 targets:
   dev:
@@ -252,7 +261,12 @@ targets:
             value: "true"
           - name: MAX_UPLOAD_BYTES
             value: "52428800"
-
+          - name: MLFLOW_TRACKING_URI
+            value: "databricks"
+          - name: MLFLOW_REGISTRY_URI
+            value: "databricks-uc"
+          - name: MLFLOW_EXPERIMENT_ID
+            valueFrom: experiment
   staging:
     workspace:
       root_path: /Shared/.bundle/${bundle.name}/${bundle.target}
@@ -336,3 +350,9 @@ targets:
             value: "true"
           - name: MAX_UPLOAD_BYTES
             value: "52428800"
+          - name: MLFLOW_TRACKING_URI
+            value: "databricks"
+          - name: MLFLOW_REGISTRY_URI
+            value: "databricks-uc"
+          - name: MLFLOW_EXPERIMENT_ID
+            valueFrom: experiment

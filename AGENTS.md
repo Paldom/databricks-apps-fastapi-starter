@@ -31,16 +31,28 @@ A **production-ready FastAPI template** for building data and AI applications on
 backend/                   # Python project (uv, pyproject.toml)
   app/
     api/                   # FastAPI route controllers (mounted at /api)
+      agents_controller.py # POST /api/agents/{backend}/invocations (eval/debug)
     chat/                  # Chat architecture
-      backends/            # ChatBackend Protocol, Factory, OpenAI/LangGraph implementations
-      orchestrator/        # LangGraph supervisor graph, memory, events, specialist tools
+      orchestrator.py      # LangGraph supervisor streaming + event translation
+      tools.py             # Specialist tool builders (delegate to adapters)
+      registry.py          # Specialist specs and routing prompt
+      memory.py            # LangGraph checkpointer and message conversion
       title/               # Chat session title generation
+    agents/                # Unified agent contract and adapters
+      contracts.py         # AgentAdapter protocol, AgentInvocationResult, MLflow types
+      response_utils.py    # text_to_response(), response_to_text()
+      request_utils.py     # last_user_text()
+      factory.py           # get_agent_adapter() dispatcher
+      adapters/
+        app_adapter.py     # Databricks App (Responses API)
+        serving_adapter.py # Model Serving (Responses + legacy chat_completions)
+        genie_adapter.py   # Genie (SDK, structured outputs in custom_outputs)
     services/              # Business logic layer
     repositories/          # SQLAlchemy persistence (flush-only, unit-of-work)
-    agents/                # Deployable agent models (e.g. minimal_serving_agent)
     core/
       config.py            # Pydantic Settings — ALL env vars are read here
       bootstrap.py         # App lifespan (startup/shutdown)
+      mlflow_runtime.py    # Central MLflow init, trace context, trace ID extraction
       runtime.py           # AppRuntime dataclass (engine, clients, checkpointer)
       deps.py              # FastAPI dependency injection wiring
       integrations.py      # Lazy Databricks client initialization
@@ -50,10 +62,16 @@ backend/                   # Python project (uv, pyproject.toml)
     middlewares/            # Auth, OBO, security headers, request size
     models/                # ORM models and DTOs
   alembic/                 # Database migrations (auto-run on deploy)
+  scripts/
+    eval_agents.py         # Unified evaluation harness (app/endpoint/genie)
+  evals/data/              # Sample evaluation datasets
   tests/                   # pytest test suite
 frontend/                  # React + TypeScript + Vite
 resources/                 # Databricks bundle resource definitions (YAML)
+  experiment.yml           # MLflow experiment (bound to app)
 databricks.yml             # Bundle config with dev/staging/prod targets
+docs/
+  MLFLOW_UNIFICATION.md    # Simplification guide and migration notes
 Makefile                   # Root orchestration
 ```
 
@@ -117,42 +135,70 @@ Access in code via `Settings` (Pydantic BaseSettings in `backend/app/core/config
 
 ### Chat Backend Architecture
 
-The `/api/chat/stream` endpoint uses a **Protocol/Factory** pattern:
+The `/api/chat/stream` endpoint streams through a LangGraph supervisor agent:
 
-- `ChatBackend` Protocol defines the streaming interface
-- `ChatBackendFactory` selects the implementation based on `CHAT_BACKEND` setting
-- **OpenAI Compat backend**: Direct `AsyncOpenAI.chat.completions.create()` — simple fallback
-- **LangGraph Supervisor backend**: StateGraph with specialist tools and short-term memory
+- The supervisor routes to specialist tools based on the user's question
+- All specialists delegate to **unified agent adapters** (`app/agents/adapters/`)
+- All backends emit the same NDJSON event types: `text-delta`, `tool-call-begin`, `tool-call-delta`, `done`, `error`
 
-All backends emit the same NDJSON event types: `text-delta`, `tool-call-begin`, `tool-call-delta`, `done`, `error`.
+### Unified Agent Contract (MLflow Responses-first)
+
+All backend adapters implement the `AgentAdapter` protocol and return `AgentInvocationResult`:
+
+```python
+class AgentAdapter(Protocol):
+    source: str
+    async def invoke(self, request: ResponsesAgentRequest) -> AgentInvocationResult: ...
+```
+
+- **App adapter** (`DatabricksAppAdapter`): Calls remote Databricks Apps via Responses API
+- **Serving adapter** (`ServingEndpointAdapter`): Defaults to `responses` mode; legacy `chat_completions` supported
+- **Genie adapter** (`GenieAdapter`): Wraps Genie SDK; preserves SQL/attachments/conversation IDs in `custom_outputs`
+- **Knowledge**: Uses Knowledge Assistant endpoint or direct embed + vector search (no adapter yet)
+
+Downstream trace IDs are captured by each adapter and surfaced as OTel span attributes.
 
 ### LangGraph Supervisor
 
 The supervisor routes to four specialist tools (only configured ones are registered):
 
-1. **App Specialist** (always available) — in-process LLM for synthesis/fallback
-2. **Serving Specialist** (optional) — remote Model Serving endpoint (supports `chat_completions` and `responses` API modes)
-3. **Genie Specialist** (optional) — structured data/SQL via Genie Conversation API
-4. **Knowledge Specialist** (optional) — RAG via AI Gateway embeddings + Vector Search
+1. **App Specialist** (optional) — remote Databricks App via `DatabricksAppAdapter`
+2. **Serving Specialist** (optional) — remote Model Serving endpoint via `ServingEndpointAdapter` (default: `responses` mode)
+3. **Genie Specialist** (optional) — structured data/SQL via `GenieAdapter`
+4. **Knowledge Specialist** (optional) — RAG via Knowledge Assistant endpoint or direct embed + vector search
 
 Short-term memory is keyed by `thread_id`. First request seeds full history; subsequent requests append only the latest user message.
 
+### Agent Invocation Route
+
+`POST /api/agents/{backend}/invocations` provides a Responses-compatible surface for evaluation, debugging, and feedback linkage. It accepts `ResponsesAgentRequest` bodies and returns `ResponsesAgentResponse`.
+
 ### Dependency Injection
 
-All wiring is in `backend/app/core/deps.py`. Factory functions create services per-request:
-
-```python
-def get_chat_stream_service(request: Request) -> ChatStreamService:
-    factory = ChatBackendFactory(settings=..., ai_client=..., ...)
-    backend = factory.create()
-    return ChatStreamService(backend)
-```
+All wiring is in `backend/app/core/deps.py`. Factory functions create services per-request. The chat orchestrator is built lazily with the agent, checkpointer, and tools.
 
 ### Observability
 
-- **OpenTelemetry**: HTTP spans (auto-instrumented), manual spans around Databricks calls, SQL spans
-- **MLflow**: LangGraph/OpenAI autolog when `MLFLOW_EXPERIMENT_ID` is set
+- **OpenTelemetry**: HTTP spans (auto-instrumented), manual spans around Databricks calls and tool invocations
+- **MLflow** (central module `app/core/mlflow_runtime.py`):
+  - Initialized once at startup via `configure_mlflow()`
+  - LangChain + OpenAI autologging enabled
+  - Trace context (session, user, chat IDs) attached per request via `update_trace_context()`
+  - Downstream trace IDs extracted via `extract_trace_id()` (supports both `metadata.trace_id` and `databricks_output.trace.trace_id`)
+  - Experiment provisioned by the bundle (`MLFLOW_EXPERIMENT_ID` injected via `valueFrom: experiment`)
 - **AI Gateway**: Usage tracking configured on the endpoint side, not in app code
+
+### Evaluation
+
+The unified eval harness (`backend/scripts/eval_agents.py`) can evaluate all three backends through MLflow:
+
+```bash
+python -m scripts.eval_agents --target app --name my-app
+python -m scripts.eval_agents --target endpoint --name serving-agent-dev
+python -m scripts.eval_agents --target genie --name <space-id>
+```
+
+See `docs/MLFLOW_UNIFICATION.md` for the full guide.
 
 ---
 
@@ -164,10 +210,11 @@ All settings are in the `Settings` class. Key groups:
 |-------|----------|
 | Database | `DATABASE_URL`, `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` |
 | Databricks | `DATABRICKS_HOST`, `DATABRICKS_TOKEN`, `ENABLE_DATABRICKS_INTEGRATIONS` |
-| Chat | `CHAT_BACKEND`, `LANGGRAPH_MEMORY_BACKEND`, `SUPERVISOR_MODEL`, `APP_SPECIALIST_MODEL` |
-| Specialists | `SERVING_AGENT_ENDPOINT`, `SERVING_AGENT_API_MODE`, `GENIE_SPACE_ID` |
-| Knowledge | `AI_GATEWAY_EMBEDDING_MODEL`, `KNOWLEDGE_VOLUME_ROOT`, `VECTOR_SEARCH_*` |
-| Observability | `MLFLOW_EXPERIMENT_ID`, `ENABLE_CHAT_TITLE_GENERATION` |
+| Chat | `LANGGRAPH_MEMORY_BACKEND`, `SUPERVISOR_MODEL` |
+| Specialists | `APP_AGENT_NAME`, `SERVING_AGENT_ENDPOINT`, `SERVING_AGENT_API_MODE` (default: `responses`), `GENIE_SPACE_ID` |
+| Knowledge | `KNOWLEDGE_ASSISTANT_ENDPOINT`, `AI_GATEWAY_EMBEDDING_MODEL`, `KNOWLEDGE_VOLUME_ROOT`, `VECTOR_SEARCH_*` |
+| MLflow | `MLFLOW_EXPERIMENT_ID` (bundle-provisioned), `MLFLOW_TRACKING_URI`, `MLFLOW_REGISTRY_URI` |
+| Observability | `ENABLE_CHAT_TITLE_GENERATION` |
 
 See `backend/env.example` for the full list with defaults.
 
@@ -182,13 +229,23 @@ See `backend/env.example` for the full list with defaults.
 3. Register in `backend/app/api/router.py`
 4. Add dependencies via `Depends()` from `deps.py`
 
-### Adding a new chat specialist tool
+### Adding a new agent backend adapter
 
-1. Create tool in `backend/app/chat/orchestrator/tools/<name>.py`
-2. Use `@tool` decorator from `langchain_core.tools`
-3. Add config guard + registration in `backend/app/chat/orchestrator/tools/__init__.py`
+1. Create `backend/app/agents/adapters/<name>_adapter.py` implementing `AgentAdapter`
+2. Return `AgentInvocationResult` from `invoke()`
+3. Register in `backend/app/agents/factory.py` → `get_agent_adapter()`
 4. Add config setting in `backend/app/core/config.py`
 5. Add env var in `databricks.yml` and `backend/env.example`
+6. The adapter is automatically available via `/api/agents/{backend}/invocations` and the eval harness
+
+### Adding a new chat specialist tool
+
+1. Create tool builder in `backend/app/chat/tools.py`
+2. Use `@tool` decorator from `langchain_core.tools`
+3. Delegate to the corresponding adapter from `backend/app/agents/adapters/`
+4. Add config guard + spec in `backend/app/chat/registry.py`
+5. Add config setting in `backend/app/core/config.py`
+6. Add env var in `databricks.yml` and `backend/env.example`
 
 ### Adding a new Databricks resource binding
 

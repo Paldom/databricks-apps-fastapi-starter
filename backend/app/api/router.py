@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from app.api.agents_controller import router as agents_router
 from app.api.chats_controller import router as chats_router
 from app.api.chat_stream_controller import router as chat_stream_router
 from app.api.documents_controller import router as documents_router
@@ -24,4 +25,5 @@ def build_api_router() -> APIRouter:
     router.include_router(knowledge_router)
     router.include_router(settings_router)
     router.include_router(chat_stream_router)
+    router.include_router(agents_router)
     return router

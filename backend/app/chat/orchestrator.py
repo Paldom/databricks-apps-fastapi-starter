@@ -13,6 +13,7 @@ from typing import Any
 
 from app.chat.context import ChatContext
 from app.chat.memory import build_graph_input
+from app.core.mlflow_runtime import get_active_trace_id, update_trace_context
 from app.core.observability import get_tracer, safe_attr, tag_exception
 
 _tracer = get_tracer()
@@ -61,7 +62,7 @@ class ChatOrchestrator:
                         yield ndjson_event
 
                 done: dict[str, Any] = {"type": "done", "finish_reason": "stop"}
-                trace_id = _get_active_trace_id()
+                trace_id = get_active_trace_id()
                 if trace_id:
                     done["trace_id"] = trace_id
                 yield done
@@ -78,7 +79,7 @@ class ChatOrchestrator:
                     "message": str(exc),
                     "code": "internal_error",
                 }
-                trace_id = _get_active_trace_id()
+                trace_id = get_active_trace_id()
                 if trace_id:
                     error["trace_id"] = trace_id
                 yield error
@@ -138,31 +139,15 @@ def _translate_event(
 
 
 # ---------------------------------------------------------------------------
-# MLflow trace helpers (best-effort)
+# MLflow trace helpers (best-effort, via mlflow_runtime)
 # ---------------------------------------------------------------------------
 
 
 def _attach_trace_metadata(
     thread_id: str | None, context: ChatContext | None
 ) -> None:
-    try:
-        import mlflow
-
-        metadata: dict[str, str] = {
-            "mlflow.trace.session": thread_id or "",
-        }
-        if context is not None:
-            metadata["chat_id"] = context.chat_id or ""
-            metadata["user_id"] = context.user_id or ""
-        mlflow.update_current_trace(tags=metadata)
-    except Exception:
-        pass
-
-
-def _get_active_trace_id() -> str | None:
-    try:
-        import mlflow
-
-        return mlflow.get_active_trace_id()  # type: ignore[return-value]
-    except Exception:
-        return None
+    update_trace_context(
+        session_id=thread_id,
+        user_id=context.user_id if context else None,
+        chat_id=context.chat_id if context else None,
+    )

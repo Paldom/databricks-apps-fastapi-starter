@@ -1,0 +1,4 @@
+resources:
+  experiments:
+    app_experiment:
+      name: ${var.app_experiment_name}

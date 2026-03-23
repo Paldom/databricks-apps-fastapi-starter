@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from app.core.config import settings
 from app.core.db import create_async_engine_from_settings, create_session_factory
 from app.core.logging import get_logger, setup_logging
+from app.core.mlflow_runtime import configure_mlflow
 from app.core.observability import get_tracer, tag_exception
 from app.core.runtime import AppRuntime
 import app.models  # noqa: F401 – register all models with Base.metadata
@@ -42,9 +43,9 @@ async def lifespan(application: FastAPI):
             else:
                 logger.info("Database configuration not provided; skipping")
 
-        # ── MLflow tracing ─────────────────────────────────────────
+        # ── MLflow tracing (central module) ───────────────────────
         try:
-            _init_mlflow_tracing()
+            configure_mlflow(settings.mlflow_experiment_id)
         except Exception as exc:
             logger.debug("MLflow tracing init failed: %s", exc)
 
@@ -82,23 +83,3 @@ async def lifespan(application: FastAPI):
             finally:
                 shutdown_span.set_attribute("duration_s", time.monotonic() - t1)
                 logger.info("Shutdown complete")
-
-
-def _init_mlflow_tracing() -> None:
-    """Bootstrap MLflow tracing if an experiment ID is configured."""
-    import os
-
-    experiment_id = os.getenv("MLFLOW_EXPERIMENT_ID")
-    if not experiment_id:
-        logger.info("MLFLOW_EXPERIMENT_ID not set; MLflow tracing is disabled")
-        return
-
-    import mlflow
-
-    mlflow.set_experiment(experiment_id=experiment_id)
-    mlflow.langchain.autolog()
-    logger.info("MLflow LangChain autolog enabled (experiment=%s)", experiment_id)
-    try:
-        mlflow.openai.autolog()
-    except Exception:
-        logger.debug("MLflow OpenAI autolog unavailable", exc_info=True)
