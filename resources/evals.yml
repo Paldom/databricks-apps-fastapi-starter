@@ -1,0 +1,74 @@
+resources:
+  experiments:
+    agent_eval_experiment:
+      name: ${var.agent_eval_experiment_name}
+
+  jobs:
+    agent_eval_job:
+      name: AgentEval-${var.resource_name_suffix}
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+
+      job_clusters:
+        - job_cluster_key: agent_eval_cluster
+          new_cluster:
+            spark_version: 17.1.x-scala2.12
+            node_type_id: ${var.cluster_node_type}
+            num_workers: 0
+            autotermination_minutes: 20
+
+      tasks:
+        - task_key: eval_app_agent
+          job_cluster_key: agent_eval_cluster
+          libraries:
+            - pypi:
+                package: "mlflow[databricks]>=3.1.0"
+            - pypi:
+                package: databricks-openai
+            - pypi:
+                package: databricks-sdk
+          notebook_task:
+            notebook_path: notebooks/evals/run_agent_evals.py
+            base_parameters:
+              target_kind: app
+              target_name: ${var.app_name}
+              eval_mode: single_turn
+              eval_experiment_name: ${var.agent_eval_experiment_name}
+              dataset_name: ${var.agent_eval_dataset_name}
+
+        - task_key: eval_serving_agent
+          job_cluster_key: agent_eval_cluster
+          libraries:
+            - pypi:
+                package: "mlflow[databricks]>=3.1.0"
+            - pypi:
+                package: databricks-openai
+            - pypi:
+                package: databricks-sdk
+          notebook_task:
+            notebook_path: notebooks/evals/run_agent_evals.py
+            base_parameters:
+              target_kind: endpoint
+              target_name: ${var.serving_agent_endpoint}
+              eval_mode: single_turn
+              eval_experiment_name: ${var.agent_eval_experiment_name}
+              dataset_name: ${var.agent_eval_dataset_name}
+
+        - task_key: eval_genie_agent
+          job_cluster_key: agent_eval_cluster
+          libraries:
+            - pypi:
+                package: "mlflow[databricks]>=3.1.0"
+            - pypi:
+                package: databricks-openai
+            - pypi:
+                package: databricks-sdk
+          notebook_task:
+            notebook_path: notebooks/evals/run_agent_evals.py
+            base_parameters:
+              target_kind: genie
+              target_name: ${var.genie_space_id}
+              eval_mode: single_turn
+              eval_experiment_name: ${var.agent_eval_experiment_name}
+              dataset_name: ${var.agent_eval_dataset_name}

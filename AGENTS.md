@@ -62,16 +62,17 @@ backend/                   # Python project (uv, pyproject.toml)
     middlewares/            # Auth, OBO, security headers, request size
     models/                # ORM models and DTOs
   alembic/                 # Database migrations (auto-run on deploy)
-  scripts/
-    eval_agents.py         # Unified evaluation harness (app/endpoint/genie)
-  evals/data/              # Sample evaluation datasets
   tests/                   # pytest test suite
 frontend/                  # React + TypeScript + Vite
+notebooks/
+  evals/
+    run_agent_evals.py     # Evaluation notebook entrypoint (parameterised)
+    _agent_eval_common.py  # Reusable eval helpers (%run loaded)
+    README.md              # Evaluation guide (notebook/job workflow)
 resources/                 # Databricks bundle resource definitions (YAML)
   experiment.yml           # MLflow experiment (bound to app)
+  evals.yml                # Evaluation job + experiment
 databricks.yml             # Bundle config with dev/staging/prod targets
-docs/
-  MLFLOW_UNIFICATION.md    # Simplification guide and migration notes
 Makefile                   # Root orchestration
 ```
 
@@ -190,15 +191,19 @@ All wiring is in `backend/app/core/deps.py`. Factory functions create services p
 
 ### Evaluation
 
-The unified eval harness (`backend/scripts/eval_agents.py`) can evaluate all three backends through MLflow:
+Agent evaluations run as **Databricks notebook/job workflows**, targeting deployed
+surfaces (not backend internals):
 
 ```bash
-python -m scripts.eval_agents --target app --name my-app
-python -m scripts.eval_agents --target endpoint --name serving-agent-dev
-python -m scripts.eval_agents --target genie --name <space-id>
+# Deploy bundle (includes eval job)
+databricks bundle deploy -t dev
+
+# Run all eval tasks (app, serving, genie)
+databricks bundle run -t dev agent_eval_job
 ```
 
-See `docs/MLFLOW_UNIFICATION.md` for the full guide.
+Or run `notebooks/evals/run_agent_evals.py` interactively in the workspace.
+See [`notebooks/evals/README.md`](notebooks/evals/README.md) for the full guide.
 
 ---
 

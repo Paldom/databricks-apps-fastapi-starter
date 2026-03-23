@@ -115,6 +115,12 @@ variables:
   rag_chunk_table_name:
     description: Parsed and chunked documents Delta table
     default: main.starter_rag.rag_document_chunks
+  agent_eval_experiment_name:
+    description: MLflow experiment path for unified agent evaluations
+    default: /Shared/databricks-apps-fastapi-starter/evals
+  agent_eval_dataset_name:
+    description: Optional UC-backed MLflow evaluation dataset name
+    default: ""
   app_config:
     type: complex
     description: Runtime config for the Databricks app
