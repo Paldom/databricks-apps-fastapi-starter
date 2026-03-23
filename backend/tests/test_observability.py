@@ -61,10 +61,19 @@ class TestDatabricksAppCommand:
         with open("../databricks.yml") as f:
             bundle = yaml.safe_load(f)
 
-        # Check the default app_config command
+        # Default app_config command must include opentelemetry-instrument
         default_cmd = bundle["variables"]["app_config"]["default"]["command"]
         assert default_cmd[0] == "opentelemetry-instrument", (
             f"Default app command should start with opentelemetry-instrument, got: {default_cmd}"
         )
-        assert "python" in default_cmd
-        assert "backend/run_app.py" in default_cmd
+
+        # Every target override must also include opentelemetry-instrument
+        for name, target in bundle.get("targets", {}).items():
+            override = target.get("variables", {}).get("app_config")
+            if override is None:
+                continue
+            cmd = override.get("command", [])
+            assert cmd and cmd[0] == "opentelemetry-instrument", (
+                f"Target '{name}' app_config command must start with "
+                f"opentelemetry-instrument, got: {cmd}"
+            )

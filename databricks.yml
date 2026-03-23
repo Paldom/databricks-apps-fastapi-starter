@@ -200,6 +200,7 @@ targets:
       serving_agent_endpoint: serving-agent-dev
       app_config:
         command:
+          - opentelemetry-instrument
           - python
           - backend/run_app.py
         env:
@@ -289,6 +290,7 @@ targets:
       serving_agent_endpoint: serving-agent-prod
       app_config:
         command:
+          - opentelemetry-instrument
           - python
           - backend/run_app.py
         env:

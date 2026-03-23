@@ -33,6 +33,12 @@ dev-db-down:
 dev-api:
 	$(UV) run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
+dev-api-otel:
+	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
+	OTEL_SERVICE_NAME=fastapi-starter-local \
+	OTEL_TRACES_SAMPLER=always_on \
+	$(UV) run opentelemetry-instrument python run_app.py
+
 migrate-up:
 	$(UV) run alembic upgrade head
 

@@ -28,17 +28,17 @@ async def request_context_middleware(request: Request, call_next):
 
     # Set safe span attributes after downstream middleware has populated
     # request.state (user_info, workspace_client).
+    user = getattr(request.state, "user", None)
     span = trace.get_current_span()
     if span.is_recording():
-        span.set_attribute(
-            "app.user.present",
-            getattr(request.state, "user", None) is not None,
-        )
+        span.set_attribute("app.user.present", user is not None)
         span.set_attribute(
             "app.auth.obo",
             settings.enable_obo
             and bool(request.headers.get("X-Forwarded-Access-Token")),
         )
+        if user is not None:
+            span.set_attribute("enduser.id", str(user.id))
 
     response.headers[REQUEST_ID_HEADER] = request_id
     return response

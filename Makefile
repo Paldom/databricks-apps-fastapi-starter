@@ -4,7 +4,7 @@ FRONTEND_DIR ?= frontend
 BACKEND_DIR ?= backend
 
 .PHONY: install install-backend install-frontend \
-	dev dev-api dev-backend dev-frontend dev-db dev-db-down \
+	dev dev-api dev-api-otel dev-backend dev-frontend dev-db dev-db-down \
 	migrate-up migrate-new \
 	requirements-export openapi-export frontend-api-gen generate \
 	backend-lint backend-typecheck backend-test \
@@ -45,6 +45,9 @@ dev-db-down:
 
 dev-api:
 	$(MAKE) -C $(BACKEND_DIR) dev-api
+
+dev-api-otel:
+	$(MAKE) -C $(BACKEND_DIR) dev-api-otel
 
 dev-backend: dev-api
 
