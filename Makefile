@@ -6,7 +6,7 @@ BACKEND_DIR ?= backend
 .PHONY: install install-backend install-frontend \
 	dev dev-api dev-api-otel dev-backend dev-frontend dev-db dev-db-down \
 	migrate-up migrate-new \
-	requirements-export openapi-export frontend-api-gen generate \
+	openapi-export frontend-api-gen generate \
 	backend-lint backend-typecheck backend-test \
 	frontend-lint frontend-typecheck frontend-test frontend-build \
 	lint format typecheck security test check load-test \
@@ -24,16 +24,13 @@ install-frontend:
 
 # ── Generate ───────────────────────────────────────────────────────
 
-requirements-export:
-	$(MAKE) -C $(BACKEND_DIR) requirements-export
-
 openapi-export:
 	$(MAKE) -C $(BACKEND_DIR) openapi-export
 
 frontend-api-gen:
 	cd $(FRONTEND_DIR) && $(NPM) run api:gen
 
-generate: requirements-export openapi-export frontend-api-gen
+generate: openapi-export frontend-api-gen
 
 # ── Local development ──────────────────────────────────────────────
 

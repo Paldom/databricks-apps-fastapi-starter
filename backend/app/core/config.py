@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     # Frontend serving
     enable_docs: bool = True
     serve_static: bool = False
-    frontend_dist_dir: str = "frontend/dist"
+    frontend_dist_dir: str = "public"
 
     # Request size limits
     max_request_body_bytes: int = 1_048_576  # 1 MiB

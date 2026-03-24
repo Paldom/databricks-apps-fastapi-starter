@@ -4,9 +4,9 @@ UV ?= uv
 DOCKER_COMPOSE ?= docker compose
 MIGRATION_MESSAGE ?= new migration
 
-.PHONY: install dev-api dev-db dev-db-down \
+.PHONY: install dev-api dev-api-otel dev-db dev-db-down \
 	migrate-up migrate-new \
-	requirements-export openapi-export \
+	openapi-export \
 	lint typecheck test security format load-test
 
 # ── Install ────────────────────────────────────────────────────────
@@ -15,9 +15,6 @@ install:
 	$(UV) sync --extra dev
 
 # ── Generate ───────────────────────────────────────────────────────
-
-requirements-export:
-	$(UV) export --no-hashes --no-editable --format=requirements.txt > requirements.txt
 
 openapi-export:
 	$(UV) run python scripts/export_openapi.py
