@@ -18,13 +18,13 @@ git clone https://github.com/Paldom/databricks-apps-fastapi-starter.git
 cd databricks-apps-fastapi-starter
 
 cp backend/env.example backend/.env   # defaults work out of the box
-make install-backend                   # install Python deps via uv
+make install                           # install backend + frontend deps
 make dev-db                            # start Postgres in Docker
 make migrate-up                        # run database migrations
 make dev                               # start API + frontend
 ```
 
-Open `http://localhost:8000/docs`. Auth is handled by a fallback dev user -- no credentials needed.
+Open `http://localhost:8000/api/docs`. Auth is handled by a fallback dev user -- no credentials needed.
 
 Databricks integrations are disabled by default. To test against a real workspace, set `ENABLE_DATABRICKS_INTEGRATIONS=true` and your Databricks credentials in `backend/.env`.
 
@@ -165,13 +165,10 @@ These bindings are used with `valueFrom` in the app's env config, so the app rec
 backend/                 # Self-contained Python project (uv, pyproject.toml)
   app/                   # FastAPI application package
     api/                 # Frontend-facing API routes (mounted at /api)
-    chat/                # Chat architecture (backends, orchestrator, title)
-      backends/          # ChatBackend Protocol, Factory, implementations
-      orchestrator/      # LangGraph supervisor graph, memory, events, tools
-      title/             # Chat session title generation
+    chat/                # Chat orchestrator, memory, registry, tools, title
+    agents/              # Unified agent adapters (app, serving, genie)
     services/            # Business logic
     repositories/        # SQLAlchemy persistence (flush only)
-    agents/              # Deployable agent models (e.g. minimal_serving_agent)
     core/databricks/     # Databricks SDK adapters (serving, jobs, vector search, etc.)
     core/db/             # Async SQLAlchemy engine, session, URL builder
     core/security/       # Path validation
@@ -180,54 +177,41 @@ backend/                 # Self-contained Python project (uv, pyproject.toml)
   alembic/               # Database migrations
   tests/                 # Backend tests (pytest)
   scripts/               # OpenAPI export, helpers
-  notebooks/             # Databricks notebooks (jobs, serving)
-  openapi.yaml           # Committed OpenAPI contract (YAML)
 frontend/                # React + TypeScript + Vite
+notebooks/               # Databricks notebooks (evals, serving)
 resources/               # Databricks bundle resource definitions
 databricks.yml           # Bundle config (root level)
-Makefile                 # Root orchestration — delegates to backend/Makefile
+Makefile                 # Thin developer convenience layer over uv, npm, Docker Compose, and Databricks CLI
 ```
 
-All root-level `make` commands continue to work. The backend can also be used directly: `cd backend && uv run uvicorn app.main:app --reload`.
+Run `make help` for a list of common targets. The backend can also be used directly: `cd backend && uv run uvicorn app.main:app --reload`.
 
 ## Chat Architecture
 
-The `/api/chat/stream` endpoint is backed by a **Protocol/Factory** abstraction that decouples the streaming contract from the underlying chat implementation. A `ChatBackend` Protocol defines the interface; a `ChatBackendFactory` selects the active implementation based on the `CHAT_BACKEND` setting.
+This starter ships with a single chat implementation: a LangGraph-based orchestrator that streams NDJSON events from the FastAPI backend. There is no alternate backend or factory abstraction.
 
 ```mermaid
 flowchart LR
     UI[Frontend Chat UI] --> API["/api/chat/stream"]
-    API --> CSS[ChatStreamService]
-    CSS --> FACTORY[ChatBackendFactory]
-    FACTORY --> LG[LangGraph Supervisor Backend]
-    FACTORY --> OAI[OpenAI Compat Backend]
+    API --> ORCH[ChatOrchestrator]
 
-    LG --> MEM[Short-term Memory Checkpointer]
-    LG --> APP[App Specialist]
-    LG --> SERVE[Serving Specialist]
-    LG --> GENIE[Genie Specialist]
-    LG --> KNOW[Knowledge Specialist]
+    ORCH --> MEM[In-Memory Checkpointer]
+    ORCH --> APP[App Specialist]
+    ORCH --> SERVE[Serving Specialist]
+    ORCH --> GENIE[Genie Specialist]
+    ORCH --> KNOW[Knowledge Specialist]
 
     KNOW --> VS[Vector Search Index]
     KNOW --> AIGW[AI Gateway Embeddings]
 
     APP --> MLFLOW[MLflow Tracing]
-    LG --> MLFLOW
+    ORCH --> MLFLOW
     API --> OTEL[OpenTelemetry]
 ```
 
-### Backends
-
-| Backend | Setting value | Description |
-|---------|--------------|-------------|
-| **OpenAI Compat** | `openai_compat` | Direct `AsyncOpenAI.chat.completions.create()` streaming. Simplest path, good for local dev. |
-| **LangGraph Supervisor** | `langgraph_supervisor` | LangGraph-based supervisor with short-term memory and specialist tools. Default when deployed. |
-
-Set `CHAT_BACKEND` to switch. The factory falls back to `openai_compat` if LangGraph initialization fails.
-
 ### LangGraph supervisor
 
-The supervisor is a small `StateGraph` that routes requests to specialist tools:
+The supervisor is a `StateGraph` that routes requests to specialist tools:
 
 1. **App Specialist** (always available) -- in-process LLM for clarification, synthesis, formatting, and fallback help.
 2. **Serving Agent** (optional) -- queries a ResponsesAgent deployed on Databricks Model Serving via `SERVING_AGENT_ENDPOINT`. Defaults to the Responses API (`SERVING_AGENT_API_MODE=responses`).
@@ -238,7 +222,7 @@ Only specialists with backing resources configured are registered. The superviso
 
 ### Short-term memory
 
-Server-side conversation memory is keyed by `thread_id` (maps to the chat session ID).
+Server-side conversation memory is keyed by `thread_id` (maps to the chat session ID). The `thread_id` is resolved once at the controller boundary -- either from the request body or generated as a new UUID.
 
 - **First request** for a thread (no checkpoint): the full incoming message history seeds the graph.
 - **Subsequent requests** (checkpoint exists): only the latest user message is appended -- prior context is already persisted.
@@ -254,7 +238,7 @@ Set `LANGGRAPH_MEMORY_BACKEND` to choose.
 
 ### Streaming event contract
 
-All backends emit the same NDJSON event types consumed by the frontend:
+The orchestrator emits NDJSON event types consumed by the frontend:
 
 - `text-delta` -- streamed assistant text
 - `tool-call-begin` -- tool invocation started
@@ -264,7 +248,7 @@ All backends emit the same NDJSON event types consumed by the frontend:
 
 ### Title generation
 
-After the first successful stream response, the controller schedules asynchronous, best-effort title generation. Titles are 3-6 words, persisted via `ChatService.update_chat()`, and only generated when the chat has no title yet. Set `ENABLE_CHAT_TITLE_GENERATION=false` to disable.
+After the first successful stream response, the controller schedules asynchronous, best-effort title generation. Titles are 3-6 words and persisted via a write-once-if-empty pattern -- an existing non-empty title is never overwritten, even under concurrent requests. Set `ENABLE_CHAT_TITLE_GENERATION=false` to disable.
 
 ### Chat specialist resources
 
@@ -285,12 +269,12 @@ The chat architecture has dual-track observability:
 
 | Signal | System | What it captures |
 |--------|--------|-----------------|
-| App traces | **OpenTelemetry** | Backend selection, graph execution, memory bootstrap, specialist calls, title generation |
+| App traces | **OpenTelemetry** | Graph execution, memory bootstrap, specialist calls, title generation |
 | GenAI traces | **MLflow** | LangGraph execution (via `langchain.autolog()`), OpenAI calls (via `openai.autolog()`), per-request session/user metadata |
 | Endpoint usage | **AI Gateway** | Configured on the endpoint side, not in app code. Usage data appears in `system.ai_gateway.usage` system table. |
 | Request/response logs | **Inference tables** | A separate endpoint-side feature that logs to Unity Catalog Delta tables. Not controlled by app code. |
 
-MLflow tracing is bootstrapped at startup when `MLFLOW_EXPERIMENT_ID` is set. Per-request trace metadata (`thread_id`, `user_id`, `backend`) is attached via `mlflow.update_current_trace()`.
+MLflow tracing is bootstrapped at startup when `MLFLOW_EXPERIMENT_ID` is set. Per-request trace metadata (`thread_id`, `user_id`) is attached via `mlflow.update_current_trace()`.
 
 ### Minimal serving agent
 
@@ -361,11 +345,9 @@ make dev-api
 
 With the defaults from `backend/env.example`, the following work locally without Databricks credentials:
 
-- `http://localhost:8000/docs`
-- `http://localhost:8000/api/health/live`
-- `http://localhost:8000/api/health/ready`
-- `http://localhost:8000/health/live`
-- `http://localhost:8000/health/ready`
+- `http://localhost:8000/api/docs` -- interactive API docs
+- `http://localhost:8000/api/health/live` -- liveness check
+- `http://localhost:8000/api/me` -- current user (dev fallback)
 - authenticated `/api` routes via the development fallback user
 
 ### Optional remote-integrated local mode
@@ -540,6 +522,17 @@ databricks bundle run -t prod fastapi_app
 databricks bundle summary -t dev
 ```
 
+### Makefile shortcuts
+
+The Makefile mirrors these commands with a `TARGET` variable (defaults to `dev`):
+
+```bash
+make bundle-validate TARGET=dev
+make bundle-deploy TARGET=staging
+make bundle-run TARGET=prod RESOURCE=fastapi_app
+make bundle-summary TARGET=dev
+```
+
 ## Bundle Targets
 
 | Target | Mode | App name | Docs enabled | OBO |
@@ -574,7 +567,6 @@ Key configuration:
 | `LOCAL_DEV_USER_ID` | Local fallback user id | Manual |
 | `DATABASE_URL` | Canonical DB URL override | Manual |
 | `PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD` | Canonical PG-style DB settings | Manual |
-| `LAKEBASE_HOST/PORT/DB/USER/PASSWORD` | Backward-compatible DB fallback | Manual |
 | `SERVING_ENDPOINT_NAME` | Serving endpoint name | Yes (`valueFrom: serving-endpoint`) |
 | `JOB_ID` | Job ID for background tasks | Yes (`valueFrom: app-job`) |
 | `VOLUME_ROOT` | UC volume path | Yes (`valueFrom: uc-volume`) |
@@ -585,10 +577,8 @@ Key configuration:
 | `ENABLE_OBO` | On-behalf-of user mode | Set in app_config env |
 | `VECTOR_SEARCH_ENDPOINT_NAME` | Vector search endpoint | Yes (via variable) |
 | `VECTOR_SEARCH_INDEX_NAME` | Vector search index | Yes (via variable) |
-| `CHAT_BACKEND` | Chat backend (`openai_compat` or `langgraph_supervisor`) | Yes (via variable) |
 | `LANGGRAPH_MEMORY_BACKEND` | Memory backend (`inmemory` or `lakebase`) | Yes (via variable) |
 | `SUPERVISOR_MODEL` | Model for the LangGraph supervisor | Yes (via variable) |
-| `APP_SPECIALIST_MODEL` | Model for the app specialist | Yes (via variable) |
 | `SERVING_AGENT_ENDPOINT` | Serving agent endpoint | Yes (`valueFrom: serving-agent`) |
 | `SERVING_AGENT_API_MODE` | `responses` or `chat_completions` | Yes (via variable) |
 | `GENIE_SPACE_ID` | Genie space for data specialist | Yes (via variable) |
@@ -622,16 +612,12 @@ curl http://localhost:8000/api/projects \
   -H "X-Forwarded-Email: me@example.com"
 ```
 
-### Rate limiting
-
-Expensive endpoints are rate-limited using an in-memory fixed-window strategy. Disable with `RATE_LIMIT_ENABLED=false` for development.
-
 ### Request limits
 
 | Content type | Default limit | Setting |
 |-------------|---------------|---------|
 | JSON / other | 1 MiB | `MAX_REQUEST_BODY_BYTES` |
-| Multipart (uploads) | 10 MiB | `MAX_UPLOAD_BYTES` |
+| Multipart (uploads) | 50 MiB | `MAX_UPLOAD_BYTES` |
 
 ### Security headers
 
@@ -639,28 +625,25 @@ The application applies OWASP-recommended HTTP security headers (HSTS, content t
 
 ### Dependency management
 
-This project uses [uv](https://docs.astral.sh/uv/) for dependency management. `backend/requirements.txt` is generated — do not edit manually:
+This project uses [uv](https://docs.astral.sh/uv/) for dependency management. `backend/pyproject.toml` is the sole Python package manifest.
 
 ```bash
-make requirements-export
+make requirements-export   # regenerate backend/requirements.txt
+make generate              # requirements.txt + OpenAPI + frontend API client
 ```
-
-CI verifies that `backend/requirements.txt` matches the lockfile on every PR.
 
 ## Health and Readiness
 
-- `GET /api/health/live` and `GET /health/live` return lightweight process liveness
-- `GET /api/health/ready` and `GET /health/ready` return **core readiness only** (database required)
-- `GET /api/health/integrations` and `GET /health/integrations` return Databricks integration status for `workspace`, `ai`, and `vector_search`
-- `GET /healthcheck` and `GET /databasehealthcheck` remain as compatibility aliases
+- `GET /api/health/live` -- lightweight process liveness
+- `GET /api/health/ready` -- core readiness (database required)
+- `GET /api/health` -- detailed health including Databricks integration status
 
 In offline local mode:
 
 - liveness returns `200`
-- readiness returns `200` once the database is reachable
-- integrations returns `200` with `status=degraded` and per-integration `disabled` entries
+- readiness returns `503` until the database is reachable
 
-Databricks-dependent routes now fail at request time with clear `503` responses when integrations are disabled or unavailable, instead of breaking startup or unrelated routes.
+Databricks-dependent routes fail at request time with clear `503` responses when integrations are disabled or unavailable, instead of breaking startup or unrelated routes.
 
 ## Observability
 
@@ -675,7 +658,7 @@ The application ships with OpenTelemetry instrumentation via `opentelemetry-inst
 
 ### Databricks Apps telemetry
 
-The app is started via `opentelemetry-instrument python backend/run_app.py` (configured in `databricks.yml`). Databricks Apps injects `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, and other OTLP config when telemetry is enabled.
+The app is started via `opentelemetry-instrument python run_app.py` (configured in `databricks.yml`). Databricks Apps injects `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, and other OTLP config when telemetry is enabled.
 
 To enable:
 
@@ -703,13 +686,6 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
 OTEL_SERVICE_NAME=fastapi-starter-local \
 cd backend && opentelemetry-instrument uvicorn app.main:app --reload
 ```
-
-## Caching
-
-- **Memory backend** (default) for local development
-- **Redis backend** for production — set `CACHE_BACKEND=redis` and configure `CACHE_REDIS_*` variables
-- Reads use cache-aside pattern; writes explicitly invalidate
-- Cache failures are swallowed and logged; they never break correctness
 
 ## SSE Demo
 

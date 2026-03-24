@@ -1,113 +1,126 @@
 SHELL := /bin/bash
-NPM ?= npm
-FRONTEND_DIR ?= frontend
-BACKEND_DIR ?= backend
+.SHELLFLAGS := -eu -o pipefail -c
+.DEFAULT_GOAL := help
 
-.PHONY: install install-backend install-frontend \
-	dev dev-api dev-api-otel dev-backend dev-frontend dev-db dev-db-down \
-	migrate-up migrate-new \
-	openapi-export frontend-api-gen generate \
-	backend-lint backend-typecheck backend-test \
-	frontend-lint frontend-typecheck frontend-test frontend-build \
-	lint format typecheck security test check load-test \
-	bundle-validate
+UV ?= uv
+NPM ?= npm
+DOCKER_COMPOSE ?= docker compose
+
+BACKEND_DIR ?= backend
+FRONTEND_DIR ?= frontend
+
+TARGET ?= dev
+RESOURCE ?= fastapi_app
+MIGRATION_MESSAGE ?= new migration
+
+.PHONY: help \
+	install install-backend install-frontend \
+	dev-db dev-db-down migrate-up migrate-new \
+	dev-api dev-frontend dev \
+	requirements-export openapi-export frontend-api-gen generate \
+	format lint typecheck security test frontend-build check load-test \
+	bundle-validate bundle-deploy bundle-run bundle-summary
+
+help:
+	@echo "Common targets:"
+	@echo "  make install"
+	@echo "  make dev-db"
+	@echo "  make migrate-up"
+	@echo "  make dev"
+	@echo "  make generate"
+	@echo "  make check"
+	@echo "  make bundle-validate TARGET=dev"
+	@echo "  make bundle-deploy TARGET=staging"
+	@echo "  make bundle-run TARGET=prod RESOURCE=fastapi_app"
+	@echo "  make bundle-summary TARGET=dev"
 
 # ── Install ────────────────────────────────────────────────────────
 
 install: install-backend install-frontend
 
 install-backend:
-	$(MAKE) -C $(BACKEND_DIR) install
+	cd $(BACKEND_DIR) && $(UV) sync --extra dev
 
 install-frontend:
 	cd $(FRONTEND_DIR) && $(NPM) ci
 
-# ── Generate ───────────────────────────────────────────────────────
-
-openapi-export:
-	$(MAKE) -C $(BACKEND_DIR) openapi-export
-
-frontend-api-gen:
-	cd $(FRONTEND_DIR) && $(NPM) run api:gen
-
-generate: openapi-export frontend-api-gen
-
 # ── Local development ──────────────────────────────────────────────
 
 dev-db:
-	$(MAKE) -C $(BACKEND_DIR) dev-db
+	cd $(BACKEND_DIR) && $(DOCKER_COMPOSE) up -d postgres
 
 dev-db-down:
-	$(MAKE) -C $(BACKEND_DIR) dev-db-down
+	cd $(BACKEND_DIR) && $(DOCKER_COMPOSE) down
 
 dev-api:
-	$(MAKE) -C $(BACKEND_DIR) dev-api
-
-dev-api-otel:
-	$(MAKE) -C $(BACKEND_DIR) dev-api-otel
-
-dev-backend: dev-api
+	cd $(BACKEND_DIR) && $(UV) run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 dev-frontend:
 	cd $(FRONTEND_DIR) && $(NPM) run dev
 
 dev:
-	bash -lc 'trap "kill 0" EXIT; $(MAKE) dev-api & $(MAKE) dev-frontend & wait'
+	trap 'kill 0' EXIT; $(MAKE) dev-api & $(MAKE) dev-frontend & wait
 
 migrate-up:
-	$(MAKE) -C $(BACKEND_DIR) migrate-up
+	cd $(BACKEND_DIR) && $(UV) run alembic upgrade head
 
 migrate-new:
-	$(MAKE) -C $(BACKEND_DIR) migrate-new
+	cd $(BACKEND_DIR) && $(UV) run alembic revision --autogenerate -m "$(MIGRATION_MESSAGE)"
 
-# ── Backend checks ─────────────────────────────────────────────────
+# ── Generate ───────────────────────────────────────────────────────
 
-backend-lint:
-	$(MAKE) -C $(BACKEND_DIR) lint
+requirements-export:
+	cd $(BACKEND_DIR) && $(UV) export --no-hashes --no-editable --format=requirements.txt > requirements.txt
 
-backend-typecheck:
-	$(MAKE) -C $(BACKEND_DIR) typecheck
+openapi-export:
+	cd $(BACKEND_DIR) && $(UV) run python scripts/export_openapi.py
 
-backend-test:
-	$(MAKE) -C $(BACKEND_DIR) test
+frontend-api-gen:
+	cd $(FRONTEND_DIR) && $(NPM) run api:gen
 
-# ── Frontend checks ────────────────────────────────────────────────
+generate: openapi-export frontend-api-gen requirements-export
 
-frontend-lint:
+# ── Checks ─────────────────────────────────────────────────────────
+
+format:
+	cd $(BACKEND_DIR) && $(UV) run ruff format .
+	cd $(FRONTEND_DIR) && $(NPM) run format
+
+lint:
+	cd $(BACKEND_DIR) && $(UV) run ruff check .
 	cd $(FRONTEND_DIR) && $(NPM) run lint
 
-frontend-typecheck:
+typecheck:
+	cd $(BACKEND_DIR) && $(UV) run mypy --ignore-missing-imports .
 	cd $(FRONTEND_DIR) && $(NPM) run typecheck
 
-frontend-test:
+security:
+	cd $(BACKEND_DIR) && $(UV) run bandit -r app -c pyproject.toml -q
+
+test:
+	cd $(BACKEND_DIR) && $(UV) run pytest --cov .
 	cd $(FRONTEND_DIR) && $(NPM) run test -- --run
 
 frontend-build:
 	cd $(FRONTEND_DIR) && $(NPM) run build
 
-# ── Bundle validation ──────────────────────────────────────────────
-
-bundle-validate:
-	databricks bundle validate -t dev
-
-# ── Combined developer targets ─────────────────────────────────────
-
-lint: backend-lint frontend-lint
-
-format:
-	$(MAKE) -C $(BACKEND_DIR) format
-	cd $(FRONTEND_DIR) && $(NPM) run format
-
-typecheck: backend-typecheck frontend-typecheck
-
-security:
-	$(MAKE) -C $(BACKEND_DIR) security
-
-test: backend-test frontend-test
-
-check: generate lint typecheck security test frontend-build bundle-validate
+check: lint typecheck security test frontend-build bundle-validate
 
 # ── Performance ────────────────────────────────────────────────────
 
 load-test:
-	$(MAKE) -C $(BACKEND_DIR) load-test
+	cd $(BACKEND_DIR) && $(UV) run locust -f tests/performance/locustfile.py --headless -u 50 -r 10 -t 2m
+
+# ── Bundle ─────────────────────────────────────────────────────────
+
+bundle-validate:
+	databricks bundle validate -t $(TARGET)
+
+bundle-deploy:
+	databricks bundle deploy -t $(TARGET)
+
+bundle-run:
+	databricks bundle run -t $(TARGET) $(RESOURCE)
+
+bundle-summary:
+	databricks bundle summary -t $(TARGET)

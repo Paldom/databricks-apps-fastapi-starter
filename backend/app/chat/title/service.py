@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 from openai import AsyncOpenAI
@@ -59,35 +58,25 @@ class ChatTitleService:
 
     async def maybe_generate_title(
         self,
+        *,
         chat_id: str,
-        current_title: str | None,
         transcript: list[dict[str, str]],
         user_id: str | None = None,
-    ) -> None:
-        """Generate and persist a title if the chat doesn't have one yet."""
-        if current_title and current_title.strip():
-            return
+    ) -> str | None:
+        """Generate and persist a title if the chat doesn't have one yet.
 
+        Uses set_title_if_empty so an existing non-empty title is never
+        overwritten, even if called multiple times concurrently.
+        """
         title = await self.generate_title(transcript)
         if not title:
-            return
+            return None
 
         if self._chat_service is not None:
             try:
-                await self._chat_service.update_chat(chat_id, title)
+                await self._chat_service.set_title_if_empty(chat_id, title)
                 logger.info("Generated title for chat %s: %s", chat_id, title)
             except Exception as exc:
                 logger.warning("Failed to persist title for chat %s: %s", chat_id, exc)
 
-
-def schedule_title_generation(
-    title_service: ChatTitleService,
-    chat_id: str,
-    current_title: str | None,
-    transcript: list[dict[str, str]],
-    user_id: str | None = None,
-) -> None:
-    """Schedule async title generation without blocking the stream."""
-    asyncio.create_task(
-        title_service.maybe_generate_title(chat_id, current_title, transcript, user_id)
-    )
+        return title

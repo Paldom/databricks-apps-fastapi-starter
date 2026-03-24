@@ -17,7 +17,7 @@ A **production-ready FastAPI template** for building data and AI applications on
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy (async), Alembic, Pydantic
 - **Frontend**: React 19, TypeScript, Vite
 - **Database**: Lakebase (Databricks-managed Postgres) in production, Docker Postgres locally
-- **AI/Chat**: LangGraph supervisor with specialist tools, OpenAI-compatible fallback
+- **AI/Chat**: LangGraph supervisor with specialist tools
 - **Deployment**: Databricks Asset Bundles (`databricks.yml` + `resources/*.yml`)
 - **Testing**: pytest (backend), vitest (frontend)
 - **Linting**: ruff (backend), ESLint (frontend)
@@ -262,7 +262,7 @@ See `backend/env.example` for the full list with defaults.
 ### Adding a database migration
 
 ```bash
-cd backend && make migrate-new MIGRATION_MESSAGE="add my table"
+make migrate-new MIGRATION_MESSAGE="add my table"
 ```
 
 Migrations run automatically on deploy. For local dev: `make migrate-up`.

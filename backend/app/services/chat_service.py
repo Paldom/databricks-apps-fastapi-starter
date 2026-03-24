@@ -48,6 +48,19 @@ class ChatService:
             "updated_at": chat.updated_at,
         }
 
+    async def set_title_if_empty(self, chat_id: str, title: str) -> dict | None:
+        """Set title only if the chat currently has no title."""
+        chat = await self._repo.set_title_if_empty(self._user_id, chat_id, title)
+        if chat is None:
+            return None
+        return {
+            "id": str(chat.id),
+            "title": chat.title or "",
+            "project_id": chat.project_id or "",
+            "created_at": chat.created_at,
+            "updated_at": chat.updated_at,
+        }
+
     async def delete_chat(self, chat_id: str) -> bool:
         return await self._repo.delete_chat(self._user_id, chat_id)
 

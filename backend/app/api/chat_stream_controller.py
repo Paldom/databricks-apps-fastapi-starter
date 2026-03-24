@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import uuid as _uuid
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Request
@@ -62,6 +63,7 @@ class ToolCallDeltaEvent(BaseModel):
 class DoneEvent(BaseModel):
     type: Literal["done"]
     finish_reason: Literal["stop", "length", "error"]
+    thread_id: str | None = None
     trace_id: str | None = None
 
 
@@ -107,12 +109,15 @@ async def chat_stream(
         user_email=getattr(user, "email", None) if user else None,
     )
 
+    # Resolve thread_id once at the controller boundary
+    resolved_thread_id = body.thread_id or str(_uuid.uuid4())
+
     async def event_source():
         messages = [{"role": m.role, "content": m.content} for m in body.messages]
         stream_ok = False
         async for event in orchestrator.stream(
             messages=messages,
-            thread_id=body.thread_id,
+            thread_id=resolved_thread_id,
             context=context,
         ):
             if event.get("type") == "done":
@@ -120,14 +125,10 @@ async def chat_stream(
             yield json.dumps(event, ensure_ascii=False) + "\n"
 
         # Best-effort title generation after the first successful stream
-        if (
-            stream_ok
-            and body.thread_id
-            and settings.enable_chat_title_generation
-        ):
+        if stream_ok and settings.enable_chat_title_generation:
             _schedule_title_generation(
                 request=request,
-                thread_id=body.thread_id,
+                thread_id=resolved_thread_id,
                 user_id=context.user_id,
                 transcript=messages,
             )
@@ -180,7 +181,6 @@ def _schedule_title_generation(
                     )
                     await title_svc.maybe_generate_title(
                         chat_id=thread_id,
-                        current_title=None,
                         transcript=transcript,
                         user_id=user_id,
                     )

@@ -6,7 +6,6 @@ and MLflow trace correlation into one request-scoped object.
 
 from __future__ import annotations
 
-import uuid
 from collections.abc import AsyncIterator
 from logging import Logger
 from typing import Any
@@ -35,10 +34,9 @@ class ChatOrchestrator:
     async def stream(
         self,
         messages: list[dict[str, Any]],
-        thread_id: str | None = None,
+        thread_id: str,
         context: ChatContext | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
-        thread_id = thread_id or str(uuid.uuid4())
 
         with _tracer.start_as_current_span(
             "chat.orchestrator.stream",
@@ -61,7 +59,11 @@ class ChatOrchestrator:
                     for ndjson_event in _translate_event(event, seen_tools):
                         yield ndjson_event
 
-                done: dict[str, Any] = {"type": "done", "finish_reason": "stop"}
+                done: dict[str, Any] = {
+                    "type": "done",
+                    "finish_reason": "stop",
+                    "thread_id": thread_id,
+                }
                 trace_id = get_active_trace_id()
                 if trace_id:
                     done["trace_id"] = trace_id

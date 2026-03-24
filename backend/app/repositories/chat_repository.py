@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chat_session_model import ChatSession
@@ -70,6 +70,24 @@ class ChatRepository:
         chat.updated_by = owner_user_id
         await self._session.flush()
         return chat
+
+    async def set_title_if_empty(
+        self, owner_user_id: str, chat_id: str, title: str,
+    ) -> ChatSession | None:
+        """Set title only if the existing title is null or empty."""
+        stmt = (
+            update(ChatSession)
+            .where(
+                ChatSession.id == uuid.UUID(chat_id),
+                ChatSession.user_id == owner_user_id,
+                or_(ChatSession.title.is_(None), ChatSession.title == ""),
+            )
+            .values(title=title, updated_by=owner_user_id)
+            .returning(ChatSession)
+        )
+        result = await self._session.execute(stmt)
+        await self._session.flush()
+        return result.scalar_one_or_none()
 
     async def delete_chat(self, owner_user_id: str, chat_id: str) -> bool:
         result = await self._session.execute(
