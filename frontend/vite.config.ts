@@ -49,6 +49,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
+      outDir: path.resolve(dirname, '../backend/public'),
+      emptyOutDir: true,
       sourcemap: true,
       rollupOptions: {
         output: {

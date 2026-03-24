@@ -3,7 +3,7 @@ resources:
     fastapi_app:
       name: ${var.app_name}
       description: "FastAPI RAG starter deployed from bundle"
-      source_code_path: .
+      source_code_path: ./backend
       config: ${var.app_config}
       user_api_scopes:
         - files.files

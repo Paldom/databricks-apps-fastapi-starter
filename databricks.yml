@@ -14,7 +14,6 @@ sync:
     - backend/.mypy_cache/**
     - backend/.ruff_cache/**
     - backend/.pytest_cache/**
-    - backend/alembic/**
     - "*.egg-info/**"
     - backend/.local/**
     - backend/.coverage
@@ -128,7 +127,7 @@ variables:
       command:
         - opentelemetry-instrument
         - python
-        - backend/run_app.py
+        - run_app.py
       env:
         - name: SERVE_STATIC
           value: "true"
@@ -208,7 +207,7 @@ targets:
         command:
           - opentelemetry-instrument
           - python
-          - backend/run_app.py
+          - run_app.py
         env:
           - name: SERVE_STATIC
             value: "true"
@@ -298,7 +297,7 @@ targets:
         command:
           - opentelemetry-instrument
           - python
-          - backend/run_app.py
+          - run_app.py
         env:
           - name: SERVE_STATIC
             value: "true"

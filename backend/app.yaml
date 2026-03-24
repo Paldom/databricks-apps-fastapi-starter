@@ -1,0 +1,16 @@
+# Local entrypoint for `databricks apps run-local --prepare-environment --debug`
+# Build frontend first: cd ../frontend && npm run build
+command:
+  - python
+  - run_app.py
+env:
+  - name: SERVE_STATIC
+    value: "true"
+  - name: ENABLE_DOCS
+    value: "true"
+  - name: ENVIRONMENT
+    value: development
+  - name: ENABLE_DATABRICKS_INTEGRATIONS
+    value: "true"
+  - name: ENABLE_LOCAL_DEV_AUTH_FALLBACK
+    value: "false"

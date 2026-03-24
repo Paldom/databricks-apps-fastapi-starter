@@ -1,25 +1,19 @@
 """Databricks Apps entrypoint.
 
-When deployed via ``databricks bundle``, the working directory is the
-bundle root (repo root).  This script adds ``backend/`` to sys.path so
-that ``app.*`` imports resolve correctly, then runs database migrations
-and starts uvicorn.
+When deployed via ``databricks bundle``, the app source root is ``backend/``
+(set via ``source_code_path: ./backend`` in the bundle resource).  The working
+directory is therefore ``backend/``, so ``app.*`` imports resolve without any
+path manipulation.
 
-Migrations run automatically on every deploy/restart — there is no
-separate migration step.
+Migrations run automatically on every deploy/restart — there is no separate
+migration step.
 """
 from __future__ import annotations
 
 import logging
 import os
-import sys
-from pathlib import Path
 
-_backend_dir = Path(__file__).resolve().parent
-if str(_backend_dir) not in sys.path:
-    sys.path.insert(0, str(_backend_dir))
-
-import uvicorn  # noqa: E402
+import uvicorn
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +31,7 @@ def run_migrations() -> None:
         from alembic import command as alembic_command
         from alembic.config import Config
 
-        alembic_cfg = Config(os.path.join(str(_backend_dir), "alembic.ini"))
+        alembic_cfg = Config("alembic.ini")
         alembic_command.upgrade(alembic_cfg, "head")
         logger.info("Database migrations completed")
     except Exception as exc:
@@ -49,7 +43,7 @@ def run_server() -> None:
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
-        port=int(os.environ.get("DATABRICKS_APP_PORT", "8000")),
+        port=int(os.environ.get("DATABRICKS_APP_PORT", os.environ.get("UVICORN_PORT", "8000"))),
         log_level=os.environ.get("UVICORN_LOG_LEVEL", "info"),
     )
 

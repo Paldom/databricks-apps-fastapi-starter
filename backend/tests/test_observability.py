@@ -66,6 +66,9 @@ class TestDatabricksAppCommand:
         assert default_cmd[0] == "opentelemetry-instrument", (
             f"Default app command should start with opentelemetry-instrument, got: {default_cmd}"
         )
+        assert "run_app.py" in default_cmd, (
+            f"Default command should reference run_app.py (not backend/run_app.py), got: {default_cmd}"
+        )
 
         # Every target override must also include opentelemetry-instrument
         for name, target in bundle.get("targets", {}).items():
@@ -77,3 +80,12 @@ class TestDatabricksAppCommand:
                 f"Target '{name}' app_config command must start with "
                 f"opentelemetry-instrument, got: {cmd}"
             )
+
+    def test_source_code_path_is_backend(self):
+        with open("../resources/app.yml") as f:
+            app_yml = yaml.safe_load(f)
+
+        source_path = app_yml["resources"]["apps"]["fastapi_app"]["source_code_path"]
+        assert source_path == "./backend", (
+            f"source_code_path should be ./backend, got: {source_path}"
+        )
