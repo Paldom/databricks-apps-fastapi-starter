@@ -3,9 +3,12 @@ resources:
     starter_endpoint:
       name: starter-endpoint-${var.resource_name_suffix}
       config:
-        served_models:
-          - name: startermodel-v1
-            model_name: StarterModel
-            model_version: "1"
+        served_entities:
+          - entity_name: StarterModel
+            entity_version: "1"
             workload_size: Small
-            scale_to_zero: false
+            scale_to_zero_enabled: false
+        traffic_config:
+          routes:
+            - served_model_name: StarterModel-1
+              traffic_percentage: 100

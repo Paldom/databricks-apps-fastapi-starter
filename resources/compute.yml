@@ -11,6 +11,11 @@ resources:
             node_type_id: ${var.cluster_node_type}
             num_workers: 0
             autotermination_minutes: 10
+            spark_conf:
+              spark.databricks.cluster.profile: singleNode
+              spark.master: local[*]
+            custom_tags:
+              ResourceClass: SingleNode
 
       tasks:
         - task_key: bootstrap_resources
@@ -21,7 +26,7 @@ resources:
             - pypi:
                 package: databricks-vectorsearch
           notebook_task:
-            notebook_path: notebooks/jobs/bootstrap_rag_resources.py
+            notebook_path: ../notebooks/jobs/bootstrap_rag_resources.py
             base_parameters:
               chunk_table_name: ${var.rag_chunk_table_name}
               vector_search_endpoint_name: ${var.vector_search_endpoint_name}
@@ -56,7 +61,7 @@ resources:
             - pypi:
                 package: databricks-vectorsearch
           notebook_task:
-            notebook_path: notebooks/jobs/rag_ingestion_job.py
+            notebook_path: ../notebooks/jobs/rag_ingestion_job.py
             base_parameters:
               source_path: ${var.knowledge_upload_root}
               checkpoint_path: ${var.rag_checkpoint_root}

@@ -15,9 +15,7 @@ sync:
     - backend/.ruff_cache/**
     - backend/.pytest_cache/**
     - "*.egg-info/**"
-    - backend/.local/**
     - backend/.coverage
-    - backend/coverage.xml
     - "*.md"
 
 variables:
@@ -36,9 +34,6 @@ variables:
   enable_obo:
     description: Whether to enable OBO behavior
     default: "false"
-  volume_full_name:
-    description: UC volume full name (catalog.schema.volume)
-    default: main.default.starter_volume
   cluster_node_type:
     description: Node type for job clusters
     default: i3.xlarge
@@ -148,19 +143,19 @@ variables:
         - name: OTEL_PYTHON_LOG_CORRELATION
           value: "true"
         - name: SERVING_ENDPOINT_NAME
-          valueFrom: serving-endpoint
+          value_from: serving-endpoint
         - name: JOB_ID
-          valueFrom: app-job
+          value_from: app-job
         - name: VOLUME_ROOT
-          valueFrom: uc-volume
+          value_from: uc-volume
         - name: PGHOST
-          valueFrom: lakebase-db
+          value_from: lakebase-db
         - name: PGDATABASE
-          valueFrom: lakebase-db
+          value_from: lakebase-db
         - name: PGUSER
-          valueFrom: lakebase-db
+          value_from: lakebase-db
         - name: KNOWLEDGE_ASSISTANT_ENDPOINT
-          valueFrom: knowledge-assistant
+          value_from: knowledge-assistant
         - name: APP_AGENT_NAME
           value: ${var.app_agent_name}
         - name: GENIE_SPACE_ID
@@ -168,7 +163,7 @@ variables:
         - name: SUPERVISOR_MODEL
           value: ${var.supervisor_model}
         - name: SERVING_AGENT_ENDPOINT
-          valueFrom: serving-agent
+          value_from: serving-agent
         - name: AI_GATEWAY_EMBEDDING_MODEL
           value: ${var.ai_gateway_embedding_model}
         - name: TITLE_MODEL
@@ -192,7 +187,7 @@ variables:
         - name: MLFLOW_REGISTRY_URI
           value: "databricks-uc"
         - name: MLFLOW_EXPERIMENT_ID
-          valueFrom: experiment
+          value_from: experiment
 
 targets:
   dev:
@@ -228,19 +223,19 @@ targets:
           - name: OTEL_PYTHON_LOG_CORRELATION
             value: "true"
           - name: SERVING_ENDPOINT_NAME
-            valueFrom: serving-endpoint
+            value_from: serving-endpoint
           - name: JOB_ID
-            valueFrom: app-job
+            value_from: app-job
           - name: VOLUME_ROOT
-            valueFrom: uc-volume
+            value_from: uc-volume
           - name: PGHOST
-            valueFrom: lakebase-db
+            value_from: lakebase-db
           - name: PGDATABASE
-            valueFrom: lakebase-db
+            value_from: lakebase-db
           - name: PGUSER
-            valueFrom: lakebase-db
+            value_from: lakebase-db
           - name: KNOWLEDGE_ASSISTANT_ENDPOINT
-            valueFrom: knowledge-assistant
+            value_from: knowledge-assistant
           - name: APP_AGENT_NAME
             value: ${var.app_agent_name}
           - name: GENIE_SPACE_ID
@@ -248,7 +243,7 @@ targets:
           - name: SUPERVISOR_MODEL
             value: ${var.supervisor_model}
           - name: SERVING_AGENT_ENDPOINT
-            valueFrom: serving-agent
+            value_from: serving-agent
           - name: AI_GATEWAY_EMBEDDING_MODEL
             value: ${var.ai_gateway_embedding_model}
           - name: TITLE_MODEL
@@ -272,7 +267,7 @@ targets:
           - name: MLFLOW_REGISTRY_URI
             value: "databricks-uc"
           - name: MLFLOW_EXPERIMENT_ID
-            valueFrom: experiment
+            value_from: experiment
   staging:
     workspace:
       root_path: /Shared/.bundle/${bundle.name}/${bundle.target}
@@ -318,19 +313,19 @@ targets:
           - name: OTEL_PYTHON_LOG_CORRELATION
             value: "true"
           - name: SERVING_ENDPOINT_NAME
-            valueFrom: serving-endpoint
+            value_from: serving-endpoint
           - name: JOB_ID
-            valueFrom: app-job
+            value_from: app-job
           - name: VOLUME_ROOT
-            valueFrom: uc-volume
+            value_from: uc-volume
           - name: PGHOST
-            valueFrom: lakebase-db
+            value_from: lakebase-db
           - name: PGDATABASE
-            valueFrom: lakebase-db
+            value_from: lakebase-db
           - name: PGUSER
-            valueFrom: lakebase-db
+            value_from: lakebase-db
           - name: KNOWLEDGE_ASSISTANT_ENDPOINT
-            valueFrom: knowledge-assistant
+            value_from: knowledge-assistant
           - name: APP_AGENT_NAME
             value: ${var.app_agent_name}
           - name: GENIE_SPACE_ID
@@ -338,7 +333,7 @@ targets:
           - name: SUPERVISOR_MODEL
             value: ${var.supervisor_model}
           - name: SERVING_AGENT_ENDPOINT
-            valueFrom: serving-agent
+            value_from: serving-agent
           - name: AI_GATEWAY_EMBEDDING_MODEL
             value: ${var.ai_gateway_embedding_model}
           - name: TITLE_MODEL
@@ -362,4 +357,4 @@ targets:
           - name: MLFLOW_REGISTRY_URI
             value: "databricks-uc"
           - name: MLFLOW_EXPERIMENT_ID
-            valueFrom: experiment
+            value_from: experiment

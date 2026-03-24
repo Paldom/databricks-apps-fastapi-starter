@@ -125,7 +125,7 @@ There is no workspace Repo sync, no Git credential registration, and no manual `
 ### What this means
 
 - **Runtime app config** (command, env vars) is defined in the bundle YAML via a complex `app_config` variable, not a standalone `app.yaml`
-- **Resource-backed env vars** (`SERVING_ENDPOINT_NAME`, `JOB_ID`, `VOLUME_ROOT`, secrets) are injected via `valueFrom` app resource bindings
+- **Resource-backed env vars** (`SERVING_ENDPOINT_NAME`, `JOB_ID`, `VOLUME_ROOT`, secrets) are injected via `value_from` app resource bindings
 - **Three targets** are supported: `dev`, `staging`, `prod`
 - **CI/CD** uses `databricks bundle validate/deploy/run` exclusively
 
@@ -141,9 +141,8 @@ There is no workspace Repo sync, no Git credential registration, and no manual `
 | Serving Endpoint | `resources/serving.yml` | MLflow model serving (starter) |
 | Serving Agent Deploy | `resources/serving_agent.yml` | Job + experiment to deploy the serving agent |
 | Job + Cluster | `resources/compute.yml` | Spark job for background tasks |
-| Lakebase Instance | `resources/database.yml` | PostgreSQL-compatible OLTP database |
+| Lakebase Instance + Catalog | `resources/database.yml` | PostgreSQL-compatible OLTP database |
 | Vector Search Index | `resources/vector_search.yml` | Delta Sync vector index |
-| Secret Scope | `resources/secrets.yml` | Reserved for future app secrets |
 
 ### App resource bindings
 
@@ -154,10 +153,10 @@ The app is granted access to specific Databricks resources with least-privilege 
 | `serving-endpoint` | Serving endpoint | `CAN_QUERY` |
 | `app-job` | Job | `CAN_MANAGE_RUN` |
 | `uc-volume` | UC Volume | `WRITE_VOLUME` |
-| `lakebase-db` | Database (Lakebase) | `USE` |
+| `lakebase-db` | Database (Lakebase) | `CAN_CONNECT_AND_CREATE` |
 | `knowledge-assistant` | Serving endpoint | `CAN_QUERY` |
 
-These bindings are used with `valueFrom` in the app's env config, so the app receives resolved values as environment variables at runtime.
+These bindings are used with `value_from` in the app's env config, so the app receives resolved values as environment variables at runtime.
 
 ### Repository layout
 
@@ -556,7 +555,7 @@ The legacy example router in `backend/app/api/examples_controller.py` exercises 
 
 ## Configuration
 
-The application reads settings from environment variables using Pydantic `Settings` in `backend/app/core/config.py`. When running locally, place variables in `backend/.env`. When deployed via bundles, resource-backed values are injected automatically via `valueFrom`.
+The application reads settings from environment variables using Pydantic `Settings` in `backend/app/core/config.py`. When running locally, place variables in `backend/.env`. When deployed via bundles, resource-backed values are injected automatically via `value_from`.
 
 Key configuration:
 
@@ -567,11 +566,11 @@ Key configuration:
 | `LOCAL_DEV_USER_ID` | Local fallback user id | Manual |
 | `DATABASE_URL` | Canonical DB URL override | Manual |
 | `PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD` | Canonical PG-style DB settings | Manual |
-| `SERVING_ENDPOINT_NAME` | Serving endpoint name | Yes (`valueFrom: serving-endpoint`) |
-| `JOB_ID` | Job ID for background tasks | Yes (`valueFrom: app-job`) |
-| `VOLUME_ROOT` | UC volume path | Yes (`valueFrom: uc-volume`) |
-| `PGHOST/PGDATABASE/PGUSER` | Lakebase connection (injected by `lakebase-db` resource) | Yes (`valueFrom: lakebase-db`) |
-| `KNOWLEDGE_ASSISTANT_ENDPOINT` | Knowledge Assistant endpoint name | Yes (`valueFrom: knowledge-assistant`) |
+| `SERVING_ENDPOINT_NAME` | Serving endpoint name | Yes (`value_from: serving-endpoint`) |
+| `JOB_ID` | Job ID for background tasks | Yes (`value_from: app-job`) |
+| `VOLUME_ROOT` | UC volume path | Yes (`value_from: uc-volume`) |
+| `PGHOST/PGDATABASE/PGUSER` | Lakebase connection (injected by `lakebase-db` resource) | Yes (`value_from: lakebase-db`) |
+| `KNOWLEDGE_ASSISTANT_ENDPOINT` | Knowledge Assistant endpoint name | Yes (`value_from: knowledge-assistant`) |
 | `ENVIRONMENT` | Runtime environment label | Set in app_config env |
 | `LOG_LEVEL` | Python logging level | Set in app_config env |
 | `ENABLE_OBO` | On-behalf-of user mode | Set in app_config env |
@@ -579,7 +578,7 @@ Key configuration:
 | `VECTOR_SEARCH_INDEX_NAME` | Vector search index | Yes (via variable) |
 | `LANGGRAPH_MEMORY_BACKEND` | Memory backend (`inmemory` or `lakebase`) | Yes (via variable) |
 | `SUPERVISOR_MODEL` | Model for the LangGraph supervisor | Yes (via variable) |
-| `SERVING_AGENT_ENDPOINT` | Serving agent endpoint | Yes (`valueFrom: serving-agent`) |
+| `SERVING_AGENT_ENDPOINT` | Serving agent endpoint | Yes (`value_from: serving-agent`) |
 | `SERVING_AGENT_API_MODE` | `responses` or `chat_completions` | Yes (via variable) |
 | `GENIE_SPACE_ID` | Genie space for data specialist | Yes (via variable) |
 | `KNOWLEDGE_VOLUME_ROOT` | UC Volume root for knowledge specialist | Yes (via variable) |

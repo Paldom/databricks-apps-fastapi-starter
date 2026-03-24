@@ -125,11 +125,11 @@ Resources are **never hardcoded**. All resource IDs come from environment variab
 ```yaml
 # Resource bindings in resources/app.yml inject values via valueFrom
 - name: SERVING_ENDPOINT_NAME
-  valueFrom: serving-endpoint
+  value_from: serving-endpoint
 - name: JOB_ID
-  valueFrom: app-job
+  value_from: app-job
 - name: PGHOST
-  valueFrom: lakebase-db
+  value_from: lakebase-db
 ```
 
 Access in code via `Settings` (Pydantic BaseSettings in `backend/app/core/config.py`). **Never scatter `os.getenv()` calls** — all env vars are read in `config.py`.
@@ -186,7 +186,7 @@ All wiring is in `backend/app/core/deps.py`. Factory functions create services p
   - LangChain + OpenAI autologging enabled
   - Trace context (session, user, chat IDs) attached per request via `update_trace_context()`
   - Downstream trace IDs extracted via `extract_trace_id()` (supports both `metadata.trace_id` and `databricks_output.trace.trace_id`)
-  - Experiment provisioned by the bundle (`MLFLOW_EXPERIMENT_ID` injected via `valueFrom: experiment`)
+  - Experiment provisioned by the bundle (`MLFLOW_EXPERIMENT_ID` injected via `value_from: experiment`)
 - **AI Gateway**: Usage tracking configured on the endpoint side, not in app code
 
 ### Evaluation
@@ -255,7 +255,7 @@ See `backend/env.example` for the full list with defaults.
 ### Adding a new Databricks resource binding
 
 1. Add resource in `resources/app.yml` with a key (e.g., `my-resource`)
-2. Add env var in `databricks.yml` app_config: `valueFrom: my-resource`
+2. Add env var in `databricks.yml` app_config: `value_from: my-resource`
 3. Add setting field in `backend/app/core/config.py`
 4. Access via `settings.<field_name>` — never raw `os.getenv()`
 

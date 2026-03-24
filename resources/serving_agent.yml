@@ -9,12 +9,21 @@ resources:
       max_concurrent_runs: 1
       job_clusters:
         - job_cluster_key: tiny
-          new_cluster: ${resources.clusters.tiny_cluster}
+          new_cluster:
+            spark_version: 17.1.x-scala2.12
+            node_type_id: ${var.cluster_node_type}
+            num_workers: 0
+            autotermination_minutes: 10
+            spark_conf:
+              spark.databricks.cluster.profile: singleNode
+              spark.master: local[*]
+            custom_tags:
+              ResourceClass: SingleNode
       tasks:
         - task_key: deploy_serving_agent
           job_cluster_key: tiny
           notebook_task:
-            notebook_path: notebooks/serving/deploy.py
+            notebook_path: ../notebooks/serving/deploy.py
             base_parameters:
               serving_agent_endpoint: ${var.serving_agent_endpoint}
               serving_agent_uc_model_name: ${var.serving_agent_uc_model_name}

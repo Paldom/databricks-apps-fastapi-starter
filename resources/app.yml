@@ -3,7 +3,7 @@ resources:
     fastapi_app:
       name: ${var.app_name}
       description: "FastAPI RAG starter deployed from bundle"
-      source_code_path: ./backend
+      source_code_path: ../backend
       config: ${var.app_config}
       user_api_scopes:
         - files.files
@@ -22,12 +22,13 @@ resources:
         - name: uc-volume
           uc_securable:
             securable_type: VOLUME
-            securable_full_name: ${var.volume_full_name}
+            securable_full_name: ${var.rag_catalog_name}.${var.rag_schema_name}.${var.rag_volume_name}
             permission: WRITE_VOLUME
         - name: lakebase-db
           database:
-            name: ${resources.database_instances.lakebase_oltp.name}
-            permission: USE
+            database_name: ${resources.database_catalogs.app_database.database_name}
+            instance_name: ${resources.database_catalogs.app_database.database_instance_name}
+            permission: CAN_CONNECT_AND_CREATE
         - name: knowledge-assistant
           serving_endpoint:
             name: ${var.knowledge_assistant_endpoint_name}
