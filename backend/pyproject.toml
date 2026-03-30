@@ -28,7 +28,7 @@ dependencies = [
     "opentelemetry-instrumentation-sqlalchemy",
     "opentelemetry-instrumentation-requests",
     "opentelemetry-instrumentation-httpx",
-    "langgraph>=0.4,<1",
+    "langgraph>=0.4,<2",
     "langchain-openai>=0.3,<1",
     "langchain-core>=0.3,<1",
     "mlflow>=2.20",
