@@ -97,7 +97,7 @@ graphql-relay==3.2.0
     # via graphene
 greenlet==3.3.2 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'
     # via sqlalchemy
-grpcio==1.78.0
+grpcio==1.80.0
     # via opentelemetry-exporter-otlp-proto-grpc
 gunicorn==25.1.0 ; sys_platform != 'win32'
     # via mlflow
