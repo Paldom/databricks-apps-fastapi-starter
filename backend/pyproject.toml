@@ -5,18 +5,18 @@ description = "Sample FastAPI application to showcase how to leverage Databricks
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
 dependencies = [
-    "fastapi==0.135.1",
+    "fastapi==0.135.2",
     "uvicorn==0.42.0",
     "asyncpg==0.31.0",
-    "pandas==2.3.3",
+    "pandas==3.0.1",
     "numpy>=2.0",
     "pydantic==2.12.5",
     "pydantic-settings==2.13.1",
     "python-dotenv==1.2.2",
-    "databricks-sdk==0.100.0",
+    "databricks-sdk==0.102.0",
     "sqlalchemy==2.0.48",
     "secure==1.0.1",
-    "openai==2.28.0",
+    "openai==2.30.0",
     "databricks-sql-connector==4.2.5",
     "databricks-vectorsearch==0.66",
     "pyarrow==23.0.1",
