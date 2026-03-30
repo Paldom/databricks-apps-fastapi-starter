@@ -146,7 +146,7 @@ langchain-core==0.3.83
     #   langgraph-prebuilt
 langchain-openai==0.3.35
     # via databricks-apps-fastapi-starter
-langgraph==0.6.11
+langgraph==1.1.3
     # via databricks-apps-fastapi-starter
 langgraph-checkpoint==3.0.1
     # via
