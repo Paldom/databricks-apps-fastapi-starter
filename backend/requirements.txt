@@ -152,7 +152,7 @@ langgraph-checkpoint==3.0.1
     # via
     #   langgraph
     #   langgraph-prebuilt
-langgraph-prebuilt==0.6.5
+langgraph-prebuilt==1.0.8
     # via langgraph
 langgraph-sdk==0.2.15
     # via langgraph
