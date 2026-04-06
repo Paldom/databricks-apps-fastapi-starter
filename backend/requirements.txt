@@ -50,7 +50,7 @@ cryptography==46.0.5
     #   mlflow
 cycler==0.12.1
     # via matplotlib
-databricks-sdk==0.100.0
+databricks-sdk==0.102.0
     # via
     #   databricks-apps-fastapi-starter
     #   mlflow-skinny
@@ -67,7 +67,7 @@ docker==7.1.0
     # via mlflow
 et-xmlfile==2.0.0
     # via openpyxl
-fastapi==0.135.1
+fastapi==0.135.3
     # via
     #   databricks-apps-fastapi-starter
     #   mlflow-skinny
@@ -178,7 +178,7 @@ mlflow-skinny==3.10.1
     #   mlflow
 mlflow-tracing==3.10.1
     # via mlflow
-numpy==2.4.3
+numpy==2.4.4
     # via
     #   contourpy
     #   databricks-apps-fastapi-starter
@@ -190,7 +190,7 @@ numpy==2.4.3
     #   skops
 oauthlib==3.3.1
     # via databricks-sql-connector
-openai==2.28.0
+openai==2.30.0
     # via
     #   databricks-apps-fastapi-starter
     #   langchain-openai
@@ -283,7 +283,7 @@ packaging==25.0
     #   opentelemetry-instrumentation
     #   opentelemetry-instrumentation-sqlalchemy
     #   skops
-pandas==2.3.3
+pandas==3.0.2
     # via
     #   databricks-apps-fastapi-starter
     #   databricks-sql-connector
@@ -342,7 +342,7 @@ python-dotenv==1.2.2
     #   databricks-apps-fastapi-starter
     #   mlflow-skinny
     #   pydantic-settings
-python-multipart==0.0.22
+python-multipart==0.0.24
     # via databricks-apps-fastapi-starter
 pytz==2026.1.post1
     # via pandas
@@ -387,7 +387,7 @@ smmap==5.0.3
     # via gitdb
 sniffio==1.3.1
     # via openai
-sqlalchemy==2.0.48
+sqlalchemy==2.0.49
     # via
     #   alembic
     #   databricks-apps-fastapi-starter
@@ -440,7 +440,7 @@ uuid-utils==0.14.1
     # via
     #   langchain-core
     #   langsmith
-uvicorn==0.42.0
+uvicorn==0.44.0
     # via
     #   databricks-apps-fastapi-starter
     #   mlflow-skinny
