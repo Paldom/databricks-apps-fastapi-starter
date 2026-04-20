@@ -50,14 +50,14 @@ cryptography==46.0.5
     #   mlflow
 cycler==0.12.1
     # via matplotlib
-databricks-sdk==0.100.0
+databricks-sdk==0.103.0
     # via
     #   databricks-apps-fastapi-starter
     #   mlflow-skinny
     #   mlflow-tracing
 databricks-sql-connector==4.2.5
     # via databricks-apps-fastapi-starter
-databricks-vectorsearch==0.66
+databricks-vectorsearch==0.67
     # via databricks-apps-fastapi-starter
 deprecation==2.1.0
     # via databricks-vectorsearch
@@ -67,7 +67,7 @@ docker==7.1.0
     # via mlflow
 et-xmlfile==2.0.0
     # via openpyxl
-fastapi==0.135.1
+fastapi==0.136.0
     # via
     #   databricks-apps-fastapi-starter
     #   mlflow-skinny
@@ -178,7 +178,7 @@ mlflow-skinny==3.10.1
     #   mlflow
 mlflow-tracing==3.10.1
     # via mlflow
-numpy==2.4.3
+numpy==2.4.4
     # via
     #   contourpy
     #   databricks-apps-fastapi-starter
@@ -190,13 +190,13 @@ numpy==2.4.3
     #   skops
 oauthlib==3.3.1
     # via databricks-sql-connector
-openai==2.28.0
+openai==2.32.0
     # via
     #   databricks-apps-fastapi-starter
     #   langchain-openai
 openpyxl==3.1.5
     # via databricks-sql-connector
-opentelemetry-api==1.40.0
+opentelemetry-api==1.41.0
     # via
     #   mlflow-skinny
     #   mlflow-tracing
@@ -211,13 +211,13 @@ opentelemetry-api==1.40.0
     #   opentelemetry-instrumentation-sqlalchemy
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-opentelemetry-distro==0.61b0
+opentelemetry-distro==0.62b0
     # via databricks-apps-fastapi-starter
-opentelemetry-exporter-otlp-proto-common==1.40.0
+opentelemetry-exporter-otlp-proto-common==1.41.0
     # via opentelemetry-exporter-otlp-proto-grpc
-opentelemetry-exporter-otlp-proto-grpc==1.40.0
+opentelemetry-exporter-otlp-proto-grpc==1.41.0
     # via databricks-apps-fastapi-starter
-opentelemetry-instrumentation==0.61b0
+opentelemetry-instrumentation==0.62b0
     # via
     #   opentelemetry-distro
     #   opentelemetry-instrumentation-asgi
@@ -226,31 +226,31 @@ opentelemetry-instrumentation==0.61b0
     #   opentelemetry-instrumentation-logging
     #   opentelemetry-instrumentation-requests
     #   opentelemetry-instrumentation-sqlalchemy
-opentelemetry-instrumentation-asgi==0.61b0
+opentelemetry-instrumentation-asgi==0.62b0
     # via opentelemetry-instrumentation-fastapi
-opentelemetry-instrumentation-fastapi==0.61b0
+opentelemetry-instrumentation-fastapi==0.62b0
     # via databricks-apps-fastapi-starter
-opentelemetry-instrumentation-httpx==0.61b0
+opentelemetry-instrumentation-httpx==0.62b0
     # via databricks-apps-fastapi-starter
-opentelemetry-instrumentation-logging==0.61b0
+opentelemetry-instrumentation-logging==0.62b0
     # via databricks-apps-fastapi-starter
-opentelemetry-instrumentation-requests==0.61b0
+opentelemetry-instrumentation-requests==0.62b0
     # via databricks-apps-fastapi-starter
-opentelemetry-instrumentation-sqlalchemy==0.61b0
+opentelemetry-instrumentation-sqlalchemy==0.62b0
     # via databricks-apps-fastapi-starter
-opentelemetry-proto==1.40.0
+opentelemetry-proto==1.41.0
     # via
     #   mlflow-skinny
     #   mlflow-tracing
     #   opentelemetry-exporter-otlp-proto-common
     #   opentelemetry-exporter-otlp-proto-grpc
-opentelemetry-sdk==1.40.0
+opentelemetry-sdk==1.41.0
     # via
     #   mlflow-skinny
     #   mlflow-tracing
     #   opentelemetry-distro
     #   opentelemetry-exporter-otlp-proto-grpc
-opentelemetry-semantic-conventions==0.61b0
+opentelemetry-semantic-conventions==0.62b0
     # via
     #   opentelemetry-instrumentation
     #   opentelemetry-instrumentation-asgi
@@ -259,7 +259,7 @@ opentelemetry-semantic-conventions==0.61b0
     #   opentelemetry-instrumentation-requests
     #   opentelemetry-instrumentation-sqlalchemy
     #   opentelemetry-sdk
-opentelemetry-util-http==0.61b0
+opentelemetry-util-http==0.62b0
     # via
     #   opentelemetry-instrumentation-asgi
     #   opentelemetry-instrumentation-fastapi
@@ -283,7 +283,7 @@ packaging==25.0
     #   opentelemetry-instrumentation
     #   opentelemetry-instrumentation-sqlalchemy
     #   skops
-pandas==2.3.3
+pandas==3.0.2
     # via
     #   databricks-apps-fastapi-starter
     #   databricks-sql-connector
@@ -312,7 +312,7 @@ pybreaker==1.4.1
     # via databricks-sql-connector
 pycparser==3.0 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
     # via cffi
-pydantic==2.12.5
+pydantic==2.13.3
     # via
     #   databricks-apps-fastapi-starter
     #   fastapi
@@ -325,7 +325,7 @@ pydantic==2.12.5
     #   pydantic-settings
 pydantic-core==2.41.5
     # via pydantic
-pydantic-settings==2.13.1
+pydantic-settings==2.14.0
     # via databricks-apps-fastapi-starter
 pyjwt==2.12.1
     # via databricks-sql-connector
@@ -342,7 +342,7 @@ python-dotenv==1.2.2
     #   databricks-apps-fastapi-starter
     #   mlflow-skinny
     #   pydantic-settings
-python-multipart==0.0.22
+python-multipart==0.0.26
     # via databricks-apps-fastapi-starter
 pytz==2026.1.post1
     # via pandas
@@ -387,7 +387,7 @@ smmap==5.0.3
     # via gitdb
 sniffio==1.3.1
     # via openai
-sqlalchemy==2.0.48
+sqlalchemy==2.0.49
     # via
     #   alembic
     #   databricks-apps-fastapi-starter
@@ -440,7 +440,7 @@ uuid-utils==0.14.1
     # via
     #   langchain-core
     #   langsmith
-uvicorn==0.42.0
+uvicorn==0.44.0
     # via
     #   databricks-apps-fastapi-starter
     #   mlflow-skinny
