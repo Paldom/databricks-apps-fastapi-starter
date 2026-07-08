@@ -196,7 +196,7 @@ skips = ["B101", "B105", "B608"]
 exclude_dirs = [".venv"]
 
 [build-system]
-requires = ["uv_build>=0.11,<0.12"]
+requires = ["uv_build>=0.11.26,<0.12"]
 build-backend = "uv_build"
 
 [tool.uv]
