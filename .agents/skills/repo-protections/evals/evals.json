@@ -1,0 +1,60 @@
+{
+  "skill": "repo-protections",
+  "cases": [
+    { "type": "should_trigger", "prompt": "protect the main branch" },
+    { "type": "should_trigger", "prompt": "set up branch protection rules" },
+    { "type": "should_trigger", "prompt": "add a ruleset requiring PR reviews" },
+    { "type": "should_trigger", "prompt": "enable secret scanning and push protection" },
+    { "type": "should_trigger", "prompt": "set up dependabot" },
+    { "type": "should_trigger", "prompt": "require the CI check to pass before merge" },
+    { "type": "should_trigger", "prompt": "block force pushes to main" },
+    { "type": "should_trigger", "prompt": "enable private vulnerability reporting" },
+    { "type": "should_trigger", "prompt": "harden this repo" },
+    { "type": "should_trigger", "prompt": "lock down who can merge to main" },
+    { "type": "should_not_trigger", "prompt": "write SECURITY.md" },
+    { "type": "should_not_trigger", "prompt": "fix this CodeQL alert in my code" },
+    { "type": "should_not_trigger", "prompt": "add issue templates" },
+    { "type": "should_not_trigger", "prompt": "rotate this leaked AWS key" },
+    { "type": "should_not_trigger", "prompt": "set up OIDC trusted publishing to PyPI" },
+    { "type": "should_not_trigger", "prompt": "write a README" },
+    { "type": "should_not_trigger", "prompt": "audit my repo overall" },
+    { "type": "should_not_trigger", "prompt": "review this PR for security issues" },
+    {
+      "type": "quality",
+      "prompt": "protect main on this repo",
+      "expected_behavior": [
+        "creates a ruleset (not classic branch protection) via gh api: require PR, required status checks named exactly as they report, block force pushes and deletions",
+        "requires code-owner review only if CODEOWNERS exists, and says why (CODEOWNERS is inert otherwise)",
+        "verifies the ruleset landed via gh api and shows the user how to bypass-audit it",
+        "notes plan limitations (rulesets/protection on private repos need a paid plan) instead of failing silently"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "set up dependabot for this repo",
+      "expected_behavior": [
+        "writes .github/dependabot.yml for the ecosystems actually present in the repo, weekly, with grouped updates and a cooldown",
+        "explains security updates bypass cooldown by design and cooldown does not cover transitive npm dependencies",
+        "recommends against blanket auto-merge of bot PRs (bot PRs need the same CI + review gates)"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "we run a CI matrix - which status check do I make required?",
+      "expected_behavior": [
+        "recommends a single aggregator job (needs: matrix job, if: always, fails unless all legs succeeded) as the only required check",
+        "warns that requiring individual matrix legs is brittle and that merge queues need the merge_group trigger",
+        "shows how to find the exact check name GitHub reports"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "enable all the security features on this repo",
+      "expected_behavior": [
+        "enumerates secret scanning, push protection, dependabot alerts/updates, and private vulnerability reporting with the exact gh api/gh commands",
+        "distinguishes what is free on public repos vs needs GHAS/paid on private ones",
+        "verifies each toggle after applying instead of assuming success"
+      ]
+    }
+  ]
+}

@@ -14,7 +14,7 @@ describe('ui/dropzone', () => {
     fireEvent.drop(dropzone, { dataTransfer: { files: [file] } })
 
     expect(onFilesAdded).toHaveBeenCalledTimes(1)
-    expect(onFilesAdded.mock.calls[0][0]).toEqual([file])
+    expect(onFilesAdded.mock.calls[0]![0]).toEqual([file])
   })
 
   it('rejects files that do not match accept or maxSize', () => {
@@ -90,6 +90,36 @@ describe('ui/dropzone', () => {
 
     fireEvent.change(input, { target: { files: [fileA, fileB] } })
     expect(onFilesAdded).toHaveBeenCalledWith([fileA])
+  })
+
+  it('filters files by accept and maxSize on file input change', () => {
+    const onFilesAdded = vi.fn()
+    render(<Dropzone onFilesAdded={onFilesAdded} accept=".pdf" maxSize={3} />)
+
+    const input = document.querySelector(
+      'input[type="file"]'
+    ) as HTMLInputElement
+    const wrongType = new File(['hi'], 'notes.txt', { type: 'text/plain' })
+    const tooLarge = new File(['large-file'], 'report.pdf', {
+      type: 'application/pdf',
+    })
+    const valid = new File(['ok'], 'ok.pdf', { type: 'application/pdf' })
+
+    fireEvent.change(input, { target: { files: [wrongType, tooLarge, valid] } })
+    expect(onFilesAdded).toHaveBeenCalledTimes(1)
+    expect(onFilesAdded).toHaveBeenCalledWith([valid])
+  })
+
+  it('matches file extensions case-insensitively on drop', () => {
+    const onFilesAdded = vi.fn()
+    render(<Dropzone onFilesAdded={onFilesAdded} accept=".pdf" />)
+
+    const dropzone = screen.getByText(/drag & drop/i)
+      .parentElement as HTMLElement
+    const file = new File(['data'], 'REPORT.PDF', { type: '' })
+
+    fireEvent.drop(dropzone, { dataTransfer: { files: [file] } })
+    expect(onFilesAdded).toHaveBeenCalledWith([file])
   })
 
   it('does not call onFilesAdded for empty file input', () => {

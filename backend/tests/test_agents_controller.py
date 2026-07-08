@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 
@@ -37,9 +36,7 @@ class TestAgentsInvocation:
 
     def test_invalid_body_returns_error(self, test_client: TestClient):
         """Sending a non-list input triggers a validation error."""
-        with patch(
-            "app.api.agents_controller.get_agent_adapter"
-        ) as mock_factory:
+        with patch("app.api.agents_controller.get_agent_adapter") as mock_factory:
             mock_adapter = MagicMock()
             mock_factory.return_value = mock_adapter
 

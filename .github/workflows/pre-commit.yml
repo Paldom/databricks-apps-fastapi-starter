@@ -1,0 +1,38 @@
+name: pre-commit
+
+# CI mirror of .pre-commit-config.yaml — local hooks are per-clone and
+# skippable (--no-verify), so this workflow re-runs the same config at the
+# same revs to keep local and CI from drifting. Merge enforcement lives in
+# ci.yml's all-checks-passed (the only ruleset-required check); this workflow
+# is an advisory backstop for the hygiene/validation hooks. The pre-push mypy
+# hook needs no CI mirror — ci.yml's backend-typecheck runs the same
+# `uv run mypy .` from the same locked environment.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  pre-commit:
+    name: Commit-stage hooks (all files)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@f98e06938123ccabd21905ea5d0069192241f9f1 # v8.3.1
+        with:
+          python-version: "3.11"
+      - name: Cache pre-commit hook environments
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+      - name: Run pre-commit (all files)
+        # Keep the pinned version in lockstep with pre-commit in the backend
+        # dev dependency group.
+        run: uvx pre-commit@4.6.0 run --all-files --show-diff-on-failure

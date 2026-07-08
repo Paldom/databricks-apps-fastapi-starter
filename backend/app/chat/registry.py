@@ -7,7 +7,6 @@ and the routing instruction that appears in the supervisor system prompt.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from app.core.config import Settings
 
@@ -17,7 +16,9 @@ class SpecialistSpec:
     key: str
     description: str
     kind: str
-    config_key: str | tuple[str, ...] | None = None  # Settings field(s); None = always enabled
+    config_key: str | tuple[str, ...] | None = (
+        None  # Settings field(s); None = always enabled
+    )
 
 
 SPECIALISTS: list[SpecialistSpec] = [
@@ -46,7 +47,7 @@ SPECIALISTS: list[SpecialistSpec] = [
             "volume-backed knowledge via Vector Search."
         ),
         kind="knowledge",
-        config_key=("knowledge_assistant_endpoint", "ai_gateway_embedding_model"),
+        config_key="knowledge_assistant_endpoint",
     ),
     SpecialistSpec(
         key="serving_endpoint",

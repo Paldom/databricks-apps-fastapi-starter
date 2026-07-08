@@ -1,0 +1,15 @@
+. "$(dirname "$0")/hook-chain.sh"
+# pre-push receives ref updates on stdin; buffer so both consumers can read it
+stdin_payload="$(cat)"
+printf '%s' "$stdin_payload" | chain_global_hook pre-push "$@"
+
+# Only run frontend checks when the outgoing commits touch frontend/
+if base="$(git merge-base @{push} HEAD 2>/dev/null)" ||
+  base="$(git merge-base origin/main HEAD 2>/dev/null)"; then
+  if git diff --quiet "$base" HEAD -- frontend/; then
+    echo 'pre-push: no frontend changes, skipping frontend checks'
+    exit 0
+  fi
+fi
+
+cd frontend && npm run typecheck && npx vitest run

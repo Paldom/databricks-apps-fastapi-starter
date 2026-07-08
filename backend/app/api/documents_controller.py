@@ -1,8 +1,18 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+)
 from pydantic import ConfigDict
 
 from app.api.common.schemas import ApiModel, CursorPage, DocumentStatus
@@ -49,7 +59,7 @@ class DocumentStatusResponse(ApiModel):
     status: DocumentStatus
 
 
-def _to_document(d: dict) -> Document:
+def _to_document(d: dict[str, Any]) -> Document:
     return Document(
         id=d["id"],
         name=d["name"],

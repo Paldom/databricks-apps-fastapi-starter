@@ -21,6 +21,34 @@ void i18n.use(initReactI18next).init({
 
 const noop = (): void => undefined
 
+// Node >= 25 ships its own global localStorage/sessionStorage (WebStorage),
+// which is a non-functional stub without --localstorage-file and shadows
+// jsdom's working implementation, breaking zustand persist in tests.
+// Replace any non-functional Storage with an in-memory implementation.
+function createMemoryStorage(): Storage {
+  const store = new Map<string, string>()
+  return {
+    get length() {
+      return store.size
+    },
+    clear: () => store.clear(),
+    getItem: (key: string) => store.get(key) ?? null,
+    key: (index: number) => [...store.keys()][index] ?? null,
+    removeItem: (key: string) => void store.delete(key),
+    setItem: (key: string, value: string) => void store.set(key, value),
+  }
+}
+
+for (const key of ['localStorage', 'sessionStorage'] as const) {
+  if (typeof globalThis[key]?.getItem !== 'function') {
+    Object.defineProperty(globalThis, key, {
+      value: createMemoryStorage(),
+      writable: true,
+      configurable: true,
+    })
+  }
+}
+
 if (!globalThis.matchMedia) {
   globalThis.matchMedia = (query: string) => ({
     matches: false,
@@ -55,8 +83,7 @@ if (!HTMLElement.prototype.scrollIntoView) {
 }
 
 if (!Element.prototype.scrollTo) {
-  Element.prototype.scrollTo =
-    noop as unknown as typeof Element.prototype.scrollTo
+  Element.prototype.scrollTo = noop
 }
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))

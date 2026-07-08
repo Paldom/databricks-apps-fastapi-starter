@@ -14,11 +14,11 @@ from app.chat.registry import (
 
 def _settings(**overrides):
     s = MagicMock()
-    s.app_agent_name = overrides.get("app_agent_name", None)
-    s.genie_space_id = overrides.get("genie_space_id", None)
-    s.ai_gateway_embedding_model = overrides.get("ai_gateway_embedding_model", None)
-    s.knowledge_assistant_endpoint = overrides.get("knowledge_assistant_endpoint", None)
-    s.serving_agent_endpoint = overrides.get("serving_agent_endpoint", None)
+    s.app_agent_name = overrides.get("app_agent_name")
+    s.genie_space_id = overrides.get("genie_space_id")
+    s.ai_gateway_embedding_model = overrides.get("ai_gateway_embedding_model")
+    s.knowledge_assistant_endpoint = overrides.get("knowledge_assistant_endpoint")
+    s.serving_agent_endpoint = overrides.get("serving_agent_endpoint")
     return s
 
 
@@ -32,7 +32,7 @@ class TestGetEnabledSpecs:
             _settings(
                 app_agent_name="my-app",
                 genie_space_id="genie-123",
-                ai_gateway_embedding_model="bge-large",
+                knowledge_assistant_endpoint="ka-endpoint",
                 serving_agent_endpoint="my-endpoint",
             )
         )

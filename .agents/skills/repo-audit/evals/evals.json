@@ -1,0 +1,50 @@
+{
+  "skill": "repo-audit",
+  "cases": [
+    { "type": "should_trigger", "prompt": "audit my repo" },
+    { "type": "should_trigger", "prompt": "how professional does my repo look?" },
+    { "type": "should_trigger", "prompt": "health check on this repository" },
+    { "type": "should_trigger", "prompt": "review my repo setup before I make it public" },
+    { "type": "should_trigger", "prompt": "score my repo against OSS best practices" },
+    { "type": "should_trigger", "prompt": "what's missing from my repo?" },
+    { "type": "should_trigger", "prompt": "is my project ready for outside contributors?" },
+    { "type": "should_trigger", "prompt": "gimme a repo report card" },
+    { "type": "should_trigger", "prompt": "check my github repo quality" },
+    { "type": "should_not_trigger", "prompt": "write a README" },
+    { "type": "should_not_trigger", "prompt": "add topics to the repo" },
+    { "type": "should_not_trigger", "prompt": "add a CONTRIBUTING guide" },
+    { "type": "should_not_trigger", "prompt": "create issue forms" },
+    { "type": "should_not_trigger", "prompt": "protect the main branch" },
+    { "type": "should_not_trigger", "prompt": "audit my code for bugs" },
+    { "type": "should_not_trigger", "prompt": "security review of this PR" },
+    { "type": "should_not_trigger", "prompt": "run the linter on the codebase" },
+    {
+      "type": "quality",
+      "prompt": "audit my repo",
+      "expected_behavior": [
+        "collects evidence mechanically first: gh api community profile (health_percentage), gh repo view metadata, file presence, protections/security settings",
+        "scores each of the six categories (README, discoverability, community files, intake templates, protections, vital signs) and assigns an overall grade",
+        "returns a top-5 prioritized fix list where each fix names the focused skill that owns it",
+        "applies no fixes unless the user asks"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "review my repo before I flip it public",
+      "expected_behavior": [
+        "adds public-flip-specific checks: PVR enablement, secret-scanning of history, license presence, no personal/private files about to become visible",
+        "produces an ordered pre-flight list distinguishing blockers from nice-to-haves",
+        "recommends enabling protections that only work on public repos right after the flip"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "audit this - it's just my solo hobby project",
+      "expected_behavior": [
+        "right-sizes the rubric: marks governance/templates as intentionally deferred rather than failing, per the checklist's stage guidance",
+        "still flags the non-negotiables (license, readme basics, no leaked secrets)",
+        "keeps the report short and actionable for a solo maintainer"
+      ]
+    }
+  ]
+}

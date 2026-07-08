@@ -5,7 +5,7 @@ from typing import cast
 from databricks.sdk import WorkspaceClient
 
 from app.core.databricks._async_bridge import run_sync
-from app.core.errors import ResourceNotFoundError, UcFilesError
+from app.core.errors import NotFoundError, UcFilesError
 from app.core.security.path_validation import validate_volume_path
 
 
@@ -49,5 +49,5 @@ class UcFilesAdapter:
             error_cls=UcFilesError,
         )
         if resp.contents is None:
-            raise ResourceNotFoundError(f"File not found: {relative_path}")
+            raise NotFoundError(f"File not found: {relative_path}")
         return cast(bytes, resp.contents)

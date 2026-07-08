@@ -1,0 +1,50 @@
+{
+  "skill": "add-skill",
+  "cases": [
+    { "type": "should_trigger", "prompt": "add a skill for generating app icons" },
+    { "type": "should_trigger", "prompt": "create a new skill that reviews SQL migrations" },
+    { "type": "should_trigger", "prompt": "write a skill for changelog drafting" },
+    { "type": "should_trigger", "prompt": "the docx skill triggers on markdown requests, fix it" },
+    { "type": "should_trigger", "prompt": "improve triggering of the icon-designer skill" },
+    { "type": "should_trigger", "prompt": "can u add a skill 4 python packaging" },
+    { "type": "should_trigger", "prompt": "refine the description of the release skill so it stops firing on doc edits" },
+    { "type": "should_trigger", "prompt": "let's build the first skill in this repo" },
+    { "type": "should_not_trigger", "prompt": "scaffold a new skills repository called python-skills" },
+    { "type": "should_not_trigger", "prompt": "update the CI workflow to also run on tags" },
+    { "type": "should_not_trigger", "prompt": "why did the PostToolUse hook exit 2?" },
+    { "type": "should_not_trigger", "prompt": "add a section to docs/skill-authoring.md about assets" },
+    { "type": "should_not_trigger", "prompt": "bump the plugin version and update the changelog" },
+    { "type": "should_not_trigger", "prompt": "install the pdf skill from the marketplace" },
+    { "type": "should_not_trigger", "prompt": "run make check and fix the validator warnings in scripts/" },
+    { "type": "should_not_trigger", "prompt": "what skills does this repo ship?" },
+    {
+      "type": "quality",
+      "prompt": "add a skill for designing app icons from a text brief",
+      "expected_behavior": [
+        "creates skills/icon-designer/evals/evals.json before writing SKILL.md",
+        "description is a single line with trigger phrases and a Not-for exclusion",
+        "runs make check and it exits 0",
+        "updates the README skill catalog and CHANGELOG"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "the icon skill also fires when users ask for favicons in existing HTML, fix it",
+      "expected_behavior": [
+        "collects the false-positive prompts and identifies overlapping keywords",
+        "adds a targeted Not-for exclusion instead of deleting positive triggers",
+        "re-checks sibling skill descriptions for overlap",
+        "re-runs the trigger eval reasoning for affected cases"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "build a skill that wraps our deploy script safely",
+      "expected_behavior": [
+        "puts deterministic steps in scripts/ with non-zero exit on failure",
+        "considers disable-model-invocation for a side-effect skill and documents the choice",
+        "keeps SKILL.md under 500 lines with references one level deep"
+      ]
+    }
+  ]
+}

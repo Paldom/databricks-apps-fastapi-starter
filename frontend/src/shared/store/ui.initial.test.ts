@@ -5,8 +5,8 @@ describe('useUIStore initial state', () => {
   it('matches the expected defaults', () => {
     const state = useUIStore.getState()
 
-    expect(state.sidebarCollapsed).toBe(false)
     expect(state.theme).toBe('light')
+    expect(state.sidebarCollapsed).toBe(false)
     expect(state.searchDialogOpen).toBe(false)
     expect(state.settingsDialogOpen).toBe(false)
     expect(state.documentSidebarOpen).toBe(false)

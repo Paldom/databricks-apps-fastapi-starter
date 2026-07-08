@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-from unittest.mock import MagicMock
-
 
 class TestResponseUtils:
     """response_utils helper tests."""
@@ -30,15 +27,16 @@ class TestResponseUtils:
         assert resp.custom_outputs == {"sql": "SELECT 1"}
 
     def test_response_to_text_roundtrip(self):
-        from app.agents.response_utils import text_to_response, response_to_text
+        from app.agents.response_utils import response_to_text, text_to_response
 
         resp = text_to_response("Roundtrip test")
         text = response_to_text(resp)
         assert text == "Roundtrip test"
 
     def test_response_to_text_empty(self):
-        from app.agents.response_utils import response_to_text
         from mlflow.types.responses import ResponsesAgentResponse
+
+        from app.agents.response_utils import response_to_text
 
         resp = ResponsesAgentResponse(output=[])
         assert response_to_text(resp) == ""
@@ -48,8 +46,9 @@ class TestRequestUtils:
     """request_utils helper tests."""
 
     def test_last_user_text_basic(self):
-        from app.agents.request_utils import last_user_text
         from mlflow.types.responses import ResponsesAgentRequest
+
+        from app.agents.request_utils import last_user_text
 
         req = ResponsesAgentRequest(
             input=[
@@ -60,8 +59,9 @@ class TestRequestUtils:
         assert last_user_text(req) == "What is MLflow?"
 
     def test_last_user_text_multiple_messages(self):
-        from app.agents.request_utils import last_user_text
         from mlflow.types.responses import ResponsesAgentRequest
+
+        from app.agents.request_utils import last_user_text
 
         req = ResponsesAgentRequest(
             input=[
@@ -73,8 +73,9 @@ class TestRequestUtils:
         assert last_user_text(req) == "Follow-up"
 
     def test_last_user_text_no_user_messages(self):
-        from app.agents.request_utils import last_user_text
         from mlflow.types.responses import ResponsesAgentRequest
+
+        from app.agents.request_utils import last_user_text
 
         req = ResponsesAgentRequest(
             input=[{"role": "system", "content": "System only"}]

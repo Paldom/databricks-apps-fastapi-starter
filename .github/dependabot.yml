@@ -1,48 +1,53 @@
 version: 2
 updates:
-  # Python dependencies (reads pyproject.toml)
-  - package-ecosystem: "pip"
+  # Python dependencies — uv-managed project (backend/pyproject.toml + backend/uv.lock).
+  # The "uv" ecosystem updates the lockfile and pyproject constraints together.
+  - package-ecosystem: "uv"
     directory: "/backend"
     schedule:
       interval: "weekly"
       day: "monday"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 10
+    # Supply-chain freshness delay: skip versions published within the window,
+    # so freshly published (possibly malicious) releases are not adopted
+    # immediately. Security-advisory updates bypass the cooldown automatically.
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+      semver-patch-days: 3
     groups:
-      production-deps:
-        patterns:
-          - "fastapi"
-          - "uvicorn"
-          - "asyncpg"
-          - "pandas"
-          - "numpy"
-          - "pydantic"
-          - "pydantic-settings"
-          - "python-dotenv"
-          - "databricks-*"
-          - "sqlalchemy"
-          - "secure"
-          - "openai"
-          - "pyarrow"
-          - "python-multipart"
-          - "opentelemetry-*"
-      dev-deps:
-        patterns:
-          - "ruff"
-          - "mypy"
-          - "bandit"
-          - "alembic"
-          - "pytest"
-          - "pytest-*"
-          - "locust"
-          - "httpx"
+      # One PR per run for minor+patch bumps across ALL dependencies
+      # (explicit name lists drift as deps change). Majors stay individual
+      # PRs so breaking changes get their own review.
+      python-minor-patch:
+        update-types: ["minor", "patch"]
 
-  # GitHub Actions versions
+  # Frontend dependencies (frontend/package.json + package-lock.json)
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+      semver-patch-days: 3
+    groups:
+      # One PR per run for minor+patch bumps across ALL dependencies.
+      # Majors stay individual PRs so breaking changes get their own review.
+      npm-minor-patch:
+        update-types: ["minor", "patch"]
+
+  # GitHub Actions versions used by .github/workflows/
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     groups:
       actions:
         patterns:

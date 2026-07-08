@@ -7,23 +7,22 @@ backend-specific shapes.
 
 from __future__ import annotations
 
-from typing import Any, AsyncIterator, Protocol, runtime_checkable
-
-from pydantic import BaseModel, Field
+from typing import Any, Protocol, runtime_checkable
 
 from mlflow.types.responses import (
     ResponsesAgentRequest,
     ResponsesAgentResponse,
     ResponsesAgentStreamEvent,
 )
+from pydantic import BaseModel, Field
 
 # Re-export so callers only need to import from contracts
 __all__ = [
+    "AgentAdapter",
+    "AgentInvocationResult",
     "ResponsesAgentRequest",
     "ResponsesAgentResponse",
     "ResponsesAgentStreamEvent",
-    "AgentInvocationResult",
-    "AgentAdapter",
 ]
 
 
@@ -34,7 +33,6 @@ class AgentInvocationResult(BaseModel):
     response: ResponsesAgentResponse
     text: str = ""
     downstream_trace_id: str | None = None
-    downstream_experiment_id: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -45,7 +43,3 @@ class AgentAdapter(Protocol):
     source: str
 
     async def invoke(self, request: ResponsesAgentRequest) -> AgentInvocationResult: ...
-
-    async def stream(
-        self, request: ResponsesAgentRequest
-    ) -> AsyncIterator[ResponsesAgentStreamEvent]: ...

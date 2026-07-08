@@ -24,7 +24,7 @@ class RequestIdFilter(Filter):
     def filter(self, record: LogRecord) -> bool:
         from app.middlewares.request_context import get_request_id
 
-        record.request_id = get_request_id() or "-"  # type: ignore[attr-defined]
+        record.request_id = get_request_id() or "-"
         return True
 
 

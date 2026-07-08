@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid as _uuid
-from typing import Any, Literal
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
@@ -37,7 +37,6 @@ class ChatStreamRequest(BaseModel):
 
     thread_id: str | None = None
     messages: list[ChatStreamMessage]
-    run_config: dict[str, Any] | None = None
 
 
 # ── Streaming event schemas (for OpenAPI documentation) ────────────
@@ -139,6 +138,10 @@ async def chat_stream(
 # ── Title generation (best-effort, non-blocking) ─────────────────
 
 
+# Keep strong references so fire-and-forget tasks aren't garbage-collected mid-run.
+_background_tasks: set[asyncio.Task[None]] = set()
+
+
 def _schedule_title_generation(
     request: Request,
     thread_id: str,
@@ -170,21 +173,22 @@ def _schedule_title_generation(
             from app.repositories.chat_repository import ChatRepository
             from app.services.chat_service import ChatService
 
-            async with session_factory() as session:
-                async with session.begin():
-                    repo = ChatRepository(session)
-                    chat_svc = ChatService(repo, user_id)
-                    title_svc = ChatTitleService(
-                        ai_client=ai_client,
-                        model=model,
-                        chat_service=chat_svc,
-                    )
-                    await title_svc.maybe_generate_title(
-                        chat_id=thread_id,
-                        transcript=transcript,
-                        user_id=user_id,
-                    )
+            async with session_factory() as session, session.begin():
+                repo = ChatRepository(session)
+                chat_svc = ChatService(repo, user_id)
+                title_svc = ChatTitleService(
+                    ai_client=ai_client,
+                    model=model,
+                    chat_service=chat_svc,
+                )
+                await title_svc.maybe_generate_title(
+                    chat_id=thread_id,
+                    transcript=transcript,
+                    user_id=user_id,
+                )
         except Exception:
             _logger.debug("Background title generation failed", exc_info=True)
 
-    asyncio.create_task(_run())
+    task = asyncio.create_task(_run())
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)

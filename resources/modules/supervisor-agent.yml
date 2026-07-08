@@ -1,0 +1,33 @@
+# Multi-agent supervisor (supervisor-agent module)
+#
+# This file is intentionally all comments: Agent Bricks Multi-Agent
+# Supervisor (MAS) endpoints are created in the Agent Bricks UI (Agents >
+# Multi-Agent Supervisor), not by asset bundles — there is no bundle
+# resource type for them today. The module therefore has no provisioned
+# resources; it activates purely from configuration:
+#
+#   1. Create a Multi-Agent Supervisor in the Agent Bricks UI (or deploy
+#      any langgraph_supervisor-style agent to Model Serving yourself).
+#   2. Set MAS_ENDPOINT to the resulting serving endpoint name in the app
+#      env (databricks.yml) or backend/.env for local dev.
+#
+# Only add this file to databricks.yml's `include:` list if you uncomment
+# a resource below — DABs rejects resource files that resolve to nothing.
+#
+# --- Illustrative stub (NOT active) ---------------------------------------
+# If you self-host a langgraph_supervisor agent instead of using Agent
+# Bricks, grant the app access to its endpoint via an app resource binding
+# in resources/app.yml (mirroring the serving-endpoint binding there), and
+# inject the name:
+#
+# resources:
+#   apps:
+#     fastapi_app:
+#       config:
+#         env:
+#           - name: MAS_ENDPOINT
+#             value: ${var.mas_endpoint}
+#
+# A UI-created MAS endpoint can likewise be bound post-hoc:
+#   databricks apps update <app> --json '{"resources": [{"name": "mas-endpoint",
+#     "serving_endpoint": {"name": "<mas-endpoint-name>", "permission": "CAN_QUERY"}}]}'

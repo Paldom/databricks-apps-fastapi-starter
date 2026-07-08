@@ -1,6 +1,6 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from httpx import AsyncClient, HTTPStatusError, Request, Response
 
 from app.core.databricks.knowledge_assistant import KnowledgeAssistantAdapter

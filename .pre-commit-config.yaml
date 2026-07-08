@@ -1,0 +1,92 @@
+# Pre-commit hooks — fast local feedback; CI enforcement lives in
+# .github/workflows/pre-commit.yml (hooks are skippable via --no-verify,
+# so CI is the real gate).
+#
+# Install once per clone:
+#   cd backend && uv run pre-commit install   # installs pre-commit + pre-push stages
+#
+# Version lockstep: the ruff hook rev below MUST match ruff==0.15.20 in
+# backend/pyproject.toml ([dependency-groups] dev); required-version there
+# turns any drift into a hard error. mypy runs as a local hook through the
+# project venv, so it always uses the locked mypy==2.1.0.
+default_install_hook_types: [pre-commit, pre-push]
+
+# Globally out of scope:
+# - vendored AI-assistant skill bundles (not ours to reformat); note
+#   .github/skills is excluded but .github/workflows stays in scope
+# - frontend/ (owned by its own ESLint/TypeScript toolchain and CI job)
+# - generated files (openapi.yaml, requirements.txt, lockfiles) — regenerated
+#   by tooling; fixing them here would break the "generated files are
+#   committed" CI check
+# - the 1.2 MB architecture SVG (binary-ish asset, nothing to gain)
+exclude: |
+  (?x)^(
+    \.(agent|agents|ai-dev-kit|claude|codex|cursor|gemini)/
+    |\.github/skills/
+    |frontend/
+    |backend/openapi\.yaml$
+    |backend/requirements\.txt$
+    |backend/uv\.lock$
+    |skills-lock\.json$
+    |databricks-apps-architecture\.svg$
+  )
+
+repos:
+  # Hygiene — cheap, universal.
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      # check-yaml only parses; Databricks bundle variables like ${var.x}
+      # in databricks.yml / resources/*.yml are plain strings and pass.
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  # Ruff lint + format, scoped to the backend Python project. Order matters:
+  # fixer first, formatter second. The hook passes --force-exclude, so
+  # extend-exclude in backend/pyproject.toml still applies to explicitly
+  # passed files; the hook-level exclude below is belt-and-braces
+  # (https://github.com/astral-sh/ruff/issues/9585).
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.20 # lockstep with ruff==0.15.20 in backend/pyproject.toml
+    hooks:
+      - id: ruff-check
+        args: [--fix, --exit-non-zero-on-fix]
+        files: ^backend/
+        exclude: ^backend/alembic/versions/
+      - id: ruff-format
+        files: ^backend/
+        exclude: ^backend/alembic/versions/
+
+  # Validation (formatting is not validation).
+  - repo: https://github.com/abravalheri/validate-pyproject
+    rev: v0.25
+    hooks:
+      - id: validate-pyproject
+        files: ^backend/pyproject\.toml$
+        additional_dependencies: ["validate-pyproject-schema-store[all]"]
+
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.37.4
+    hooks:
+      - id: check-github-workflows
+      - id: check-dependabot
+
+  # mypy needs the app's full dependency tree (pydantic.mypy plugin, SQLAlchemy,
+  # stubs), so mirrors-mypy's isolated env would miss real errors. Run it from
+  # the project venv instead, at pre-push — too slow for every commit.
+  # Full test suites stay in CI (see .github/workflows/ci.yml), not in hooks.
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (backend, pre-push)
+        entry: uv run --directory backend mypy .
+        language: system
+        pass_filenames: false
+        files: ^backend/
+        stages: [pre-push]

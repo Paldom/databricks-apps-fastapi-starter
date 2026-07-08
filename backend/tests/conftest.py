@@ -1,15 +1,20 @@
+import os
 import sys
 import types
-
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 # ---------------------------------------------------------------------------
 # Module-level stubs for optional dependencies that may not be installed
 # in the test environment (vector search, sqlalchemy fallback, etc.)
 # ---------------------------------------------------------------------------
-
 import databricks
+import pytest
+from hypothesis import settings as hypothesis_settings
+
+# Hypothesis profiles, selected via HYPOTHESIS_PROFILE (CI sets it to "ci").
+hypothesis_settings.register_profile("ci", max_examples=200)
+hypothesis_settings.register_profile("dev", max_examples=25)
+hypothesis_settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "default"))
 
 try:
     import sqlalchemy.ext.asyncio as _sa_asyncio
@@ -33,9 +38,9 @@ except Exception:
         mapped_column=MagicMock(),
     )
     sys.modules.setdefault("sqlalchemy", sqlalchemy_module)
-    sys.modules.setdefault("sqlalchemy.ext", sqlalchemy_module.ext)  # type: ignore[arg-type]
+    sys.modules.setdefault("sqlalchemy.ext", sqlalchemy_module.ext)
     sys.modules.setdefault("sqlalchemy.ext.asyncio", sa_asyncio)  # type: ignore[arg-type]
-    sys.modules.setdefault("sqlalchemy.orm", sqlalchemy_module.orm)  # type: ignore[arg-type]
+    sys.modules.setdefault("sqlalchemy.orm", sqlalchemy_module.orm)
 
 if not hasattr(sa_asyncio, "async_sessionmaker"):
     sa_asyncio.async_sessionmaker = MagicMock()  # type: ignore[union-attr]
@@ -51,10 +56,10 @@ class DummyVSClient:
         return MagicMock()
 
 
-client_module.VectorSearchClient = DummyVSClient
-index_module.VectorSearchIndex = MagicMock
+client_module.VectorSearchClient = DummyVSClient  # type: ignore[attr-defined]
+index_module.VectorSearchIndex = MagicMock  # type: ignore[attr-defined]
 
-databricks.vector_search = vector_module
+databricks.vector_search = vector_module  # type: ignore[attr-defined]
 
 sys.modules.setdefault("databricks.vector_search", vector_module)
 sys.modules.setdefault("databricks.vector_search.index", index_module)
@@ -104,12 +109,27 @@ for mod_name in _OPTIONAL_STUBS:
             stub = types.ModuleType(mod_name)
             # Commonly referenced names
             for attr in (
-                "BaseChatModel", "BaseTool", "ToolNode", "StateGraph", "AnyMessage",
-                "HumanMessage", "SystemMessage", "AIMessage", "ChatOpenAI",
-                "MemorySaver", "BaseCheckpointSaver", "CompiledStateGraph",
-                "set_experiment", "update_current_trace", "autolog", "trace",
-                "create_react_agent", "BaseStore",
-                "ResponsesAgent", "set_model", "SpanType",
+                "BaseChatModel",
+                "BaseTool",
+                "ToolNode",
+                "StateGraph",
+                "AnyMessage",
+                "HumanMessage",
+                "SystemMessage",
+                "AIMessage",
+                "ChatOpenAI",
+                "MemorySaver",
+                "BaseCheckpointSaver",
+                "CompiledStateGraph",
+                "set_experiment",
+                "update_current_trace",
+                "autolog",
+                "trace",
+                "create_react_agent",
+                "BaseStore",
+                "ResponsesAgent",
+                "set_model",
+                "SpanType",
             ):
                 setattr(stub, attr, MagicMock)
             stub.tool = lambda f=None, **kw: f if f else (lambda fn: fn)  # type: ignore[attr-defined]
@@ -120,7 +140,11 @@ for mod_name in _OPTIONAL_STUBS:
 
 # Ensure mlflow.types.responses has proper Pydantic models for contracts
 try:
-    from mlflow.types.responses import ResponsesAgentRequest, ResponsesAgentResponse
+    # Availability probe: imported only to detect whether real models exist.
+    from mlflow.types.responses import (  # noqa: F401
+        ResponsesAgentRequest,
+        ResponsesAgentResponse,
+    )
 except (ImportError, AttributeError):
     # Build minimal Pydantic stubs so agent contracts work in tests
     from pydantic import BaseModel as _BM
@@ -155,8 +179,8 @@ except (ImportError, AttributeError):
 # ---------------------------------------------------------------------------
 from fastapi.testclient import TestClient  # noqa: E402
 
-import app.main as app_main  # noqa: E402
 import app.core.bootstrap as bootstrap  # noqa: E402
+import app.main as app_main  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -180,19 +204,13 @@ def mock_lifespan(monkeypatch):
     monkeypatch.setattr(bootstrap.settings, "pg_user", "starter")
     monkeypatch.setattr(bootstrap.settings, "pg_password", "secret")
     monkeypatch.setattr(bootstrap.settings, "environment", "test")
-    monkeypatch.setattr(
-        bootstrap.settings, "enable_databricks_integrations", False
-    )
-    monkeypatch.setattr(
-        bootstrap.settings, "enable_local_dev_auth_fallback", None
-    )
+    monkeypatch.setattr(bootstrap.settings, "enable_databricks_integrations", False)
+    monkeypatch.setattr(bootstrap.settings, "enable_local_dev_auth_fallback", None)
     monkeypatch.setattr(bootstrap.settings, "local_dev_user_id", "local-dev-user")
     monkeypatch.setattr(bootstrap.settings, "databricks_host", "http://localhost")
     monkeypatch.setattr(bootstrap.settings, "databricks_token", "test-token")
     monkeypatch.setattr(bootstrap.settings, "serving_endpoint_name", "starter-endpoint")
-    monkeypatch.setattr(
-        bootstrap.settings, "vector_search_endpoint_name", "starter-vs"
-    )
+    monkeypatch.setattr(bootstrap.settings, "vector_search_endpoint_name", "starter-vs")
     monkeypatch.setattr(
         bootstrap.settings,
         "vector_search_index_name",

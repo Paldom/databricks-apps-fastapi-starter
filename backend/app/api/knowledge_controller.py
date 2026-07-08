@@ -21,8 +21,13 @@ from pydantic import BaseModel
 
 from app.core.config import Settings
 from app.core.databricks.uc_files import UcFilesAdapter
-from app.core.deps import get_current_user, get_logger, get_settings, get_workspace_client
-from app.core.errors import ConfigurationError, RequestTooLargeError
+from app.core.deps import (
+    get_current_user,
+    get_logger,
+    get_settings,
+    get_workspace_client,
+)
+from app.core.errors import ConfigurationError
 from app.core.integrations import databricks_integrations_disabled_message
 from app.models.user_dto import CurrentUser
 
@@ -80,10 +85,10 @@ class KnowledgeFileUploadResponse(BaseModel):
 @router.post("/files", response_model=KnowledgeFileUploadResponse, status_code=201)
 async def upload_knowledge_file(
     request: Request,
-    file: UploadFile = File(...),
-    settings: Annotated[Settings, Depends(get_settings)] = None,  # type: ignore[assignment]
-    logger: Annotated[Logger, Depends(get_logger)] = None,  # type: ignore[assignment]
-    current_user: Annotated[CurrentUser, Depends(get_current_user)] = None,  # type: ignore[assignment]
+    file: Annotated[UploadFile, File(...)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    logger: Annotated[Logger, Depends(get_logger)],
+    current_user: Annotated[CurrentUser, Depends(get_current_user)],
 ) -> KnowledgeFileUploadResponse:
     _require_databricks(settings)
 
@@ -95,21 +100,8 @@ async def upload_knowledge_file(
             f"Allowed: {', '.join(sorted(ALLOWED_SUFFIXES))}"
         )
 
-    # Read with size enforcement
-    max_bytes = settings.max_upload_bytes
-    chunks: list[bytes] = []
-    total = 0
-    while True:
-        chunk = await file.read(8192)
-        if not chunk:
-            break
-        total += len(chunk)
-        if total > max_bytes:
-            raise RequestTooLargeError(
-                f"Upload exceeds maximum size of {max_bytes} bytes"
-            )
-        chunks.append(chunk)
-    payload = b"".join(chunks)
+    # Size cap is enforced by RequestSizeMiddleware (max_upload_bytes).
+    payload = await file.read()
 
     document_id = str(uuid.uuid4())
     encoded_uid = _encode_user_id(current_user.id)
@@ -117,7 +109,10 @@ async def upload_knowledge_file(
 
     adapter = UcFilesAdapter(get_workspace_client(request), logger)
     uploaded = await adapter.upload(
-        settings.volume_root, relative_path, payload, overwrite=False,
+        settings.volume_root,
+        relative_path,
+        payload,
+        overwrite=False,
     )
 
     full_path = f"{settings.volume_root.rstrip('/')}/{relative_path}"

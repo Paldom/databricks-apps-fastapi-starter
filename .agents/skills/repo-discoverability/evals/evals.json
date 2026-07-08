@@ -1,0 +1,53 @@
+{
+  "skill": "repo-discoverability",
+  "cases": [
+    { "type": "should_trigger", "prompt": "add topics to my repo" },
+    { "type": "should_trigger", "prompt": "how do I get more people to find my project on github" },
+    { "type": "should_trigger", "prompt": "set up the social preview image" },
+    { "type": "should_trigger", "prompt": "improve my repo's SEO" },
+    { "type": "should_trigger", "prompt": "make this repo easier to discover in search" },
+    { "type": "should_trigger", "prompt": "gh topics + description pls" },
+    { "type": "should_trigger", "prompt": "why does my repo get no traffic?" },
+    { "type": "should_trigger", "prompt": "optimize the repository description and metadata" },
+    { "type": "should_trigger", "prompt": "what metadata am I missing to get more stars?" },
+    { "type": "should_trigger", "prompt": "align the repo name and readme title so search picks it up" },
+    { "type": "should_not_trigger", "prompt": "rewrite my README intro" },
+    { "type": "should_not_trigger", "prompt": "write a quick start section for the readme" },
+    { "type": "should_not_trigger", "prompt": "add issue templates to the repo" },
+    { "type": "should_not_trigger", "prompt": "enable secret scanning" },
+    { "type": "should_not_trigger", "prompt": "audit my whole repo setup" },
+    { "type": "should_not_trigger", "prompt": "write CONTRIBUTING.md" },
+    { "type": "should_not_trigger", "prompt": "set up a docs website with mkdocs" },
+    { "type": "should_not_trigger", "prompt": "add google analytics to my docs site" },
+    { "type": "should_not_trigger", "prompt": "should I post my repo to hacker news?" },
+    {
+      "type": "quality",
+      "prompt": "Make my repo more discoverable",
+      "expected_behavior": [
+        "audits current metadata first (description, topics, homepage, social preview) via gh repo view / gh api, e.g. by running scripts/check_discoverability.py",
+        "proposes a repo description with plain category keywords, audience, and outcome, within GitHub's length limits",
+        "proposes 5-10 accurate lowercase topics (category, language, use case, domain) - no keyword stuffing",
+        "applies changes with gh repo edit only after showing the user what will change",
+        "reminds about the social preview image, which cannot be set via CLI"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "set topics for this repo - it's a rust CLI for parsing server logs",
+      "expected_behavior": [
+        "topics cover language (rust), category (cli, command-line), and use case (log-parsing, logging, devops)",
+        "all topics are valid format (lowercase, hyphens, <=35 chars) and actually relevant",
+        "uses gh repo edit --add-topic and verifies the result"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "my repo is private - does any of this discoverability stuff matter yet?",
+      "expected_behavior": [
+        "explains private repos are invisible to search and topics/preview only pay off after going public",
+        "recommends preparing description/topics/preview now so the public flip is turnkey",
+        "does not fabricate claims about private-repo search ranking"
+      ]
+    }
+  ]
+}

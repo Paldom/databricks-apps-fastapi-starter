@@ -11,7 +11,10 @@ class UserSettingsRepository:
         self._session = session
 
     async def get_or_create(
-        self, owner_user_id: str, default_name: str, default_email: str | None,
+        self,
+        owner_user_id: str,
+        default_name: str,
+        default_email: str | None,
     ) -> UserSettings:
         result = await self._session.execute(
             select(UserSettings).where(

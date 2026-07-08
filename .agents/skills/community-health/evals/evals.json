@@ -1,0 +1,61 @@
+{
+  "skill": "community-health",
+  "cases": [
+    { "type": "should_trigger", "prompt": "add a CONTRIBUTING guide" },
+    { "type": "should_trigger", "prompt": "set up a code of conduct" },
+    { "type": "should_trigger", "prompt": "write SECURITY.md for this repo" },
+    { "type": "should_trigger", "prompt": "add community health files" },
+    { "type": "should_trigger", "prompt": "complete my repo's community profile" },
+    { "type": "should_trigger", "prompt": "we need a support doc so questions stop landing in the issue tracker" },
+    { "type": "should_trigger", "prompt": "add FUNDING.yml for github sponsors" },
+    { "type": "should_trigger", "prompt": "create a CODEOWNERS file" },
+    { "type": "should_trigger", "prompt": "contributing.md + coc pls" },
+    { "type": "should_trigger", "prompt": "should this project use a CLA or DCO?" },
+    { "type": "should_not_trigger", "prompt": "write a README for the project" },
+    { "type": "should_not_trigger", "prompt": "add a bug report form with required fields" },
+    { "type": "should_not_trigger", "prompt": "require code owner reviews before merging to main" },
+    { "type": "should_not_trigger", "prompt": "enable private vulnerability reporting" },
+    { "type": "should_not_trigger", "prompt": "audit the repo overall" },
+    { "type": "should_not_trigger", "prompt": "add topics so the repo is easier to find" },
+    { "type": "should_not_trigger", "prompt": "fix the failing CI check" },
+    { "type": "should_not_trigger", "prompt": "write a PR description for this change" },
+    {
+      "type": "quality",
+      "prompt": "add the standard community files to this repo",
+      "expected_behavior": [
+        "inspects the repo first (language, test/build commands, maintainer identity) and writes CONTRIBUTING.md with the repo's real commands, not generic boilerplate",
+        "uses Contributor Covenant for CODE_OF_CONDUCT.md and flags the contact-method placeholder for the maintainer to fill",
+        "SECURITY.md points to private reporting and notes the PVR link 404s until enabled on a public repo",
+        "adds SUPPORT.md that routes questions away from the issue tracker",
+        "verifies the result, e.g. via scripts/check_health_files.py or the community profile API"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "create CODEOWNERS",
+      "expected_behavior": [
+        "covers sensitive paths including .github/ and CI/workflow files, mapped to real maintainer handles",
+        "warns that CODEOWNERS is inert until a ruleset requires code-owner review, and points to repo protections for enforcement",
+        "places the file in a valid location (.github/, root, or docs/)"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "solo hobby project - do I really need all these files?",
+      "expected_behavior": [
+        "right-sizes: recommends LICENSE + README + CI first, defers CODE_OF_CONDUCT/GOVERNANCE until outside contributors exist",
+        "gives a staged adoption order rather than an all-or-nothing dump",
+        "does not shame the user or add files they declined"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "add an MIT license",
+      "expected_behavior": [
+        "puts the full unmodified MIT text in LICENSE at the repo root with correct year and owner",
+        "notes GitHub's license detection needs the standard text at the root",
+        "mentions SPDX identifier usage in package manifests where applicable"
+      ]
+    }
+  ]
+}

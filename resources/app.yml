@@ -13,7 +13,7 @@ resources:
       resources:
         - name: serving-endpoint
           serving_endpoint:
-            name: ${resources.model_serving_endpoints.starter_endpoint.name}
+            name: ${var.chat_endpoint_name}
             permission: CAN_QUERY
         - name: app-job
           job:
@@ -22,21 +22,33 @@ resources:
         - name: uc-volume
           uc_securable:
             securable_type: VOLUME
-            securable_full_name: ${var.rag_catalog_name}.${var.rag_schema_name}.${var.rag_volume_name}
+            securable_full_name: ${var.rag_catalog_name}.${resources.schemas.rag_schema.name}.${resources.volumes.rag_upload_volume.name}
             permission: WRITE_VOLUME
         - name: lakebase-db
           database:
-            database_name: ${resources.database_catalogs.app_database.database_name}
-            instance_name: ${resources.database_catalogs.app_database.database_instance_name}
+            # Bind via the instance, not the UC catalog registration — the
+            # catalog needs metastore CREATE CATALOG, which some workspaces gate.
+            database_name: starter_app
+            instance_name: ${resources.database_instances.lakebase_oltp.name}
             permission: CAN_CONNECT_AND_CREATE
-        - name: knowledge-assistant
-          serving_endpoint:
-            name: ${var.knowledge_assistant_endpoint_name}
-            permission: CAN_QUERY
-        - name: serving-agent
-          serving_endpoint:
-            name: ${var.serving_agent_endpoint}
-            permission: CAN_QUERY
+        # --- Optional bindings (uncomment + set real IDs to enable) --------
+        # Bindings cannot reference empty values, so optional resources ship
+        # commented out. See cheat-sheet/apps-env-and-bindings.md.
+        #
+        # - name: sql-warehouse           # powers /examples/sql
+        #   sql_warehouse:
+        #     id: <warehouse-id>
+        #     permission: CAN_USE
+        # - name: genie-space             # first-class Genie binding
+        #   genie_space:
+        #     space_id: <genie-space-id>
+        #     permission: CAN_RUN
+        # - name: app-secret              # secret scope/key injection
+        #   secret:
+        #     scope: <scope>
+        #     key: <key>
+        #     permission: READ
+        # -------------------------------------------------------------------
         - name: experiment
           experiment:
             experiment_id: ${resources.experiments.app_experiment.id}

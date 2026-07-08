@@ -64,5 +64,5 @@ def response_to_text(response: ResponsesAgentResponse) -> str:
         for content_block in obj.get("content", []):
             block = _to_dict(content_block)
             if block.get("type") == "output_text" and block.get("text"):
-                return block["text"]
+                return str(block["text"])
     return ""

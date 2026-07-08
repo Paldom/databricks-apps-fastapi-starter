@@ -1,0 +1,2 @@
+. "$(dirname "$0")/hook-chain.sh"
+chain_global_hook post-checkout "$@"

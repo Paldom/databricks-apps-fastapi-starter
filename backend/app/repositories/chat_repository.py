@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
 
-from sqlalchemy import delete, func, or_, select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chat_session_model import ChatSession
@@ -15,7 +14,11 @@ class ChatRepository:
         self._session = session
 
     async def list_project_chats(
-        self, owner_user_id: str, project_id: str, cursor: str | None, limit: int,
+        self,
+        owner_user_id: str,
+        project_id: str,
+        cursor: str | None,
+        limit: int,
     ) -> tuple[list[ChatSession], str | None, bool]:
         query = (
             select(ChatSession)
@@ -40,7 +43,10 @@ class ChatRepository:
         return items, next_cursor, has_more
 
     async def create_chat(
-        self, owner_user_id: str, project_id: str, title: str,
+        self,
+        owner_user_id: str,
+        project_id: str,
+        title: str,
     ) -> ChatSession:
         chat = ChatSession(
             user_id=owner_user_id,
@@ -54,7 +60,10 @@ class ChatRepository:
         return chat
 
     async def update_chat(
-        self, owner_user_id: str, chat_id: str, title: str | None,
+        self,
+        owner_user_id: str,
+        chat_id: str,
+        title: str | None,
     ) -> ChatSession | None:
         result = await self._session.execute(
             select(ChatSession).where(
@@ -72,7 +81,10 @@ class ChatRepository:
         return chat
 
     async def set_title_if_empty(
-        self, owner_user_id: str, chat_id: str, title: str,
+        self,
+        owner_user_id: str,
+        chat_id: str,
+        title: str,
     ) -> ChatSession | None:
         """Set title only if the existing title is null or empty."""
         stmt = (
@@ -99,7 +111,11 @@ class ChatRepository:
         return result.rowcount > 0
 
     async def search_chats(
-        self, owner_user_id: str, q: str, cursor: str | None, limit: int,
+        self,
+        owner_user_id: str,
+        q: str,
+        cursor: str | None,
+        limit: int,
     ) -> tuple[list[dict], str | None, bool]:
         query = (
             select(
@@ -146,7 +162,9 @@ class ChatRepository:
         )
 
     async def get_recent_chats(
-        self, owner_user_id: str, limit: int,
+        self,
+        owner_user_id: str,
+        limit: int,
     ) -> list[dict]:
         query = (
             select(

@@ -8,6 +8,21 @@ from app.models.user_dto import CurrentUser
 from app.repositories.user_repository import get_or_create_user
 
 
+def _decode_header(value: str | None) -> str | None:
+    """Fix UTF-8 header values decoded as latin-1.
+
+    HTTP header values are latin-1 by spec, but the Databricks Apps proxy
+    forwards names like "Pál" as raw UTF-8 bytes — without this they render
+    as mojibake ("PÃ¡l"). ASCII values round-trip unchanged.
+    """
+    if value is None:
+        return None
+    try:
+        return value.encode("latin-1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return value
+
+
 async def user_info_middleware(request: Request, call_next):
     """Extract Databricks forwarded identity headers, upsert local user, set request state.
 
@@ -16,7 +31,9 @@ async def user_info_middleware(request: Request, call_next):
     """
     user_id = request.headers.get("X-Forwarded-User")
     email = request.headers.get("X-Forwarded-Email")
-    preferred_username = request.headers.get("X-Forwarded-Preferred-Username")
+    preferred_username = _decode_header(
+        request.headers.get("X-Forwarded-Preferred-Username")
+    )
 
     if (
         not user_id
@@ -39,24 +56,25 @@ async def user_info_middleware(request: Request, call_next):
         session_factory = runtime.session_factory
         if session_factory is not None:
             try:
-                async with session_factory() as session:
-                    async with session.begin():
-                        db_user = await get_or_create_user(
-                            session,
-                            user_id=user_id,
-                            email=email,
-                            preferred_username=preferred_username,
-                        )
-                        request.state.user = CurrentUser(
-                            id=db_user.id,
-                            email=db_user.email,
-                            name=db_user.display_name,
-                            preferred_username=db_user.preferred_username,
-                        )
-                        request.state.user_id = db_user.id
+                async with session_factory() as session, session.begin():
+                    db_user = await get_or_create_user(
+                        session,
+                        user_id=user_id,
+                        email=email,
+                        preferred_username=preferred_username,
+                    )
+                    request.state.user = CurrentUser(
+                        id=db_user.id,
+                        email=db_user.email,
+                        name=db_user.display_name,
+                        preferred_username=db_user.preferred_username,
+                    )
+                    request.state.user_id = db_user.id
             except Exception:
                 logging.getLogger(__name__).warning(
-                    "User upsert failed for %s; using header identity", user_id, exc_info=True,
+                    "User upsert failed for %s; using header identity",
+                    user_id,
+                    exc_info=True,
                 )
     else:
         request.state.user = None

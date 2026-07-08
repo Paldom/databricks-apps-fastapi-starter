@@ -25,11 +25,8 @@ def _app_error_response(exc: AppError) -> JSONResponse:
     )
 
 
-def no_cache(response: Response) -> Response:
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    return response
+# index.html must never be cached, or users keep stale asset hashes after a deploy.
+_NO_CACHE_HEADERS = {"Cache-Control": "no-store, max-age=0"}
 
 
 def _patch_openapi_schema(schema: dict) -> None:
@@ -104,7 +101,7 @@ def build_api_app(s: Settings) -> FastAPI:
     async def api_app_error_handler(request: Request, exc: AppError):
         return _app_error_response(exc)
 
-    api_app.include_router(build_api_router())
+    api_app.include_router(build_api_router(s))
 
     # Custom OpenAPI hook to inject streaming event schemas
     _default_openapi = api_app.openapi
@@ -175,9 +172,12 @@ def build_root_app(s: Settings) -> FastAPI:
                 and not request.url.path.startswith("/api")
                 and index_file.exists()
             ):
-                return no_cache(FileResponse(index_file))
+                return FileResponse(index_file, headers=_NO_CACHE_HEADERS)
             return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
 
+        # Deliberately hand-rolled instead of StaticFiles(html=True): the SPA
+        # needs split cache semantics (no-cache index.html, immutable hashed
+        # assets) which StaticFiles cannot express without a subclass.
         @application.get("/{full_path:path}", include_in_schema=False)
         async def serve_frontend(full_path: str) -> Response:
             if not static_dir.exists():
@@ -191,7 +191,7 @@ def build_root_app(s: Settings) -> FastAPI:
 
             if candidate.is_file():
                 if candidate.name == "index.html":
-                    return no_cache(FileResponse(candidate))
+                    return FileResponse(candidate, headers=_NO_CACHE_HEADERS)
                 return FileResponse(
                     candidate,
                     headers={"Cache-Control": "public, max-age=31536000, immutable"},

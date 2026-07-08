@@ -8,7 +8,7 @@ import {
   FileText,
   Loader2,
 } from 'lucide-react'
-import { useTranslation } from '@/i18n/client'
+import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/shared/store/ui'
 import { Button } from '@/components/ui/button'
 import { Dropzone } from '@/components/ui/dropzone'
@@ -52,6 +52,7 @@ function StatusIcon({ status }: StatusIconProps) {
 type DocumentItemProps = Readonly<{
   document: Document
   formatSize: (bytes: number) => string
+  statusLabel: string
   removeLabel: string
   onRemove: (documentId: string) => void
 }>
@@ -59,6 +60,7 @@ type DocumentItemProps = Readonly<{
 function DocumentItem({
   document,
   formatSize,
+  statusLabel,
   removeLabel,
   onRemove,
 }: DocumentItemProps) {
@@ -72,10 +74,11 @@ function DocumentItem({
         </p>
       </div>
       <StatusIcon status={document.status} />
+      <span className="sr-only">{statusLabel}</span>
       <Button
         variant="ghost"
         size="icon"
-        className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+        className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
         onClick={() => onRemove(document.id)}
       >
         <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
@@ -108,7 +111,8 @@ async function uploadKnowledgeFile(file: File): Promise<unknown> {
 export function DocumentSidebar() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const { documentSidebarOpen, setDocumentSidebarOpen } = useUIStore()
+  const documentSidebarOpen = useUIStore((s) => s.documentSidebarOpen)
+  const setDocumentSidebarOpen = useUIStore((s) => s.setDocumentSidebarOpen)
   const formatSize = (bytes: number) => formatFileSize(bytes, t)
 
   const documentsQuery = useListDocuments()
@@ -207,6 +211,9 @@ export function DocumentSidebar() {
                   key={doc.id}
                   document={doc}
                   formatSize={formatSize}
+                  statusLabel={t(
+                    ('document.' + doc.status) as 'document.pending'
+                  )}
                   removeLabel={t('document.removeDocument')}
                   onRemove={handleRemove}
                 />

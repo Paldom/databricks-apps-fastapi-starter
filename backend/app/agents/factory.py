@@ -38,7 +38,6 @@ def get_agent_adapter(
         return ServingEndpointAdapter(
             ai_client,
             settings.serving_agent_endpoint,
-            api_mode=settings.serving_agent_api_mode,
         )
 
     if backend == "genie":

@@ -27,7 +27,16 @@ def create_async_engine_from_settings(settings: Settings) -> AsyncEngine:
     pattern (see ``bundle-examples/app_with_database``).
     """
     url = get_database_url(settings)
-    engine = create_async_engine(url, echo=False, future=True)
+    engine = create_async_engine(
+        url,
+        echo=False,
+        future=True,
+        # The app's tables live in its own schema (see Settings.pg_app_schema);
+        # `public` stays in the path for extensions and shared objects.
+        connect_args={
+            "server_settings": {"search_path": f"{settings.pg_app_schema},public"}
+        },
+    )
 
     if settings.databricks_integrations_enabled() and not settings.pg_password:
         _register_oauth_token_provider(engine.sync_engine)

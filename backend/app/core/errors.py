@@ -1,12 +1,11 @@
 from http import HTTPStatus
-from typing import Optional
 
 from fastapi import HTTPException
-
 
 # ---------------------------------------------------------------------------
 # Application-level exception hierarchy
 # ---------------------------------------------------------------------------
+
 
 class AppError(Exception):
     """Base application exception carrying an HTTP-mappable status code."""
@@ -54,12 +53,6 @@ class DatabricksAPIError(ExternalServiceError):
     pass
 
 
-class SqlDeltaError(ExternalServiceError):
-    def __init__(self, detail: str = "SQL execution error", **kw):
-        super().__init__(detail, **kw)
-        self.status_code = 500
-
-
 class UcFilesError(ExternalServiceError):
     pass
 
@@ -79,11 +72,6 @@ class PathValidationError(AppError):
         super().__init__(400, detail, **kw)
 
 
-class ResourceNotFoundError(AppError):
-    def __init__(self, detail: str = "Resource not found", **kw):
-        super().__init__(404, detail, **kw)
-
-
 # ---------------------------------------------------------------------------
 # Backward-compatible HTTP error helper
 # ---------------------------------------------------------------------------
@@ -91,7 +79,7 @@ class ResourceNotFoundError(AppError):
 DEFAULT_ERROR_MESSAGES = {status.value: status.phrase for status in HTTPStatus}
 
 
-def http_error(status_code: int, detail: Optional[str] = None) -> HTTPException:
+def http_error(status_code: int, detail: str | None = None) -> HTTPException:
     """Return an :class:`HTTPException` with a standardized message."""
     message = detail or DEFAULT_ERROR_MESSAGES.get(status_code, "Unknown Error")
     return HTTPException(status_code=status_code, detail=message)

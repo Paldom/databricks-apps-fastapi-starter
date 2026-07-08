@@ -15,4 +15,16 @@ describe('ThemeProvider', () => {
     expect(screen.getByText('Theme content')).toBeInTheDocument()
     expect(document.documentElement.style.colorScheme).toBe('light')
   })
+
+  it('applies the dark theme from the store', () => {
+    resetUIStore({ theme: 'dark' })
+    render(
+      <ThemeProvider>
+        <div>Dark content</div>
+      </ThemeProvider>
+    )
+
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    expect(document.documentElement.style.colorScheme).toBe('dark')
+  })
 })

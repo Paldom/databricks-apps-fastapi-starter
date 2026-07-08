@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from app.core.databricks.genie import GenieAdapter
 from app.core.errors import ExternalServiceError
@@ -12,6 +13,7 @@ def _mock_response(status_code=200, json_data=None):
     resp.raise_for_status = MagicMock()
     if status_code >= 400:
         from httpx import HTTPStatusError, Request, Response
+
         real_resp = Response(status_code)
         resp.raise_for_status.side_effect = HTTPStatusError(
             "error", request=Request("POST", "http://x"), response=real_resp

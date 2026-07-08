@@ -1,5 +1,5 @@
 import { Check, FilePlus2, MoreHorizontal, Share2, X } from 'lucide-react'
-import { useTranslation } from '@/i18n/client'
+import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/shared/store/ui'
 import { LanguageSwitcher } from '@/components/language-switcher'
 import {
@@ -30,6 +30,8 @@ import {
   useCreateProjectChat,
   useDeleteChat,
   getListProjectChatsQueryKey,
+  getGetRecentChatsQueryKey,
+  getSearchChatsInfiniteQueryKey,
 } from '@/shared/api/generated/chats/chats'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAui } from '@assistant-ui/react'
@@ -39,16 +41,25 @@ export function AppHeader() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const aui = useAui()
-  const {
-    activeProjectId,
-    activeChatId,
-    setActiveChatId,
-    toggleDocumentSidebar,
-    documentSidebarOpen,
-  } = useUIStore()
+  const activeProjectId = useUIStore((s) => s.activeProjectId)
+  const activeChatId = useUIStore((s) => s.activeChatId)
+  const setActiveChatId = useUIStore((s) => s.setActiveChatId)
+  const toggleDocumentSidebar = useUIStore((s) => s.toggleDocumentSidebar)
+  const documentSidebarOpen = useUIStore((s) => s.documentSidebarOpen)
 
-  const [isRenaming, setIsRenaming] = React.useState(false)
+  // ponytail: renameTargetId doubles as "is renaming" flag; rename only shows
+  // while the captured chat is still active, so switching chats dismisses it
+  const [renameTargetId, setRenameTargetId] = React.useState<string | null>(
+    null
+  )
   const [renameValue, setRenameValue] = React.useState('')
+
+  // Adjust-during-render (React docs pattern): dismiss a pending rename as
+  // soon as the active chat changes, without an effect round-trip
+  if (renameTargetId && renameTargetId !== activeChatId) {
+    setRenameTargetId(null)
+    setRenameValue('')
+  }
 
   // Get projects to find the active project name
   const projectsQuery = useListProjectsInfinite(undefined, {
@@ -73,15 +84,25 @@ export function AppHeader() {
   const chats = chatsQuery.data?.data.items ?? []
   const activeChat = chats.find((c) => c.id === activeChatId)
 
+  const invalidateChatLookups = React.useCallback(() => {
+    void queryClient.invalidateQueries({
+      queryKey: getGetRecentChatsQueryKey(),
+    })
+    void queryClient.invalidateQueries({
+      queryKey: getSearchChatsInfiniteQueryKey(),
+    })
+  }, [queryClient])
+
   const updateChatMutation = useUpdateChat({
     mutation: {
       onSuccess: () => {
-        setIsRenaming(false)
+        setRenameTargetId(null)
         if (activeProjectId) {
           void queryClient.invalidateQueries({
             queryKey: getListProjectChatsQueryKey(activeProjectId),
           })
         }
+        invalidateChatLookups()
       },
     },
   })
@@ -99,6 +120,7 @@ export function AppHeader() {
             queryKey: getListProjectsInfiniteQueryKey(),
           })
         }
+        invalidateChatLookups()
       },
     },
   })
@@ -116,6 +138,7 @@ export function AppHeader() {
             queryKey: getListProjectsInfiniteQueryKey(),
           })
         }
+        invalidateChatLookups()
       },
     },
   })
@@ -123,22 +146,22 @@ export function AppHeader() {
   const handleStartRename = () => {
     if (!activeChat) return
     setRenameValue(activeChat.title)
-    setIsRenaming(true)
+    setRenameTargetId(activeChat.id)
   }
 
   const handleSaveRename = () => {
-    if (!activeChatId || !renameValue.trim()) {
-      setIsRenaming(false)
+    if (!renameTargetId || !renameValue.trim()) {
+      setRenameTargetId(null)
       return
     }
     updateChatMutation.mutate({
-      chatId: activeChatId,
+      chatId: renameTargetId,
       data: { title: renameValue.trim() },
     })
   }
 
   const handleCancelRename = () => {
-    setIsRenaming(false)
+    setRenameTargetId(null)
     setRenameValue('')
   }
 
@@ -146,7 +169,7 @@ export function AppHeader() {
     if (!activeChat || !activeProjectId) return
     createChatMutation.mutate({
       projectId: activeProjectId,
-      data: { title: `${activeChat.title} (copy)` },
+      data: { title: t('chat.copySuffix', { title: activeChat.title }) },
     })
   }
 
@@ -169,7 +192,7 @@ export function AppHeader() {
                 <BreadcrumbItem>{activeProject.name}</BreadcrumbItem>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem>
-                  {isRenaming ? (
+                  {renameTargetId === activeChat.id ? (
                     <div className="flex items-center gap-1">
                       <Input
                         value={renameValue}
@@ -186,6 +209,7 @@ export function AppHeader() {
                         size="icon"
                         className="h-5 w-5 shrink-0"
                         onClick={handleSaveRename}
+                        aria-label={t('common.save')}
                       >
                         <Check className="h-3 w-3" />
                       </Button>
@@ -194,6 +218,7 @@ export function AppHeader() {
                         size="icon"
                         className="h-5 w-5 shrink-0"
                         onClick={handleCancelRename}
+                        aria-label={t('common.cancel')}
                       >
                         <X className="h-3 w-3" />
                       </Button>

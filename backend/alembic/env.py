@@ -3,14 +3,11 @@ from __future__ import annotations
 import asyncio
 from logging.config import fileConfig
 
-from sqlalchemy import pool
-from sqlalchemy.ext.asyncio import async_engine_from_config
-
+import app.models  # noqa: F401 - register all models with Base.metadata
 from alembic import context
 from app.core.config import settings
 from app.core.db.base import Base
 from app.core.db.engine import create_async_engine_from_settings
-import app.models  # noqa: F401 – register all models with Base.metadata
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -41,6 +38,19 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection) -> None:  # type: ignore[no-untyped-def]
+    from sqlalchemy import text
+
+    # Lakebase (Postgres 15+) denies CREATE in `public` to non-owners; the
+    # app owns its own schema instead. Idempotent, and safe on local docker.
+    schema = settings.pg_app_schema
+    connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema}"'))
+    connection.execute(text(f'SET search_path TO "{schema}", public'))
+    # The two statements above autobegin a SQLAlchemy transaction. It must be
+    # committed here: otherwise alembic's begin_transaction() joins it as a
+    # nested no-op, nothing ever commits, and the connection close silently
+    # rolls back the entire upgrade. SET search_path is session-scoped and
+    # survives the commit.
+    connection.commit()
     context.configure(connection=connection, target_metadata=target_metadata)
     with context.begin_transaction():
         context.run_migrations()

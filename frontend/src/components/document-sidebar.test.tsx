@@ -21,6 +21,11 @@ describe('DocumentSidebar', () => {
     await waitFor(() => {
       expect(screen.getByText(/Added documents/)).toBeInTheDocument()
     })
+
+    // Document status is exposed as an accessible text alternative
+    expect(
+      screen.getAllByText(/^(Ready|Processing\.\.\.|Error)$/).length
+    ).toBeGreaterThan(0)
   })
 
   it('shows upload section', () => {

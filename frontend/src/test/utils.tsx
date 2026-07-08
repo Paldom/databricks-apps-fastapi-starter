@@ -25,8 +25,8 @@ export function resetUIStore(
 ) {
   useUIStore.persist?.clearStorage?.()
   useUIStore.setState({
-    sidebarCollapsed: false,
     theme: 'light',
+    sidebarCollapsed: false,
     activeProjectId: null,
     activeChatId: null,
     searchDialogOpen: false,

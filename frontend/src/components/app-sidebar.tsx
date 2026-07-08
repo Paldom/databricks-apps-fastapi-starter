@@ -17,7 +17,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useTranslation } from '@/i18n/client'
+import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/shared/store/ui'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Link } from 'react-router-dom'
@@ -57,6 +57,8 @@ import {
   useCreateProjectChat,
   useUpdateChat,
   getListProjectChatsQueryKey,
+  getGetRecentChatsQueryKey,
+  getSearchChatsInfiniteQueryKey,
 } from '@/shared/api/generated/chats/chats'
 import { useGetMe } from '@/shared/api/generated/me/me'
 import { useQueryClient } from '@tanstack/react-query'
@@ -71,19 +73,25 @@ function getInitials(name: string) {
     .join('')
 }
 
-function getUserLabels(user?: {
-  id: string
-  email?: string | null
-  name?: string | null
-  preferred_username?: string | null
-} | null) {
-  const primary = user?.name || user?.preferred_username || user?.email || user?.id || ''
+function getUserLabels(
+  user?: {
+    id: string
+    email?: string | null
+    name?: string | null
+    preferred_username?: string | null
+  } | null
+) {
+  const primary =
+    user?.name || user?.preferred_username || user?.email || user?.id || ''
   const secondary = user?.email || user?.preferred_username || user?.id || ''
   return { primary, secondary }
 }
 
 function ProjectChatList({ projectId }: Readonly<{ projectId: string }>) {
-  const { activeChatId, setActiveChatId } = useUIStore()
+  const { t } = useTranslation()
+  const activeChatId = useUIStore((s) => s.activeChatId)
+  const setActiveChatId = useUIStore((s) => s.setActiveChatId)
+  const setActiveProjectId = useUIStore((s) => s.setActiveProjectId)
   const queryClient = useQueryClient()
   const { data, isLoading } = useListProjectChats(projectId)
 
@@ -95,6 +103,12 @@ function ProjectChatList({ projectId }: Readonly<{ projectId: string }>) {
       onSuccess: () => {
         void queryClient.invalidateQueries({
           queryKey: getListProjectChatsQueryKey(projectId),
+        })
+        void queryClient.invalidateQueries({
+          queryKey: getGetRecentChatsQueryKey(),
+        })
+        void queryClient.invalidateQueries({
+          queryKey: getSearchChatsInfiniteQueryKey(),
         })
       },
     },
@@ -158,6 +172,7 @@ function ProjectChatList({ projectId }: Readonly<{ projectId: string }>) {
                 size="icon"
                 className="h-5 w-5 shrink-0"
                 onClick={handleSaveEdit}
+                aria-label={t('common.save')}
               >
                 <Check className="h-3 w-3" />
               </Button>
@@ -166,6 +181,7 @@ function ProjectChatList({ projectId }: Readonly<{ projectId: string }>) {
                 size="icon"
                 className="h-5 w-5 shrink-0"
                 onClick={handleCancelEdit}
+                aria-label={t('common.cancel')}
               >
                 <X className="h-3 w-3" />
               </Button>
@@ -173,7 +189,10 @@ function ProjectChatList({ projectId }: Readonly<{ projectId: string }>) {
           ) : (
             <SidebarMenuButton
               isActive={chat.id === activeChatId}
-              onClick={() => setActiveChatId(chat.id)}
+              onClick={() => {
+                setActiveProjectId(projectId)
+                setActiveChatId(chat.id)
+              }}
               onDoubleClick={() => handleStartEdit(chat.id, chat.title)}
             >
               <MessageSquare className="h-4 w-4" />
@@ -190,12 +209,11 @@ export function AppSidebar() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const aui = useAui()
-  const {
-    setActiveChatId,
-    setActiveProjectId,
-    setSearchDialogOpen,
-    setSettingsDialogOpen,
-  } = useUIStore()
+  const setActiveChatId = useUIStore((s) => s.setActiveChatId)
+  const setActiveProjectId = useUIStore((s) => s.setActiveProjectId)
+  const setSearchDialogOpen = useUIStore((s) => s.setSearchDialogOpen)
+  const setSettingsDialogOpen = useUIStore((s) => s.setSettingsDialogOpen)
+  const activeProjectId = useUIStore((s) => s.activeProjectId)
 
   // Server state
   const projectsQuery = useListProjectsInfinite(undefined, {
@@ -212,13 +230,25 @@ export function AppSidebar() {
     [projectsQuery.data?.pages]
   )
 
-  // Auto-select first project/chat when data loads and nothing is selected
-  const { activeProjectId } = useUIStore()
+  // Reconcile the active project with the loaded list: keep it if it still
+  // exists, otherwise clear the active chat and fall back to the first
+  // project (or null). Re-runs on refetch, so a transient stale selection
+  // self-corrects; zustand setters with unchanged values don't loop.
+  const projectsLoaded = projectsQuery.data !== undefined
   React.useEffect(() => {
-    if (projects.length > 0 && !activeProjectId) {
-      setActiveProjectId(projects[0].id)
+    if (!projectsLoaded) return
+    if (activeProjectId && projects.some((p) => p.id === activeProjectId)) {
+      return
     }
-  }, [projects, activeProjectId, setActiveProjectId])
+    if (activeProjectId) setActiveChatId(null)
+    setActiveProjectId(projects[0]?.id ?? null)
+  }, [
+    projectsLoaded,
+    projects,
+    activeProjectId,
+    setActiveProjectId,
+    setActiveChatId,
+  ])
 
   // Mutations with optimistic updates
   const createProjectMutation = useCreateProject({
@@ -243,9 +273,24 @@ export function AppSidebar() {
 
   const deleteProjectMutation = useDeleteProject({
     mutation: {
-      onSuccess: () => {
+      onSuccess: (_data, variables) => {
+        if (variables.projectId === useUIStore.getState().activeProjectId) {
+          setActiveProjectId(null)
+          setActiveChatId(null)
+        }
+        // Remove (not invalidate) the deleted project's chat list — a
+        // refetch would 404 against a real API
+        queryClient.removeQueries({
+          queryKey: getListProjectChatsQueryKey(variables.projectId),
+        })
         void queryClient.invalidateQueries({
           queryKey: getListProjectsInfiniteQueryKey(),
+        })
+        void queryClient.invalidateQueries({
+          queryKey: getGetRecentChatsQueryKey(),
+        })
+        void queryClient.invalidateQueries({
+          queryKey: getSearchChatsInfiniteQueryKey(),
         })
       },
     },
@@ -259,6 +304,12 @@ export function AppSidebar() {
         })
         void queryClient.invalidateQueries({
           queryKey: getListProjectsInfiniteQueryKey(),
+        })
+        void queryClient.invalidateQueries({
+          queryKey: getGetRecentChatsQueryKey(),
+        })
+        void queryClient.invalidateQueries({
+          queryKey: getSearchChatsInfiniteQueryKey(),
         })
         setActiveChatId(response.data.id)
         aui.threads().switchToNewThread()
@@ -380,6 +431,9 @@ export function AppSidebar() {
                   {/* Chevron trigger */}
                   <CollapsibleTrigger className="flex items-center">
                     <ChevronDown className="h-3 w-3 shrink-0 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                    <span className="sr-only">
+                      {t('project.toggleChats', { name: project.name })}
+                    </span>
                   </CollapsibleTrigger>
 
                   {editingProjectId === project.id ? (
@@ -400,6 +454,7 @@ export function AppSidebar() {
                         size="icon"
                         className="h-5 w-5 shrink-0"
                         onClick={handleSaveEdit}
+                        aria-label={t('common.save')}
                       >
                         <Check className="h-3 w-3" />
                       </Button>
@@ -408,6 +463,7 @@ export function AppSidebar() {
                         size="icon"
                         className="h-5 w-5 shrink-0"
                         onClick={handleCancelEdit}
+                        aria-label={t('common.cancel')}
                       >
                         <X className="h-3 w-3" />
                       </Button>
@@ -427,6 +483,9 @@ export function AppSidebar() {
                             className="h-5 w-5 shrink-0 opacity-0 group-hover/collapsible:opacity-100"
                           >
                             <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">
+                              {t('common.openMenu')}
+                            </span>
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start">
@@ -453,12 +512,13 @@ export function AppSidebar() {
                         variant="ghost"
                         size="icon"
                         className="h-5 w-5 shrink-0 opacity-0 group-hover/collapsible:opacity-100"
+                        aria-label={t('chat.newChat')}
                         disabled={createChatMutation.isPending}
                         onClick={() => {
                           setActiveProjectId(project.id)
                           createChatMutation.mutate({
                             projectId: project.id,
-                            data: { title: 'New chat' },
+                            data: { title: t('chat.newChat') },
                           })
                         }}
                       >
@@ -504,7 +564,9 @@ export function AppSidebar() {
                 <SidebarMenuButton>
                   <Avatar className="h-6 w-6">
                     <AvatarFallback>
-                      {currentUserQuery.isLoading ? '...' : getInitials(userName)}
+                      {currentUserQuery.isLoading
+                        ? '...'
+                        : getInitials(userName)}
                     </AvatarFallback>
                   </Avatar>
 

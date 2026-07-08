@@ -3,15 +3,21 @@ from __future__ import annotations
 from logging import Logger
 from typing import TYPE_CHECKING, Annotated, Any
 
+import httpx
 from databricks.sdk import WorkspaceClient
 from fastapi import Depends, Request
 from openai import AsyncOpenAI
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, settings
-from app.core.db.deps import get_async_session, get_engine  # noqa: F401 – re-export
+from app.core.db.deps import get_async_session, get_engine  # noqa: F401 - re-export
 from app.core.errors import AuthenticationError
-from app.core.integrations import ensure_ai_client, ensure_vector_index, ensure_workspace_client
+from app.core.integrations import (
+    DatabricksBearerAuth,
+    ensure_ai_client,
+    ensure_vector_index,
+    ensure_workspace_client,
+)
 from app.core.logging import get_logger as _get_logger
 from app.core.runtime import AppRuntime, get_app_runtime
 from app.models.user_dto import CurrentUser, UserInfo
@@ -101,6 +107,7 @@ def get_project_repo(
     session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> ProjectRepository:
     from app.repositories.project_repository import ProjectRepository
+
     return ProjectRepository(session)
 
 
@@ -108,6 +115,7 @@ def get_chat_repo(
     session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> ChatRepository:
     from app.repositories.chat_repository import ChatRepository
+
     return ChatRepository(session)
 
 
@@ -115,6 +123,7 @@ def get_document_repo(
     session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> DocumentRepository:
     from app.repositories.document_repository import DocumentRepository
+
     return DocumentRepository(session)
 
 
@@ -122,6 +131,7 @@ def get_user_settings_repo(
     session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> UserSettingsRepository:
     from app.repositories.user_settings_repository import UserSettingsRepository
+
     return UserSettingsRepository(session)
 
 
@@ -130,6 +140,7 @@ def get_project_service(
     user: Annotated[CurrentUser, Depends(get_current_user)],
 ) -> ProjectService:
     from app.services.project_service import ProjectService
+
     return ProjectService(repo, user.id)
 
 
@@ -138,6 +149,7 @@ def get_chat_service(
     user: Annotated[CurrentUser, Depends(get_current_user)],
 ) -> ChatService:
     from app.services.chat_service import ChatService
+
     return ChatService(repo, user.id)
 
 
@@ -146,6 +158,7 @@ def get_document_service(
     user: Annotated[CurrentUser, Depends(get_current_user)],
 ) -> DocumentService:
     from app.services.document_service import DocumentService
+
     return DocumentService(repo, user.id)
 
 
@@ -154,8 +167,10 @@ def get_user_settings_service(
     user: Annotated[CurrentUser, Depends(get_current_user)],
 ) -> UserSettingsService:
     from app.services.user_settings_service import UserSettingsService
+
     return UserSettingsService(
-        repo, user.id,
+        repo,
+        user.id,
         default_name=user.name or user.id,
         default_email=user.email,
     )
@@ -187,6 +202,7 @@ def get_chat_orchestrator(
     from app.chat.orchestrator import ChatOrchestrator
     from app.chat.registry import build_supervisor_prompt, get_enabled_specs
     from app.chat.tools import build_tools
+    from app.modules import active_modules
 
     runtime = get_runtime(request)
     s = _get_request_settings(request)
@@ -198,14 +214,24 @@ def get_chat_orchestrator(
     if checkpointer is None:
         checkpointer = create_checkpointer(s)
 
-    # Registry → enabled specs → tools + prompt
-    enabled_specs = get_enabled_specs(s)
+    # Registry → enabled specs (core + active modules) → tools + prompt
+    modules = active_modules(s)
+    enabled_specs = get_enabled_specs(s) + [
+        m.specialist for m in modules if m.specialist
+    ]
+    module_builders = {
+        m.specialist.kind: m.tool_builder
+        for m in modules
+        if m.specialist and m.tool_builder
+    }
     tools = build_tools(
-        enabled_specs, s,
+        enabled_specs,
+        s,
         ai_client=ai_client,
         workspace_client=_try_get_workspace_client(request),
         vector_index=_try_get_vector_index(request),
         logger=log,
+        extra_builders=module_builders,
     )
     prompt = build_supervisor_prompt(enabled_specs)
 
@@ -215,11 +241,18 @@ def get_chat_orchestrator(
         or s.serving_endpoint_name
         or "databricks-meta-llama-3-1-70b-instruct"
     )
+    # Same auth pattern as ensure_ai_client: langchain builds its own openai
+    # clients, so each needs the per-request Databricks credential hook (a
+    # static api_key would be None under OAuth M2M and expire under PAT).
+    llm_auth = DatabricksBearerAuth(get_workspace_client(request).config)
+    timeout = float(s.openai_timeout_seconds)
     supervisor_llm = ChatOpenAI(
         model=model_name,
-        api_key=ai_client.api_key,
+        api_key="no-token",
         base_url=str(ai_client.base_url),
-        timeout=float(s.openai_timeout_seconds),
+        timeout=timeout,
+        http_client=httpx.Client(auth=llm_auth, timeout=timeout),
+        http_async_client=httpx.AsyncClient(auth=llm_auth, timeout=timeout),
     )
     agent = build_agent(supervisor_llm, tools, prompt, checkpointer)
 

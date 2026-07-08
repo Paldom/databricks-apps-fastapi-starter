@@ -1,13 +1,15 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from app.repositories.user_repository import get_or_create_user
+import pytest
+
 from app.models.user_model import AppUser
+from app.repositories.user_repository import get_or_create_user
 
 
 @pytest.mark.asyncio
 async def test_creates_new_user():
     session = AsyncMock()
+    session.add = MagicMock()
     session.get.return_value = None
 
     async def fake_refresh(obj):
@@ -35,6 +37,7 @@ async def test_updates_existing_user():
         display_name="old_name",
     )
     session = AsyncMock()
+    session.add = MagicMock()
     session.get.return_value = existing
 
     result = await get_or_create_user(
@@ -50,6 +53,7 @@ async def test_updates_existing_user():
 @pytest.mark.asyncio
 async def test_display_name_falls_back_to_email():
     session = AsyncMock()
+    session.add = MagicMock()
     session.get.return_value = None
 
     async def fake_refresh(obj):
@@ -66,6 +70,7 @@ async def test_display_name_falls_back_to_email():
 @pytest.mark.asyncio
 async def test_display_name_falls_back_to_user_id():
     session = AsyncMock()
+    session.add = MagicMock()
     session.get.return_value = None
 
     async def fake_refresh(obj):

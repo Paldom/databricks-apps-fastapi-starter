@@ -43,7 +43,7 @@ describe('QueryClientProviderWithClient', () => {
 
     expect(seen[0]).toBe(seen[1])
 
-    const defaults = seen[0].getDefaultOptions()
+    const defaults = seen[0]!.getDefaultOptions()
     expect(defaults.queries?.staleTime).toBe(1000 * 60 * 5)
     expect(defaults.queries?.refetchOnWindowFocus).toBe(false)
     expect(defaults.queries?.retry).toBe(2)

@@ -13,7 +13,7 @@ TARGET ?= dev
 RESOURCE ?= fastapi_app
 MIGRATION_MESSAGE ?= new migration
 
-.PHONY: help \
+.PHONY: bootstrap-workspace help \
 	install install-backend install-frontend \
 	dev-db dev-db-down migrate-up migrate-new \
 	dev-api dev-frontend dev \
@@ -38,8 +38,14 @@ help:
 
 install: install-backend install-frontend
 
+grant-db-access:
+	./scripts/grant-db-access.sh $(if $(PROFILE),-p $(PROFILE))
+
+bootstrap-workspace:
+	./scripts/bootstrap-workspace.sh $(if $(PROFILE),-p $(PROFILE)) $(if $(CATALOG),-c $(CATALOG))
+
 install-backend:
-	cd $(BACKEND_DIR) && $(UV) sync --extra dev
+	cd $(BACKEND_DIR) && $(UV) sync
 
 install-frontend:
 	cd $(FRONTEND_DIR) && $(NPM) ci
@@ -70,7 +76,7 @@ migrate-new:
 # ── Generate ───────────────────────────────────────────────────────
 
 requirements-export:
-	cd $(BACKEND_DIR) && $(UV) export --no-hashes --no-editable --format=requirements.txt > requirements.txt
+	cd $(BACKEND_DIR) && $(UV) export --no-dev --no-emit-project --no-hashes --no-editable --format=requirements.txt > requirements.txt
 
 openapi-export:
 	cd $(BACKEND_DIR) && $(UV) run python scripts/export_openapi.py
@@ -87,18 +93,18 @@ format:
 	cd $(FRONTEND_DIR) && $(NPM) run format
 
 lint:
-	cd $(BACKEND_DIR) && $(UV) run ruff check .
+	cd $(BACKEND_DIR) && $(UV) run ruff check . && $(UV) run ruff format --check .
 	cd $(FRONTEND_DIR) && $(NPM) run lint
 
 typecheck:
-	cd $(BACKEND_DIR) && $(UV) run mypy --ignore-missing-imports .
+	cd $(BACKEND_DIR) && $(UV) run mypy .
 	cd $(FRONTEND_DIR) && $(NPM) run typecheck
 
 security:
 	cd $(BACKEND_DIR) && $(UV) run bandit -r app -c pyproject.toml -q
 
 test:
-	cd $(BACKEND_DIR) && $(UV) run pytest --cov .
+	cd $(BACKEND_DIR) && $(UV) run pytest --cov
 	cd $(FRONTEND_DIR) && $(NPM) run test -- --run
 
 frontend-build:

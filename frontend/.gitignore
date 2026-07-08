@@ -157,3 +157,7 @@ __pycache__/
 .venv/
 *.egg-info/
 .pytest_cache/
+# Claude Code local artifacts (settings.json, hooks/, skills/ ARE committed)
+.claude/settings.local.json
+.claude/curator-reports/
+review.md

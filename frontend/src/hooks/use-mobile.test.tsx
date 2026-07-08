@@ -28,7 +28,7 @@ describe('useIsMobile', () => {
       removeListener: () => {},
       dispatchEvent: () => false,
     }))
-    globalThis.matchMedia = matchMediaMock as typeof globalThis.matchMedia
+    globalThis.matchMedia = matchMediaMock
     globalThis.innerWidth = 767
 
     const { unmount } = render(<Probe />)

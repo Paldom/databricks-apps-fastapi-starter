@@ -22,9 +22,8 @@ async def get_async_session(request: Request) -> AsyncGenerator[AsyncSession, No
     factory = runtime.session_factory
     if factory is None:
         raise ConfigurationError("Database is not configured")
-    async with factory() as session:
-        async with session.begin():
-            yield session
+    async with factory() as session, session.begin():
+        yield session
 
 
 def get_engine(request: Request) -> AsyncEngine:

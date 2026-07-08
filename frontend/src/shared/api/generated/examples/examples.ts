@@ -32,6 +32,7 @@ import type {
   ExampleTitle,
   GenieQuestion,
   RunJobExamplesJobPostBody,
+  SqlQuery,
   UploadExamplesUcUploadPostParams
 } from '.././models';
 
@@ -701,6 +702,93 @@ export const useServingExamplesServingPost = <TError = unknown,
         TContext
       > => {
       return useMutation(getServingExamplesServingPostMutationOptions(options), queryClient);
+    }
+    /**
+ * Run a governed SELECT on a SQL Warehouse via the statement API.
+
+Uses the ``sql_warehouse`` app resource binding (DATABRICKS_WAREHOUSE_ID)
+and the app's service-principal auth — no drivers or tokens needed.
+Synchronous by design: FastAPI runs ``def`` endpoints in a threadpool.
+ * @summary Query Warehouse
+ */
+export type queryWarehouseExamplesSqlPostResponse200 = {
+  data: unknown
+  status: 200
+}
+    
+export type queryWarehouseExamplesSqlPostResponseSuccess = (queryWarehouseExamplesSqlPostResponse200) & {
+  headers: Headers;
+};
+;
+
+export type queryWarehouseExamplesSqlPostResponse = (queryWarehouseExamplesSqlPostResponseSuccess)
+
+export const getQueryWarehouseExamplesSqlPostUrl = () => {
+
+
+  
+
+  return `/examples/sql`
+}
+
+export const queryWarehouseExamplesSqlPost = async (sqlQuery: SqlQuery, options?: RequestInit): Promise<queryWarehouseExamplesSqlPostResponse> => {
+  
+  return customInstance<queryWarehouseExamplesSqlPostResponse>(getQueryWarehouseExamplesSqlPostUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      sqlQuery,)
+  }
+);}
+
+
+
+
+export const getQueryWarehouseExamplesSqlPostMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof queryWarehouseExamplesSqlPost>>, TError,{data: SqlQuery}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof queryWarehouseExamplesSqlPost>>, TError,{data: SqlQuery}, TContext> => {
+
+const mutationKey = ['queryWarehouseExamplesSqlPost'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof queryWarehouseExamplesSqlPost>>, {data: SqlQuery}> = (props) => {
+          const {data} = props ?? {};
+
+          return  queryWarehouseExamplesSqlPost(data,requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type QueryWarehouseExamplesSqlPostMutationResult = NonNullable<Awaited<ReturnType<typeof queryWarehouseExamplesSqlPost>>>
+    export type QueryWarehouseExamplesSqlPostMutationBody = SqlQuery
+    export type QueryWarehouseExamplesSqlPostMutationError = unknown
+
+    /**
+ * @summary Query Warehouse
+ */
+export const useQueryWarehouseExamplesSqlPost = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof queryWarehouseExamplesSqlPost>>, TError,{data: SqlQuery}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof queryWarehouseExamplesSqlPost>>,
+        TError,
+        {data: SqlQuery},
+        TContext
+      > => {
+      return useMutation(getQueryWarehouseExamplesSqlPostMutationOptions(options), queryClient);
     }
     /**
  * @summary Download

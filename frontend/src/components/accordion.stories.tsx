@@ -87,7 +87,7 @@ export const ShouldOnlyOpenOneWhenSingleType: Story = {
     }
 
     // Close the last opened tab
-    await userEvent.click(accordions[accordions.length - 1])
+    await userEvent.click(accordions.at(-1)!)
     await waitFor(() => expect(canvas.queryByRole('region')).toBeNull())
   },
 }
@@ -104,7 +104,7 @@ export const ShouldOpenAllWhenMultipleType: Story = {
 
     // Open all tabs one at a time
     for (let i = 0; i < accordions.length; i++) {
-      await userEvent.click(accordions[i])
+      await userEvent.click(accordions[i]!)
       await waitFor(() =>
         expect(canvas.getAllByRole('region')).toHaveLength(i + 1)
       )
@@ -112,12 +112,12 @@ export const ShouldOpenAllWhenMultipleType: Story = {
 
     // Close all tabs one at a time
     for (let i = accordions.length - 1; i > 0; i--) {
-      await userEvent.click(accordions[i])
+      await userEvent.click(accordions[i]!)
       await waitFor(() => expect(canvas.getAllByRole('region')).toHaveLength(i))
     }
 
     // Close the last opened tab
-    await userEvent.click(accordions[0])
+    await userEvent.click(accordions[0]!)
     await waitFor(() => expect(canvas.queryByRole('region')).toBeNull())
   },
 }

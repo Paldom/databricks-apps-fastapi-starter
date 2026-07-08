@@ -1,10 +1,9 @@
-import asyncio
 import time
 
 import pytest
 
 from app.core.databricks._async_bridge import run_sync
-from app.core.errors import ExternalServiceError
+from app.core.errors import DatabricksAPIError, RequestTimeoutError
 
 
 def _slow_function():
@@ -18,8 +17,8 @@ def _fast_function():
 
 @pytest.mark.asyncio
 async def test_run_sync_timeout():
-    """run_sync should raise error_cls when the timeout expires."""
-    with pytest.raises(ExternalServiceError, match="timed out"):
+    """run_sync should raise RequestTimeoutError (HTTP 504) on timeout."""
+    with pytest.raises(RequestTimeoutError, match="timed out"):
         await run_sync(_slow_function, timeout=0.1)
 
 
@@ -37,5 +36,5 @@ async def test_run_sync_wraps_exceptions():
     def _failing():
         raise ValueError("boom")
 
-    with pytest.raises(ExternalServiceError, match="boom"):
+    with pytest.raises(DatabricksAPIError, match="boom"):
         await run_sync(_failing, timeout=5.0)

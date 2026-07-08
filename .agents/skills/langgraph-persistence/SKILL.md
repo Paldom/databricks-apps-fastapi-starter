@@ -103,7 +103,7 @@ Configure PostgreSQL-backed checkpointing for production deployments.
 from langgraph.checkpoint.postgres import PostgresSaver
 
 with PostgresSaver.from_conn_string(
-    "postgresql://user:pass@localhost/db"
+    "postgresql://<user>:<pass>@localhost/db"
 ) as checkpointer:
     checkpointer.setup()  # only needed on first use to create tables
     graph = builder.compile(checkpointer=checkpointer)
@@ -115,7 +115,7 @@ Configure PostgreSQL-backed checkpointing for production deployments.
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 
 const checkpointer = PostgresSaver.fromConnString(
-  "postgresql://user:pass@localhost/db"
+  "postgresql://<user>:<pass>@localhost/db"
 );
 await checkpointer.setup(); // only needed on first use to create tables
 

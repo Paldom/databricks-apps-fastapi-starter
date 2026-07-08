@@ -63,9 +63,7 @@ class PaginatedChatSearchResults(CursorPage[ChatSearchResult]):
 
 
 class CreateChatRequest(ApiModel):
-    model_config = ConfigDict(
-        json_schema_extra={"example": {"title": "New chat"}}
-    )
+    model_config = ConfigDict(json_schema_extra={"example": {"title": "New chat"}})
 
     title: str
 
@@ -107,7 +105,9 @@ async def list_project_chats(
     service: ChatService = Depends(get_chat_service),
 ) -> PaginatedChats:
     result = await service.list_project_chats(
-        project_id=projectId, cursor=cursor, limit=limit,
+        project_id=projectId,
+        cursor=cursor,
+        limit=limit,
     )
     return PaginatedChats(
         items=[_to_chat(i) for i in result["items"]],

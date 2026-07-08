@@ -52,14 +52,10 @@ export default defineConfig(({ mode }) => {
       outDir: path.resolve(dirname, '../backend/public'),
       emptyOutDir: true,
       sourcemap: true,
-      rollupOptions: {
-        output: {
-          manualChunks: {
-            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-            'query-vendor': ['@tanstack/react-query'],
-          },
-        },
-      },
+      // No manualChunks: hand-splitting React-dependent vendors broke chunk
+      // init order ("Cannot read properties of undefined (reading
+      // 'createContext')" in the i18n chunk). Rollup's default graph-based
+      // chunking is always initialization-safe.
     },
     test: {
       globals: true,
@@ -73,12 +69,10 @@ export default defineConfig(({ mode }) => {
         exclude: [
           'src/**/*.test.{ts,tsx}',
           'src/**/*.stories.{ts,tsx}',
-          'src/stories/**',
           '**/.stryker-tmp/**',
           'src/main.tsx',
           'src/mocks/**',
           'src/shared/api/generated/**',
-          'src/shared/types/**',
           'src/vite-env.d.ts',
           'src/**/*.d.ts',
         ],

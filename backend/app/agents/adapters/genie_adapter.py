@@ -7,11 +7,10 @@ Preserves structured outputs (SQL, attachments, conversation IDs) in
 from __future__ import annotations
 
 import asyncio
-from typing import Any, AsyncIterator
+from typing import Any
 
 from mlflow.types.responses import (
     ResponsesAgentRequest,
-    ResponsesAgentStreamEvent,
 )
 
 from app.agents.contracts import AgentInvocationResult
@@ -97,11 +96,4 @@ class GenieAdapter:
             text=parsed["text"],
             downstream_trace_id=None,  # Genie does not provide MLflow trace IDs today
             metadata={"space_id": self._space_id},
-        )
-
-    async def stream(
-        self, request: ResponsesAgentRequest
-    ) -> AsyncIterator[ResponsesAgentStreamEvent]:
-        raise NotImplementedError(
-            "Genie does not support streaming.  Use invoke() instead."
         )

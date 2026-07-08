@@ -5,12 +5,16 @@ from httpx import AsyncClient, HTTPStatusError
 from app.core.errors import ExternalServiceError
 from app.core.observability import get_tracer, safe_attr, tag_exception
 
-
 _tracer = get_tracer()
 
 
 class GenieAdapter:
-    """Adapter for the Databricks Genie conversational API."""
+    """Adapter for the Databricks Genie conversational API.
+
+    Deliberately duplicates ``app/agents/adapters/genie_adapter.py``: this is
+    the raw REST-API surface shown alongside the SDK-based adapter. See the
+    intentional-duality register in DESIGN.md.
+    """
 
     def __init__(self, client: AsyncClient, logger: Logger):
         self._client = client

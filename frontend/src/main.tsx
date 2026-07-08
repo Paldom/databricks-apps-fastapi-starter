@@ -3,9 +3,6 @@ import ReactDOM from 'react-dom/client'
 import { App } from '@/app/app'
 import { i18nInit } from './i18n'
 import './index.css'
-import type { SetupWorker } from 'msw/browser'
-
-type BrowserMocksModule = { worker: SetupWorker }
 
 async function enableMocks() {
   if (!import.meta.env.DEV) {
@@ -19,8 +16,8 @@ async function enableMocks() {
     return
   }
 
-  const mocksModule = (await import('@/mocks/browser')) as BrowserMocksModule
-  await mocksModule.worker.start({ onUnhandledRequest: 'bypass' })
+  const { worker } = await import('@/mocks/browser')
+  await worker.start({ onUnhandledRequest: 'bypass' })
 }
 
 const rootElement = document.getElementById('root')

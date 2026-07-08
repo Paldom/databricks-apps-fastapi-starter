@@ -56,6 +56,33 @@ components:
       - file
       title: Body_upload_examples_uc_upload_post
       type: object
+    Body_upload_knowledge_file_knowledge_files_post:
+      properties:
+        file:
+          contentMediaType: application/octet-stream
+          title: File
+          type: string
+      required:
+      - file
+      title: Body_upload_knowledge_file_knowledge_files_post
+      type: object
+    CapabilitiesResponse:
+      properties:
+        modules:
+          items:
+            $ref: '#/components/schemas/ModuleInfo'
+          title: Modules
+          type: array
+        specialists:
+          items:
+            $ref: '#/components/schemas/SpecialistInfo'
+          title: Specialists
+          type: array
+      required:
+      - modules
+      - specialists
+      title: CapabilitiesResponse
+      type: object
     Chat:
       additionalProperties: false
       example:
@@ -172,12 +199,6 @@ components:
             $ref: '#/components/schemas/ChatStreamMessage'
           title: Messages
           type: array
-        run_config:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Run Config
         thread_id:
           anyOf:
           - type: string
@@ -343,6 +364,18 @@ components:
           - error
           title: Finish Reason
           type: string
+        thread_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          title: Thread Id
+        trace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          title: Trace Id
         type:
           const: done
           title: Type
@@ -363,6 +396,12 @@ components:
         message:
           title: Message
           type: string
+        trace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          title: Trace Id
         type:
           const: error
           title: Type
@@ -409,6 +448,36 @@ components:
       - title
       title: ExampleTitle
       type: object
+    FeedbackRequest:
+      description: User feedback on an agent answer, linked to its MLflow trace.
+      properties:
+        name:
+          default: user_feedback
+          maxLength: 100
+          title: Name
+          type: string
+        rationale:
+          anyOf:
+          - maxLength: 4000
+            type: string
+          - type: 'null'
+          title: Rationale
+        trace_id:
+          maxLength: 200
+          minLength: 1
+          title: Trace Id
+          type: string
+        value:
+          anyOf:
+          - type: boolean
+          - type: number
+          - type: string
+          title: Value
+      required:
+      - trace_id
+      - value
+      title: FeedbackRequest
+      type: object
     GenieQuestion:
       properties:
         content:
@@ -426,6 +495,31 @@ components:
       - fail
       title: HealthStatus
       type: string
+    KnowledgeFileUploadResponse:
+      properties:
+        document_id:
+          title: Document Id
+          type: string
+        full_path:
+          title: Full Path
+          type: string
+        relative_path:
+          title: Relative Path
+          type: string
+        size_bytes:
+          title: Size Bytes
+          type: integer
+        status:
+          default: uploaded
+          title: Status
+          type: string
+      required:
+      - document_id
+      - relative_path
+      - full_path
+      - size_bytes
+      title: KnowledgeFileUploadResponse
+      type: object
     LiveResponse:
       properties:
         ok:
@@ -433,6 +527,27 @@ components:
           title: Ok
           type: boolean
       title: LiveResponse
+      type: object
+    ModuleInfo:
+      properties:
+        active:
+          title: Active
+          type: boolean
+        description:
+          title: Description
+          type: string
+        name:
+          title: Name
+          type: string
+        title:
+          title: Title
+          type: string
+      required:
+      - name
+      - title
+      - description
+      - active
+      title: ModuleInfo
       type: object
     PaginatedChatSearchResults:
       additionalProperties: false
@@ -559,6 +674,38 @@ components:
       - db
       title: ReadyResponse
       type: object
+    SpecialistInfo:
+      properties:
+        enabled:
+          title: Enabled
+          type: boolean
+        key:
+          title: Key
+          type: string
+      required:
+      - key
+      - enabled
+      title: SpecialistInfo
+      type: object
+    SqlQuery:
+      description: A read-only demo query; LIMIT is enforced server-side.
+      properties:
+        limit:
+          default: 10
+          maximum: 100.0
+          minimum: 1.0
+          title: Limit
+          type: integer
+        table:
+          maxLength: 300
+          minLength: 1
+          pattern: ^[\w.$]+$
+          title: Table
+          type: string
+      required:
+      - table
+      title: SqlQuery
+      type: object
     TextDeltaEvent:
       properties:
         delta:
@@ -656,6 +803,104 @@ info:
   version: 0.1.0
 openapi: 3.1.0
 paths:
+  /agents/backends:
+    get:
+      description: Return the list of configured agent backends.
+      operationId: list_backends_agents_backends_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  items:
+                    type: string
+                  type: array
+                title: Response List Backends Agents Backends Get
+                type: object
+          description: Successful Response
+      summary: List Backends
+      tags:
+      - agents
+  /agents/feedback:
+    post:
+      description: 'Attach human feedback to a trace (closes the golden-path loop).
+
+
+        The chat stream and ``/invocations`` responses surface trace ids
+
+        (``downstream_trace_id`` / ``trace_id``); the UI posts them back here and
+
+        MLflow stores the assessment on the trace for evaluation and monitoring.'
+      operationId: submit_feedback_agents_feedback_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                title: Response Submit Feedback Agents Feedback Post
+                type: object
+          description: Successful Response
+      summary: Submit Feedback
+      tags:
+      - agents
+  /agents/{backend}/invocations:
+    post:
+      description: 'Invoke an agent backend with a Responses-compatible request body.
+
+
+        The request body should contain at minimum an ``input`` field with a list
+
+        of message objects.  Returns the full ``ResponsesAgentResponse`` as a dict.'
+      operationId: invoke_agent_agents__backend__invocations_post
+      parameters:
+      - in: path
+        name: backend
+        required: true
+        schema:
+          title: Backend
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              title: Body
+              type: object
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Invoke Agent Agents  Backend  Invocations Post
+                type: object
+          description: Successful Response
+      summary: Invoke Agent
+      tags:
+      - agents
+  /capabilities:
+    get:
+      operationId: get_capabilities_capabilities_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilitiesResponse'
+          description: Successful Response
+      summary: Get Capabilities
+      tags:
+      - capabilities
   /chat/stream:
     post:
       operationId: chatStream
@@ -891,7 +1136,8 @@ paths:
         '200':
           content:
             application/json:
-              schema: {}
+              schema:
+                title: Response Agent Ask Examples Agent Ask Post
           description: Successful Response
       summary: Agent Ask
       tags:
@@ -909,7 +1155,8 @@ paths:
         '200':
           content:
             application/json:
-              schema: {}
+              schema:
+                title: Response Agent Ask Stream Examples Agent Ask Stream Post
           description: Successful Response
       summary: Agent Ask Stream
       tags:
@@ -927,7 +1174,8 @@ paths:
         '200':
           content:
             application/json:
-              schema: {}
+              schema:
+                title: Response Embed Examples Embed Post
           description: Successful Response
       summary: Embed
       tags:
@@ -952,7 +1200,9 @@ paths:
         '200':
           content:
             application/json:
-              schema: {}
+              schema:
+                title: Response Genie Start Conversation Examples Genie  Space Id  Ask
+                  Post
           description: Successful Response
       summary: Genie Start Conversation
       tags:
@@ -983,7 +1233,9 @@ paths:
         '200':
           content:
             application/json:
-              schema: {}
+              schema:
+                title: Response Genie Follow Up Examples Genie  Space Id   Conversation
+                  Id  Ask Post
           description: Successful Response
       summary: Genie Follow Up
       tags:
@@ -1004,7 +1256,8 @@ paths:
         '200':
           content:
             application/json:
-              schema: {}
+              schema:
+                title: Response Run Job Examples Job Post
           description: Successful Response
       summary: Run Job
       tags:
@@ -1022,7 +1275,8 @@ paths:
         '200':
           content:
             application/json:
-              schema: {}
+              schema:
+                title: Response Pg Demo Examples Pg Post
           description: Successful Response
       summary: Pg Demo
       tags:
@@ -1043,9 +1297,37 @@ paths:
         '200':
           content:
             application/json:
-              schema: {}
+              schema:
+                title: Response Serving Examples Serving Post
           description: Successful Response
       summary: Serving
+      tags:
+      - examples
+  /examples/sql:
+    post:
+      description: 'Run a governed SELECT on a SQL Warehouse via the statement API.
+
+
+        Uses the ``sql_warehouse`` app resource binding (DATABRICKS_WAREHOUSE_ID)
+
+        and the app''s service-principal auth — no drivers or tokens needed.
+
+        Synchronous by design: FastAPI runs ``def`` endpoints in a threadpool.'
+      operationId: query_warehouse_examples_sql_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SqlQuery'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                title: Response Query Warehouse Examples Sql Post
+          description: Successful Response
+      summary: Query Warehouse
       tags:
       - examples
   /examples/uc/download:
@@ -1062,7 +1344,8 @@ paths:
         '200':
           content:
             application/json:
-              schema: {}
+              schema:
+                title: Response Download Examples Uc Download Get
           description: Successful Response
       summary: Download
       tags:
@@ -1087,7 +1370,8 @@ paths:
         '200':
           content:
             application/json:
-              schema: {}
+              schema:
+                title: Response Upload Examples Uc Upload Post
           description: Successful Response
       summary: Upload
       tags:
@@ -1105,7 +1389,8 @@ paths:
         '200':
           content:
             application/json:
-              schema: {}
+              schema:
+                title: Response Vector Query Examples Vector Query Post
           description: Successful Response
       summary: Vector Query
       tags:
@@ -1123,7 +1408,8 @@ paths:
         '200':
           content:
             application/json:
-              schema: {}
+              schema:
+                title: Response Vector Store Examples Vector Store Post
           description: Successful Response
       summary: Vector Store
       tags:
@@ -1167,6 +1453,25 @@ paths:
       summary: Ready
       tags:
       - health
+  /knowledge/files:
+    post:
+      operationId: upload_knowledge_file_knowledge_files_post
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_upload_knowledge_file_knowledge_files_post'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeFileUploadResponse'
+          description: Successful Response
+      summary: Upload Knowledge File
+      tags:
+      - knowledge
   /me:
     get:
       operationId: getMe

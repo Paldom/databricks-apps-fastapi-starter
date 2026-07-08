@@ -1,4 +1,4 @@
-import { useTranslation } from '@/i18n/client'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 
 const languages = [
@@ -6,11 +6,16 @@ const languages = [
   { code: 'hu', label: 'HUN' },
 ] as const
 
-export function LanguageSwitcher() {
+type LanguageSwitcherProps = Readonly<{ labelledById?: string }>
+
+export function LanguageSwitcher({ labelledById }: LanguageSwitcherProps) {
   const { i18n } = useTranslation()
 
   return (
-    <div className="inline-flex items-center rounded-md border border-input">
+    <fieldset
+      aria-labelledby={labelledById}
+      className="inline-flex items-center rounded-md border border-input"
+    >
       {languages.map(({ code, label }, index) => {
         const isActive = i18n.resolvedLanguage === code
         const isFirst = index === 0
@@ -20,6 +25,7 @@ export function LanguageSwitcher() {
           <button
             key={code}
             type="button"
+            aria-pressed={isActive}
             onClick={() => i18n.changeLanguage(code)}
             className={cn(
               'inline-flex h-8 items-center justify-center px-3 text-xs font-medium transition-colors',
@@ -37,6 +43,6 @@ export function LanguageSwitcher() {
           </button>
         )
       })}
-    </div>
+    </fieldset>
   )
 }

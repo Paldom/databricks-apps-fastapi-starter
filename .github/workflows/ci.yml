@@ -1,60 +1,119 @@
 name: CI
 
 on:
-  pull_request:
-    branches: [main]
   push:
     branches: [main]
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  runtime-build:
-    name: Runtime Build (Python 3.11, Node 22)
+  backend-lint:
+    name: Backend lint
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: .
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-      - name: Set up Python
-        run: uv python install 3.11
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          node-version: '22.16.0'
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@f98e06938123ccabd21905ea5d0069192241f9f1 # v8.3.1
+        with:
+          enable-cache: true
+          python-version: '3.11'
+      - name: Install backend (locked)
+        run: cd backend && uv sync --locked
+      - name: Ruff check
+        run: cd backend && uv run ruff check .
+      - name: Ruff format check
+        run: cd backend && uv run ruff format --check .
+      - name: Bandit
+        run: cd backend && uv run bandit -r app -c pyproject.toml -q
+
+  backend-typecheck:
+    name: Backend typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@f98e06938123ccabd21905ea5d0069192241f9f1 # v8.3.1
+        with:
+          enable-cache: true
+          python-version: '3.11'
+      - name: Install backend (locked)
+        run: cd backend && uv sync --locked
+      - name: Mypy
+        run: cd backend && uv run mypy .
+
+  backend-test:
+    name: Backend test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # requires-python is ">=3.11,<3.12"; extend when the range widens.
+        python-version: ['3.11']
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@f98e06938123ccabd21905ea5d0069192241f9f1 # v8.3.1
+        with:
+          enable-cache: true
+          python-version: '3.11'
+      - name: Install backend (locked)
+        run: cd backend && uv sync --locked
+      - name: Pytest with coverage gate
+        env:
+          HYPOTHESIS_PROFILE: ci
+        run: cd backend && uv run pytest --cov
+
+  frontend:
+    name: Frontend build (Node 24)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          # Keep in sync with "engines" in frontend/package.json
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
-      - name: Install backend
-        run: cd backend && uv sync --extra dev
       - name: Install frontend
         run: cd frontend && npm ci
       - name: Build frontend
         run: cd frontend && npm run build
-      - name: Ruff
-        run: cd backend && uv run ruff check .
-      - name: Mypy
-        run: cd backend && uv run mypy --ignore-missing-imports .
-      - name: Bandit
-        run: cd backend && uv run bandit -r app -c pyproject.toml -q
-      - name: Pytest
-        run: cd backend && uv run pytest --cov .
 
-  contract-and-frontend:
-    name: Contract & Frontend (Node 24)
+  contracts:
+    name: Contract & Frontend checks (Node 24)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-      - name: Set up Python
-        run: uv python install 3.11
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@f98e06938123ccabd21905ea5d0069192241f9f1 # v8.3.1
+        with:
+          enable-cache: true
+          python-version: '3.11'
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: '24'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
-      - name: Install backend
-        run: cd backend && uv sync --extra dev
+      - name: Install backend (locked)
+        run: cd backend && uv sync --locked
       - name: Install frontend
         run: cd frontend && npm ci
       - name: Export backend OpenAPI
@@ -76,7 +135,7 @@ jobs:
       - name: Check requirements.txt is in sync
         run: |
           cd backend
-          uv export --no-hashes --no-editable --format=requirements.txt > /tmp/requirements-check.txt
+          uv export --no-dev --no-emit-project --no-hashes --no-editable --format=requirements.txt > /tmp/requirements-check.txt
           diff -u requirements.txt /tmp/requirements-check.txt || {
             echo "::error::requirements.txt is out of sync. Run: make requirements-export"
             exit 1
@@ -85,8 +144,36 @@ jobs:
   bundle-validate:
     name: Bundle Validate
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: databricks/setup-cli@main
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: databricks/setup-cli@71b5fa6b2b94c9a543658f65ebb6b477913f8626 # v1.6.0
       - name: Validate bundle (dev)
         run: databricks bundle validate -t dev
+
+  all-checks-passed:
+    name: all-checks-passed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs:
+      - backend-lint
+      - backend-typecheck
+      - backend-test
+      - frontend
+      - contracts
+      - bundle-validate
+    # Without this the job is skipped when a dependency fails — and a skipped
+    # required check counts as success.
+    if: always()
+    steps:
+      - name: Fail if any needed job did not succeed
+        env:
+          ANY_FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}
+        run: |
+          if [[ "$ANY_FAILED" == "true" ]]; then
+            echo "::error::A required job failed, was cancelled, or was skipped."
+            exit 1
+          fi
+          echo "All checks passed."

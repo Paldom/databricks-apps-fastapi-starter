@@ -1,9 +1,8 @@
-import os
-
-import pytest
 from unittest.mock import MagicMock
 
-from app.core.db.url import get_database_url
+import pytest
+
+from app.core.db.url import get_database_url, get_psycopg_database_url
 
 
 def _make_settings(**kwargs):
@@ -54,3 +53,18 @@ def test_raises_when_no_config(monkeypatch):
     s.pg_password = None
     with pytest.raises(ValueError, match="DATABASE_URL or PG"):
         get_database_url(s)
+
+
+def test_psycopg_url_strips_asyncpg_driver_from_database_url(monkeypatch):
+    monkeypatch.setenv(
+        "DATABASE_URL", "postgresql+asyncpg://myuser:mypassword@127.0.0.1:5432/mydb"
+    )
+    url = get_psycopg_database_url(_make_settings())
+    assert url == "postgresql://myuser:mypassword@127.0.0.1:5432/mydb"
+
+
+def test_psycopg_url_from_pg_settings_without_password(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    s = _make_settings(pg_password=None)
+    url = get_psycopg_database_url(s)
+    assert url == "postgresql://admin:@db.example.com:5432/mydb"

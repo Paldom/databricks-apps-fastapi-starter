@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button'
-import { useTranslation } from '@/i18n/client'
+import { useTranslation } from 'react-i18next'
 import {
   isRouteErrorResponse,
   useNavigate,

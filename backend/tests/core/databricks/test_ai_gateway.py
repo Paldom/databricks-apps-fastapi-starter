@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from app.core.databricks.ai_gateway import AiGatewayAdapter
 from app.core.errors import ExternalServiceError

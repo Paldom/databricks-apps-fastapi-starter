@@ -15,12 +15,18 @@ import { AssistantThread } from './assistant-thread'
 import { useChatRuntime } from '@/lib/assistant/use-chat-runtime'
 
 export function ChatShell() {
-  const { documentSidebarOpen } = useUIStore()
-  const runtime = useChatRuntime()
+  const documentSidebarOpen = useUIStore((state) => state.documentSidebarOpen)
+  const sidebarCollapsed = useUIStore((state) => state.sidebarCollapsed)
+  const setSidebarCollapsed = useUIStore((state) => state.setSidebarCollapsed)
+  const activeChatId = useUIStore((state) => state.activeChatId)
+  const runtime = useChatRuntime(activeChatId)
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <SidebarProvider defaultOpen>
+      <SidebarProvider
+        open={!sidebarCollapsed}
+        onOpenChange={(open) => setSidebarCollapsed(!open)}
+      >
         <AppSidebar />
         <SidebarInset className="flex flex-col overflow-hidden">
           <AppHeader />

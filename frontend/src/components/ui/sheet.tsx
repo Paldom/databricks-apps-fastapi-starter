@@ -1,9 +1,9 @@
 import * as React from 'react'
-import * as SheetPrimitive from '@radix-ui/react-dialog'
+import { Dialog as SheetPrimitive } from 'radix-ui'
 import { XIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { useTranslation } from '@/i18n/client'
+import { useTranslation } from 'react-i18next'
 
 function Sheet({
   ...props

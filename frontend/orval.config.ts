@@ -2,17 +2,23 @@ import { defineConfig } from 'orval'
 
 export default defineConfig({
   api: {
-    input: '../backend/openapi.yaml',
+    input: {
+      target: '../backend/openapi.yaml',
+      // The chat stream endpoint is consumed by the hand-written NDJSON
+      // adapter (src/lib/assistant); a generated react-query client for it
+      // would not compile and is never imported.
+      filters: {
+        mode: 'exclude',
+        tags: ['chat'],
+        // @ts-expect-error -- added in newer orval; no-op on the pinned 8.2.0
+        includeUnreferencedSchemas: true,
+      },
+    },
     output: {
       mode: 'tags-split',
       target: 'src/shared/api/generated/index.ts',
       schemas: 'src/shared/api/generated/models',
       client: 'react-query',
-      mock: {
-        type: 'msw',
-        useExamples: true,
-        delay: 100,
-      },
       override: {
         mutator: {
           path: 'src/shared/api/client.ts',

@@ -1,0 +1,188 @@
+- generic [ref=e3]:
+  - generic [ref=e6]:
+    - generic [ref=e7]:
+      - list [ref=e8]:
+        - listitem [ref=e9]:
+          - link "Logo React Starter Pro Enterprise" [ref=e10] [cursor=pointer]:
+            - /url: /
+            - img "Logo" [ref=e12]
+            - generic [ref=e13]:
+              - generic [ref=e14]: React Starter Pro
+              - generic [ref=e15]: Enterprise
+      - list [ref=e16]:
+        - listitem [ref=e17]:
+          - button "Add project" [ref=e18]:
+            - img [ref=e19]
+            - generic [ref=e21]: Add project
+        - listitem [ref=e22]:
+          - button "Search chats" [ref=e23]:
+            - img [ref=e24]
+            - generic [ref=e27]: Search chats
+    - generic [ref=e28]:
+      - generic [ref=e30]:
+        - generic [ref=e32]:
+          - button "Toggle Kids grass chats" [expanded] [ref=e33]:
+            - img [ref=e34]
+            - generic [ref=e36]: Toggle Kids grass chats
+          - generic [ref=e37]: Kids grass
+          - button "Open menu" [ref=e38]:
+            - img
+            - generic [ref=e39]: Open menu
+          - button "New chat" [ref=e40]:
+            - img
+        - list [ref=e43]:
+          - listitem [ref=e44]:
+            - button "Acceptus umbra provident peccatus studio totam avaritia" [ref=e45]:
+              - img [ref=e46]
+              - generic [ref=e48]: Acceptus umbra provident peccatus studio totam avaritia
+          - listitem [ref=e49]:
+            - button "Comis supra delicate asper vomica considero" [ref=e50]:
+              - img [ref=e51]
+              - generic [ref=e53]: Comis supra delicate asper vomica considero
+          - listitem [ref=e54]:
+            - button "Caute sumptus auditor" [ref=e55]:
+              - img [ref=e56]
+              - generic [ref=e58]: Caute sumptus auditor
+          - listitem [ref=e59]:
+            - button "Verus patior strenuus audax" [ref=e60]:
+              - img [ref=e61]
+              - generic [ref=e63]: Verus patior strenuus audax
+      - generic [ref=e65]:
+        - generic [ref=e67]:
+          - button "Toggle Baby fencing chats" [expanded] [ref=e68]:
+            - img [ref=e69]
+            - generic [ref=e71]: Toggle Baby fencing chats
+          - generic [ref=e72]: Baby fencing
+          - button "Open menu" [ref=e73]:
+            - img
+            - generic [ref=e74]: Open menu
+          - button "New chat" [ref=e75]:
+            - img
+        - list [ref=e78]:
+          - listitem [ref=e79]:
+            - button "Quia error cribro alioqui sub ademptio" [ref=e80]:
+              - img [ref=e81]
+              - generic [ref=e83]: Quia error cribro alioqui sub ademptio
+          - listitem [ref=e84]:
+            - button "Custodia dedecor vito desidero arceo taedium" [ref=e85]:
+              - img [ref=e86]
+              - generic [ref=e88]: Custodia dedecor vito desidero arceo taedium
+          - listitem [ref=e89]:
+            - button "Clementia comes deficio sapiente" [ref=e90]:
+              - img [ref=e91]
+              - generic [ref=e93]: Clementia comes deficio sapiente
+      - generic [ref=e95]:
+        - generic [ref=e97]:
+          - button "Toggle Industrial meander chats" [expanded] [ref=e98]:
+            - img [ref=e99]
+            - generic [ref=e101]: Toggle Industrial meander chats
+          - generic [ref=e102]: Industrial meander
+          - button "Open menu" [ref=e103]:
+            - img
+            - generic [ref=e104]: Open menu
+          - button "New chat" [ref=e105]:
+            - img
+        - list [ref=e108]:
+          - listitem [ref=e109]:
+            - button "Damnatio crapula voluptatum" [ref=e110]:
+              - img [ref=e111]
+              - generic [ref=e113]: Damnatio crapula voluptatum
+          - listitem [ref=e114]:
+            - button "Modi suasoria neque vulnus" [ref=e115]:
+              - img [ref=e116]
+              - generic [ref=e118]: Modi suasoria neque vulnus
+          - listitem [ref=e119]:
+            - button "Una consectetur voluptas cupiditas" [ref=e120]:
+              - img [ref=e121]
+              - generic [ref=e123]: Una consectetur voluptas cupiditas
+      - generic [ref=e125]:
+        - generic [ref=e127]:
+          - button "Toggle Movies airman chats" [expanded] [ref=e128]:
+            - img [ref=e129]
+            - generic [ref=e131]: Toggle Movies airman chats
+          - generic [ref=e132]: Movies airman
+          - button "Open menu" [ref=e133]:
+            - img
+            - generic [ref=e134]: Open menu
+          - button "New chat" [ref=e135]:
+            - img
+        - list [ref=e138]:
+          - listitem [ref=e139]:
+            - button "Caries in decens creta velociter terga" [ref=e140]:
+              - img [ref=e141]
+              - generic [ref=e143]: Caries in decens creta velociter terga
+          - listitem [ref=e144]:
+            - button "Thorax sum vulpes vetus textor" [ref=e145]:
+              - img [ref=e146]
+              - generic [ref=e148]: Thorax sum vulpes vetus textor
+          - listitem [ref=e149]:
+            - button "Tamisium aestus est theologus usus ulterius" [ref=e150]:
+              - img [ref=e151]
+              - generic [ref=e153]: Tamisium aestus est theologus usus ulterius
+      - generic [ref=e155]:
+        - generic [ref=e157]:
+          - button "Toggle Automotive lamp chats" [expanded] [ref=e158]:
+            - img [ref=e159]
+            - generic [ref=e161]: Toggle Automotive lamp chats
+          - generic [ref=e162]: Automotive lamp
+          - button "Open menu" [ref=e163]:
+            - img
+            - generic [ref=e164]: Open menu
+          - button "New chat" [ref=e165]:
+            - img
+        - list [ref=e168]:
+          - listitem [ref=e169]:
+            - button "Aspernatur theca crapula perferendis tabesco degenero convoco" [ref=e170]:
+              - img [ref=e171]
+              - generic [ref=e173]: Aspernatur theca crapula perferendis tabesco degenero convoco
+          - listitem [ref=e174]:
+            - button "Xiphias textilis theologus abscido soluta" [ref=e175]:
+              - img [ref=e176]
+              - generic [ref=e178]: Xiphias textilis theologus abscido soluta
+    - list [ref=e180]:
+      - listitem [ref=e181]:
+        - button "JD John Doe john@example.com" [ref=e182]:
+          - generic [ref=e184]: JD
+          - generic [ref=e185]:
+            - generic [ref=e186]: John Doe
+            - generic [ref=e187]: john@example.com
+          - img [ref=e188]
+  - main [ref=e190]:
+    - generic [ref=e191]:
+      - generic [ref=e192]:
+        - button "Toggle Sidebar" [ref=e193]:
+          - img
+          - generic [ref=e194]: Toggle Sidebar
+        - navigation "breadcrumb" [ref=e195]:
+          - list [ref=e196]:
+            - listitem [ref=e197]:
+              - generic [ref=e198]: Chat App
+      - generic [ref=e199]:
+        - group [ref=e200]:
+          - button "ENG" [pressed] [ref=e201]
+          - button "HUN" [ref=e202]
+        - button "Add document" [ref=e203]:
+          - img
+          - text: Add document
+        - button "Share" [ref=e204]:
+          - img
+          - text: Share
+        - button "Open menu" [ref=e205]:
+          - img
+          - generic [ref=e206]: Open menu
+    - generic [ref=e210]:
+      - generic [ref=e211]:
+        - paragraph [ref=e221]: Show me a tool call demo
+        - generic [ref=e223]:
+          - paragraph [ref=e225]: Hello! This is a mock response.
+          - generic [ref=e226]:
+            - text: search_documents
+            - generic [ref=e227]: "{\"query\":\"mock docs\"}"
+      - generic [ref=e214]:
+        - textbox "Type a message..." [active] [ref=e215]
+        - button "Send" [disabled]:
+          - img
+          - generic: Send
+  - generic [ref=e216]:
+    - heading "Command Palette" [level=2] [ref=e217]
+    - paragraph [ref=e218]: Search for a command to run...

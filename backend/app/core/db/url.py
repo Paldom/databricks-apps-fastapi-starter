@@ -8,14 +8,11 @@ from __future__ import annotations
 
 import os
 
-from sqlalchemy.engine import URL
+from sqlalchemy.engine import URL, make_url
 
 from app.core.config import Settings
 
-
-DATABASE_NOT_CONFIGURED_MESSAGE = (
-    "DATABASE_URL or PG* settings are not configured"
-)
+DATABASE_NOT_CONFIGURED_MESSAGE = "DATABASE_URL or PG* settings are not configured"
 
 
 def _build_asyncpg_url(
@@ -63,3 +60,14 @@ def get_database_url(settings: Settings) -> str:
         )
 
     raise ValueError(DATABASE_NOT_CONFIGURED_MESSAGE)
+
+
+def get_psycopg_database_url(settings: Settings) -> str:
+    """Build a plain ``postgresql://`` URL for psycopg-based clients.
+
+    Reuses :func:`get_database_url` so the connection parameters stay
+    canonical, then swaps SQLAlchemy's ``postgresql+asyncpg`` driver prefix
+    for the plain ``postgresql`` scheme that libpq/psycopg understands.
+    """
+    url = make_url(get_database_url(settings))
+    return url.set(drivername="postgresql").render_as_string(hide_password=False)

@@ -7,6 +7,11 @@
 
 # COMMAND ----------
 
+# MAGIC %pip install -q databricks-sdk databricks-vectorsearch
+# MAGIC %restart_python
+
+# COMMAND ----------
+
 from __future__ import annotations
 
 # COMMAND ----------

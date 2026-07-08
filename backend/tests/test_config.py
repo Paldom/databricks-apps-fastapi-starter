@@ -1,34 +1,31 @@
-import base64
-import types
-from app.core.config import get_secret
+"""Settings behavior: env binding, aliases, and coercion via pydantic-settings."""
+
+from app.core.config import Settings
 
 
-class DummySecret:
-    def __init__(self, value):
-        self.value = value
+def test_env_binding_by_field_name(monkeypatch):
+    monkeypatch.setenv("SERVING_ENDPOINT_NAME", "my-endpoint")
+    assert Settings().serving_endpoint_name == "my-endpoint"
 
 
-class DummyWorkspace:
-    def __init__(self, encoded):
-        self._encoded = encoded
-        self.secrets = types.SimpleNamespace(get_secret=self._get_secret)
-
-    def _get_secret(self, scope, key):
-        return DummySecret(self._encoded)
-
-
-def test_get_secret_decodes_base64(monkeypatch):
-    encoded = base64.b64encode(b"secret").decode()
-    monkeypatch.setattr(
-        "app.core.databricks.workspace.get_workspace_client_singleton",
-        lambda: DummyWorkspace(encoded),
-    )
-    assert get_secret("X", scope="s") == "secret"
+def test_bool_and_int_coercion(monkeypatch):
+    monkeypatch.setenv("ENABLE_OBO", "true")
+    monkeypatch.setenv("PGPORT", "5433")
+    s = Settings()
+    assert s.enable_obo is True
+    assert s.pg_port == 5433
 
 
-def test_get_secret_returns_none_on_failure(monkeypatch):
-    monkeypatch.setattr(
-        "app.core.databricks.workspace.get_workspace_client_singleton",
-        lambda: DummyWorkspace("not-base64"),
-    )
-    assert get_secret("X", scope="s") is None
+def test_pg_alias_choices(monkeypatch):
+    monkeypatch.setenv("PG_HOST", "alias-host")
+    monkeypatch.setenv("PGDATABASE", "canonical-db")
+    s = Settings()
+    assert s.pg_host == "alias-host"
+    assert s.pg_database == "canonical-db"
+
+
+def test_local_dev_auth_fallback_defaults_by_environment(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    assert Settings().local_dev_auth_fallback_enabled() is True
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    assert Settings().local_dev_auth_fallback_enabled() is False

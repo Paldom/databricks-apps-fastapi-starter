@@ -1,89 +1,94 @@
 {
   "app": {
-    "title": "Chat Alkalmazas",
+    "title": "Chat Alkalmazás",
     "name": "React Starter Pro",
-    "edition": "Vallalati",
-    "logoAlt": "Logo"
+    "edition": "Vállalati",
+    "logoAlt": "Logó"
   },
   "chat": {
-    "newChat": "Uj beszelgetes",
-    "searchChats": "Beszelgetesek keresese",
-    "searchPlaceholder": "Kereses a beszelgetesek kozott...",
-    "noResults": "Nem talalhato beszelgetes.",
-    "recentChats": "Legutobbi beszelgetesek",
-    "share": "Megosztas",
-    "rename": "Atnevezes",
-    "duplicate": "Masolas",
-    "delete": "Torles",
-    "confirmDelete": "Biztosan torolni szeretne ezt a beszelgetest?",
-    "emptyState": "Valasszon egy beszelgetest vagy kezdjen ujat"
+    "newChat": "Új beszélgetés",
+    "searchChats": "Beszélgetések keresése",
+    "searchPlaceholder": "Keresés a beszélgetések között...",
+    "noResults": "Nem található beszélgetés.",
+    "recentChats": "Legutóbbi beszélgetések",
+    "share": "Megosztás",
+    "rename": "Átnevezés",
+    "duplicate": "Másolás",
+    "delete": "Törlés",
+    "confirmDelete": "Biztosan törölni szeretné ezt a beszélgetést?",
+    "send": "Küldés",
+    "copy": "Másolás",
+    "copied": "Másolva",
+    "composerPlaceholder": "Írjon üzenetet...",
+    "threadEmpty": "Kezdjen beszélgetést egy üzenet beírásával alább.",
+    "copySuffix": "{{title}} (másolat)"
   },
   "project": {
-    "addProject": "Projekt hozzaadasa",
-    "editName": "Nev szerkesztese",
-    "remove": "Eltavolitas",
-    "selectProject": "Projekt kivalasztasa"
+    "addProject": "Projekt hozzáadása",
+    "editName": "Név szerkesztése",
+    "remove": "Eltávolítás",
+    "toggleChats": "{{name}} beszélgetéseinek megjelenítése vagy elrejtése"
   },
   "user": {
-    "settings": "Beallitasok",
-    "logOut": "Kijelentkezes"
+    "settings": "Beállítások",
+    "logOut": "Kijelentkezés"
   },
   "settings": {
-    "title": "Beallitasok",
+    "title": "Beállítások",
     "nav": {
-      "general": "Altalanos",
+      "general": "Általános",
       "profile": "Profil",
-      "notifications": "Ertesitesek"
+      "notifications": "Értesítések"
     },
     "general": {
-      "title": "Altalanos",
-      "theme": "Tema",
-      "themeDescription": "Valassza ki a kedvenc temajat.",
-      "light": "Vilagos",
-      "dark": "Sotet",
+      "title": "Általános",
+      "theme": "Téma",
+      "themeDescription": "Válassza ki a kívánt témát.",
+      "light": "Világos",
+      "dark": "Sötét",
       "language": "Nyelv",
-      "languageDescription": "Valassza ki a kedvenc nyelvet."
+      "languageDescription": "Válassza ki a kívánt nyelvet."
     },
     "profile": {
       "title": "Profil",
-      "name": "Nev",
+      "name": "Név",
       "email": "E-mail",
-      "save": "Mentes",
-      "cancel": "Megse",
-      "nameRequired": "A nev megadasa kotelezo",
-      "emailInvalid": "Kerjuk, adjon meg ervenyes e-mail cimet",
-      "saveError": "Nem sikerult menteni a beallitasokat. Probalkozzon ujra.",
-      "saveSuccess": "Beallitasok sikeresen mentve."
+      "save": "Mentés",
+      "cancel": "Mégse",
+      "nameRequired": "A név megadása kötelező",
+      "emailInvalid": "Kérjük, adjon meg egy érvényes e-mail-címet",
+      "saveError": "Nem sikerült menteni a beállításokat. Próbálja újra.",
+      "saveSuccess": "A beállítások mentése sikeres."
     },
     "notifications": {
-      "title": "Ertesitesek",
-      "enable": "Ertesitesek engedelyezese",
-      "enableDescription": "Ertesitesek fogadasa frissitesekrol es uzenetekrol."
+      "title": "Értesítések",
+      "enable": "Értesítések engedélyezése",
+      "enableDescription": "Értesítések fogadása a frissítésekről és üzenetekről."
     }
   },
   "document": {
     "title": "Dokumentumok",
-    "addDocument": "Dokumentum hozzaadasa",
-    "addedDocuments": "Hozzaadott dokumentumok",
-    "uploadNew": "Uj feltoltes",
-    "pending": "Feldolgozas...",
-    "ingested": "Kesz",
+    "addDocument": "Dokumentum hozzáadása",
+    "addedDocuments": "Hozzáadott dokumentumok",
+    "uploadNew": "Új feltöltése",
+    "pending": "Feldolgozás...",
+    "ingested": "Kész",
     "error": "Hiba",
-    "dropzoneIdle": "Huzd ide vagy kattints a feltolteshez",
-    "dropzoneActive": "Engedd el a fajlokat",
+    "dropzoneIdle": "Húzza ide a fájlokat, vagy kattintson a feltöltéshez",
+    "dropzoneActive": "Engedje el a fájlokat",
     "dropzoneAccepted": "PDF, DOC, DOCX, TXT, MD",
-    "removeDocument": "Dokumentum eltavolitasa"
+    "removeDocument": "Dokumentum eltávolítása"
   },
   "common": {
-    "loading": "Betoltes...",
-    "error": "Hiba tortent",
-    "retry": "Ujra",
-    "close": "Bezaras",
-    "loadingApplication": "Alkalmazas betoltese...",
-    "loadingTranslations": "Forditasok betoltese...",
-    "loadMore": "Tobb betoltese",
-    "openMenu": "Menu megnyitasa",
-    "more": "Tobb",
+    "loading": "Betöltés...",
+    "error": "Hiba történt",
+    "close": "Bezárás",
+    "save": "Mentés",
+    "cancel": "Mégse",
+    "loadingApplication": "Alkalmazás betöltése...",
+    "loadMore": "Továbbiak betöltése",
+    "openMenu": "Menü megnyitása",
+    "more": "Több",
     "units": {
       "byte": "B",
       "kilobyte": "KB",
@@ -92,19 +97,19 @@
     }
   },
   "errors": {
-    "title": "Valami rosszul sikerult",
-    "unexpected": "Varatlan hiba tortent.",
-    "requestFailed": "A kerest nem sikerult vegrehajtani, allapot: {{status}}.",
-    "tryAgain": "Probalja ujra",
-    "goHome": "Vissza a fokepernyore"
+    "title": "Valami hiba történt",
+    "unexpected": "Váratlan hiba történt.",
+    "requestFailed": "A kérés {{status}} állapotkóddal meghiúsult.",
+    "tryAgain": "Próbálja újra",
+    "goHome": "Vissza a főoldalra"
   },
   "sidebar": {
-    "title": "Oldalsav",
-    "description": "Megjeleniti a mobil oldalsavat.",
-    "toggle": "Oldalsav kapcsolasa"
+    "title": "Oldalsáv",
+    "description": "A mobil oldalsávot jeleníti meg.",
+    "toggle": "Oldalsáv ki- és bekapcsolása"
   },
   "command": {
-    "title": "Parancs paletta",
-    "description": "Keressen futtathato parancsot..."
+    "title": "Parancspaletta",
+    "description": "Keressen futtatható parancsot..."
   }
 }

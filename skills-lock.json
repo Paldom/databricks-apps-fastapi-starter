@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "add-skill": {
+      "source": "Paldom/github-skills",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/add-skill/SKILL.md",
+      "computedHash": "41631c5e8bf6228adc8828f457222e3bef9b743fdb3abd2035945f39b48114ed"
+    },
     "browser-extension-builder": {
       "source": "sickn33/antigravity-awesome-skills",
       "sourceType": "github",
@@ -15,6 +21,12 @@
       "source": "sickn33/antigravity-awesome-skills",
       "sourceType": "github",
       "computedHash": "038ce6fe6357843e33d96afa2a900c100066f0c9c2cab2d6562cdb3202ebc7c2"
+    },
+    "community-health": {
+      "source": "Paldom/github-skills",
+      "sourceType": "github",
+      "skillPath": "skills/community-health/SKILL.md",
+      "computedHash": "c15d65fdc70c9b720a70704ab46d5a8a4f892c54fae4f873fa2fa8630105212d"
     },
     "discord-bot-architect": {
       "source": "sickn33/antigravity-awesome-skills",
@@ -31,6 +43,12 @@
       "sourceType": "github",
       "computedHash": "dde8f558a17c6baa44f52d372e9f738bc35c099019da7e715d4be5bb76d9e5db"
     },
+    "issue-pr-templates": {
+      "source": "Paldom/github-skills",
+      "sourceType": "github",
+      "skillPath": "skills/issue-pr-templates/SKILL.md",
+      "computedHash": "8e05ebbefcadf21209b01c13dcea63d9a7ca1d98ad8894ed7962d543497f4afe"
+    },
     "langgraph-fundamentals": {
       "source": "langchain-ai/langchain-skills",
       "sourceType": "github",
@@ -41,10 +59,40 @@
       "sourceType": "github",
       "computedHash": "fc617bfab9d06826cba1097def5c7775f4522a1dabdd1a0111472f9929b1b914"
     },
+    "publish-repo": {
+      "source": "Paldom/github-skills",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/publish-repo/SKILL.md",
+      "computedHash": "317712a68461cc68ac3fd89c9a1ff11e98bab4788e4700751bbfd7c7545a4579"
+    },
     "python-testing-patterns": {
       "source": "wshobson/agents",
       "sourceType": "github",
       "computedHash": "c9ac74e0ecade3d4aacc89b8eb9eec63d9125a3a02e4bac9781ae0ca371227ad"
+    },
+    "readme-author": {
+      "source": "Paldom/github-skills",
+      "sourceType": "github",
+      "skillPath": "skills/readme-author/SKILL.md",
+      "computedHash": "7f1a72659fc79ffde2e8ad2a1a01dacb58964cdfc3f723b038cbbcc259c7bfa7"
+    },
+    "repo-audit": {
+      "source": "Paldom/github-skills",
+      "sourceType": "github",
+      "skillPath": "skills/repo-audit/SKILL.md",
+      "computedHash": "e172d47f1eaa1e1065bcb8bc403c2d38b58e5572ddeb4bdc015ecd9474f39e0e"
+    },
+    "repo-discoverability": {
+      "source": "Paldom/github-skills",
+      "sourceType": "github",
+      "skillPath": "skills/repo-discoverability/SKILL.md",
+      "computedHash": "a5760b6341e13abf08ab496368b60ced10eb97d3c5a7a441ea4befcc9aa1a994"
+    },
+    "repo-protections": {
+      "source": "Paldom/github-skills",
+      "sourceType": "github",
+      "skillPath": "skills/repo-protections/SKILL.md",
+      "computedHash": "1df702566cadf5e61720567c96b18f940a6c0a9727a0bbd9c87deb2822733d65"
     },
     "slack-bot-builder": {
       "source": "sickn33/antigravity-awesome-skills",

@@ -235,7 +235,7 @@ import os
 from sqlalchemy.ext.asyncio import create_async_engine
 
 # Set environment variable with full connection URL
-# LAKEBASE_PG_URL=postgresql://user:password@host:5432/database
+# LAKEBASE_PG_URL=postgresql://<user>:<password>@host:5432/database
 
 def get_database_url() -> str:
     """Get database URL from environment."""

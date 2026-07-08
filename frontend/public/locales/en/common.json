@@ -16,13 +16,18 @@
     "duplicate": "Duplicate",
     "delete": "Delete",
     "confirmDelete": "Are you sure you want to delete this chat?",
-    "emptyState": "Select a chat or start a new conversation"
+    "send": "Send",
+    "copy": "Copy",
+    "copied": "Copied",
+    "composerPlaceholder": "Type a message...",
+    "threadEmpty": "Start a conversation by typing a message below.",
+    "copySuffix": "{{title}} (copy)"
   },
   "project": {
     "addProject": "Add project",
     "editName": "Edit name",
     "remove": "Remove",
-    "selectProject": "Select project"
+    "toggleChats": "Toggle {{name}} chats"
   },
   "user": {
     "settings": "Settings",
@@ -77,10 +82,10 @@
   "common": {
     "loading": "Loading...",
     "error": "An error occurred",
-    "retry": "Retry",
     "close": "Close",
+    "save": "Save",
+    "cancel": "Cancel",
     "loadingApplication": "Loading application...",
-    "loadingTranslations": "Loading translations...",
     "loadMore": "Load more",
     "openMenu": "Open menu",
     "more": "More",

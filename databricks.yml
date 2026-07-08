@@ -4,8 +4,16 @@ bundle:
 
 include:
   - resources/*.yml
+  # Optional-capability modules (DESIGN.md): comment a line out to disable
+  # that module's Databricks resources.
+  - resources/modules/knowledge-diy.yml
+  # - resources/modules/cost-guardrail.yml   # scheduled app stop/start (opt-in)
+  # - resources/modules/supervisor-agent.yml  # Agent Bricks MAS binding stub (opt-in)
 
 sync:
+  # The built frontend is gitignored but must ship with the app source.
+  include:
+    - backend/public/**
   exclude:
     - backend/tests/**
     - frontend/**
@@ -20,8 +28,8 @@ sync:
 
 variables:
   app_name:
-    description: Databricks app name
-    default: databricks-apps-fastapi-starter
+    description: Databricks app name (Apps API limit is 30 characters)
+    default: fastapi-starter
   resource_name_suffix:
     description: Environment suffix for resource names
     default: dev
@@ -34,9 +42,6 @@ variables:
   enable_obo:
     description: Whether to enable OBO behavior
     default: "false"
-  cluster_node_type:
-    description: Node type for job clusters
-    default: i3.xlarge
   knowledge_assistant_endpoint_name:
     description: Name of the Knowledge Assistant serving endpoint (created in Agent Bricks)
     default: ""
@@ -55,9 +60,6 @@ variables:
   serving_agent_endpoint:
     description: Name of the serving agent endpoint
     default: ""
-  serving_agent_api_mode:
-    description: Serving agent API mode (responses or chat_completions)
-    default: responses
   serving_agent_uc_model_name:
     description: Unity Catalog model name for the serving agent
     default: ""
@@ -78,7 +80,9 @@ variables:
     default: ""
   langgraph_memory_backend:
     description: LangGraph memory backend (inmemory or lakebase)
-    default: inmemory
+    # Deployed apps always have the Lakebase binding, so chat memory is
+    # durable by default; local dev uses inmemory (see backend/env.example).
+    default: lakebase
   knowledge_volume_root:
     description: UC Volume root path for knowledge specialist
     default: ""
@@ -88,6 +92,9 @@ variables:
   vector_search_index_name:
     description: Vector Search index name for knowledge specialist
     default: ""
+  chat_endpoint_name:
+    description: Existing model serving endpoint the app queries for chat (FMAPI pay-per-token by default)
+    default: databricks-meta-llama-3-3-70b-instruct
   rag_catalog_name:
     description: Catalog for RAG schema/tables/volume
     default: main
@@ -106,6 +113,9 @@ variables:
   rag_raw_table_name:
     description: Raw uploaded documents Delta table
     default: main.starter_rag.rag_raw_documents
+  rag_summary_table_name:
+    description: Delta table for per-document ai_query() summaries
+    default: main.starter_rag.rag_document_summaries
   rag_chunk_table_name:
     description: Parsed and chunked documents Delta table
     default: main.starter_rag.rag_document_chunks
@@ -115,31 +125,51 @@ variables:
   agent_eval_dataset_name:
     description: Optional UC-backed MLflow evaluation dataset name
     default: ""
+  enable_docs:
+    description: Serve interactive API docs (/docs) from the app
+    default: "false"
   app_config:
     type: complex
-    description: Runtime config for the Databricks app
+    description: >-
+      Runtime config for the Databricks app, shared by all targets; per-target
+      differences come only from the scalar variables referenced below.
     default:
       command:
         - opentelemetry-instrument
         - python
         - run_app.py
       env:
+        # Optional specialist env vars (GENIE_SPACE_ID, SUPERVISOR_MODEL,
+        # SERVING_AGENT_ENDPOINT, KNOWLEDGE_ASSISTANT_ENDPOINT, ...) are
+        # omitted: bundles prune empty values and the Apps API rejects
+        # valueless entries. Add an entry with a real value to enable one.
+        # PGHOST/PGDATABASE/PGUSER are injected automatically by the Apps
+        # runtime from the lakebase-db resource binding — do not map them
+        # manually.
         - name: SERVE_STATIC
           value: "true"
         - name: ENABLE_DOCS
-          value: "false"
+          value: ${var.enable_docs}
         - name: ENVIRONMENT
-          value: development
+          value: ${var.environment}
         - name: LOG_LEVEL
-          value: INFO
+          value: ${var.log_level}
         - name: ENABLE_OBO
-          value: "false"
+          value: ${var.enable_obo}
         - name: ENABLE_DATABRICKS_INTEGRATIONS
           value: "true"
         - name: ENABLE_LOCAL_DEV_AUTH_FALLBACK
           value: "false"
         - name: OTEL_TRACES_SAMPLER
           value: always_on
+        # No OTLP collector runs inside the Apps runtime; point
+        # OTEL_EXPORTER_OTLP_ENDPOINT at a collector to re-enable export.
+        - name: OTEL_TRACES_EXPORTER
+          value: none
+        - name: OTEL_METRICS_EXPORTER
+          value: none
+        - name: OTEL_LOGS_EXPORTER
+          value: none
         - name: OTEL_PYTHON_LOG_CORRELATION
           value: "true"
         - name: SERVING_ENDPOINT_NAME
@@ -148,36 +178,8 @@ variables:
           value_from: app-job
         - name: VOLUME_ROOT
           value_from: uc-volume
-        - name: PGHOST
-          value_from: lakebase-db
-        - name: PGDATABASE
-          value_from: lakebase-db
-        - name: PGUSER
-          value_from: lakebase-db
-        - name: KNOWLEDGE_ASSISTANT_ENDPOINT
-          value_from: knowledge-assistant
-        - name: APP_AGENT_NAME
-          value: ${var.app_agent_name}
-        - name: GENIE_SPACE_ID
-          value: ${var.genie_space_id}
-        - name: SUPERVISOR_MODEL
-          value: ${var.supervisor_model}
-        - name: SERVING_AGENT_ENDPOINT
-          value_from: serving-agent
-        - name: AI_GATEWAY_EMBEDDING_MODEL
-          value: ${var.ai_gateway_embedding_model}
-        - name: TITLE_MODEL
-          value: ${var.title_model}
-        - name: SERVING_AGENT_API_MODE
-          value: ${var.serving_agent_api_mode}
         - name: LANGGRAPH_MEMORY_BACKEND
           value: ${var.langgraph_memory_backend}
-        - name: KNOWLEDGE_VOLUME_ROOT
-          value: ${var.knowledge_volume_root}
-        - name: VECTOR_SEARCH_ENDPOINT_NAME
-          value: ${var.vector_search_endpoint_name}
-        - name: VECTOR_SEARCH_INDEX_NAME
-          value: ${var.vector_search_index_name}
         - name: ENABLE_CHAT_TITLE_GENERATION
           value: "true"
         - name: MAX_UPLOAD_BYTES
@@ -197,77 +199,8 @@ targets:
       resource_name_suffix: dev
       environment: development
       log_level: DEBUG
+      enable_docs: "true"
       serving_agent_endpoint: serving-agent-dev
-      app_config:
-        command:
-          - opentelemetry-instrument
-          - python
-          - run_app.py
-        env:
-          - name: SERVE_STATIC
-            value: "true"
-          - name: ENABLE_DOCS
-            value: "true"
-          - name: ENVIRONMENT
-            value: development
-          - name: LOG_LEVEL
-            value: DEBUG
-          - name: ENABLE_OBO
-            value: "false"
-          - name: ENABLE_DATABRICKS_INTEGRATIONS
-            value: "true"
-          - name: ENABLE_LOCAL_DEV_AUTH_FALLBACK
-            value: "false"
-          - name: OTEL_TRACES_SAMPLER
-            value: always_on
-          - name: OTEL_PYTHON_LOG_CORRELATION
-            value: "true"
-          - name: SERVING_ENDPOINT_NAME
-            value_from: serving-endpoint
-          - name: JOB_ID
-            value_from: app-job
-          - name: VOLUME_ROOT
-            value_from: uc-volume
-          - name: PGHOST
-            value_from: lakebase-db
-          - name: PGDATABASE
-            value_from: lakebase-db
-          - name: PGUSER
-            value_from: lakebase-db
-          - name: KNOWLEDGE_ASSISTANT_ENDPOINT
-            value_from: knowledge-assistant
-          - name: APP_AGENT_NAME
-            value: ${var.app_agent_name}
-          - name: GENIE_SPACE_ID
-            value: ${var.genie_space_id}
-          - name: SUPERVISOR_MODEL
-            value: ${var.supervisor_model}
-          - name: SERVING_AGENT_ENDPOINT
-            value_from: serving-agent
-          - name: AI_GATEWAY_EMBEDDING_MODEL
-            value: ${var.ai_gateway_embedding_model}
-          - name: TITLE_MODEL
-            value: ${var.title_model}
-          - name: SERVING_AGENT_API_MODE
-            value: ${var.serving_agent_api_mode}
-          - name: LANGGRAPH_MEMORY_BACKEND
-            value: ${var.langgraph_memory_backend}
-          - name: KNOWLEDGE_VOLUME_ROOT
-            value: ${var.knowledge_volume_root}
-          - name: VECTOR_SEARCH_ENDPOINT_NAME
-            value: ${var.vector_search_endpoint_name}
-          - name: VECTOR_SEARCH_INDEX_NAME
-            value: ${var.vector_search_index_name}
-          - name: ENABLE_CHAT_TITLE_GENERATION
-            value: "true"
-          - name: MAX_UPLOAD_BYTES
-            value: "52428800"
-          - name: MLFLOW_TRACKING_URI
-            value: "databricks"
-          - name: MLFLOW_REGISTRY_URI
-            value: "databricks-uc"
-          - name: MLFLOW_EXPERIMENT_ID
-            value_from: experiment
   staging:
     workspace:
       root_path: /Shared/.bundle/${bundle.name}/${bundle.target}
@@ -275,7 +208,7 @@ targets:
       resource_name_suffix: stg
       environment: staging
       log_level: INFO
-      app_name: databricks-apps-fastapi-starter-stg
+      app_name: fastapi-starter-stg
       serving_agent_endpoint: serving-agent-stg
 
   prod:
@@ -286,75 +219,5 @@ targets:
       environment: production
       log_level: INFO
       enable_obo: "true"
-      app_name: databricks-apps-fastapi-starter-prod
+      app_name: fastapi-starter-prod
       serving_agent_endpoint: serving-agent-prod
-      app_config:
-        command:
-          - opentelemetry-instrument
-          - python
-          - run_app.py
-        env:
-          - name: SERVE_STATIC
-            value: "true"
-          - name: ENABLE_DOCS
-            value: "false"
-          - name: ENVIRONMENT
-            value: production
-          - name: LOG_LEVEL
-            value: INFO
-          - name: ENABLE_OBO
-            value: "true"
-          - name: ENABLE_DATABRICKS_INTEGRATIONS
-            value: "true"
-          - name: ENABLE_LOCAL_DEV_AUTH_FALLBACK
-            value: "false"
-          - name: OTEL_TRACES_SAMPLER
-            value: always_on
-          - name: OTEL_PYTHON_LOG_CORRELATION
-            value: "true"
-          - name: SERVING_ENDPOINT_NAME
-            value_from: serving-endpoint
-          - name: JOB_ID
-            value_from: app-job
-          - name: VOLUME_ROOT
-            value_from: uc-volume
-          - name: PGHOST
-            value_from: lakebase-db
-          - name: PGDATABASE
-            value_from: lakebase-db
-          - name: PGUSER
-            value_from: lakebase-db
-          - name: KNOWLEDGE_ASSISTANT_ENDPOINT
-            value_from: knowledge-assistant
-          - name: APP_AGENT_NAME
-            value: ${var.app_agent_name}
-          - name: GENIE_SPACE_ID
-            value: ${var.genie_space_id}
-          - name: SUPERVISOR_MODEL
-            value: ${var.supervisor_model}
-          - name: SERVING_AGENT_ENDPOINT
-            value_from: serving-agent
-          - name: AI_GATEWAY_EMBEDDING_MODEL
-            value: ${var.ai_gateway_embedding_model}
-          - name: TITLE_MODEL
-            value: ${var.title_model}
-          - name: SERVING_AGENT_API_MODE
-            value: ${var.serving_agent_api_mode}
-          - name: LANGGRAPH_MEMORY_BACKEND
-            value: ${var.langgraph_memory_backend}
-          - name: KNOWLEDGE_VOLUME_ROOT
-            value: ${var.knowledge_volume_root}
-          - name: VECTOR_SEARCH_ENDPOINT_NAME
-            value: ${var.vector_search_endpoint_name}
-          - name: VECTOR_SEARCH_INDEX_NAME
-            value: ${var.vector_search_index_name}
-          - name: ENABLE_CHAT_TITLE_GENERATION
-            value: "true"
-          - name: MAX_UPLOAD_BYTES
-            value: "52428800"
-          - name: MLFLOW_TRACKING_URI
-            value: "databricks"
-          - name: MLFLOW_REGISTRY_URI
-            value: "databricks-uc"
-          - name: MLFLOW_EXPERIMENT_ID
-            value_from: experiment

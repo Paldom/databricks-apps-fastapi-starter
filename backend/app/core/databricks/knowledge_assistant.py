@@ -1,11 +1,10 @@
 from collections.abc import AsyncIterator
 from logging import Logger
 
-from httpx import AsyncClient, HTTPStatusError
+from httpx import AsyncClient, HTTPStatusError, TimeoutException
 
-from app.core.errors import ExternalServiceError
+from app.core.errors import DatabricksAPIError, RequestTimeoutError
 from app.core.observability import get_tracer, safe_attr, tag_exception
-
 
 _tracer = get_tracer()
 
@@ -27,9 +26,7 @@ class KnowledgeAssistantAdapter:
                 "ka.endpoint": safe_attr(endpoint_name),
             },
         ) as span:
-            self._logger.info(
-                "Querying Knowledge Assistant endpoint %s", endpoint_name
-            )
+            self._logger.info("Querying Knowledge Assistant endpoint %s", endpoint_name)
             try:
                 resp = await self._client.post(
                     "/serving-endpoints/responses",
@@ -44,14 +41,21 @@ class KnowledgeAssistantAdapter:
             except HTTPStatusError as exc:
                 span.set_attribute("result", "error")
                 tag_exception(span, exc)
-                raise ExternalServiceError(
+                raise DatabricksAPIError(
                     f"Knowledge Assistant request failed: {exc.response.status_code}",
+                    cause=exc,
+                ) from exc
+            except TimeoutException as exc:
+                span.set_attribute("result", "error")
+                tag_exception(span, exc)
+                raise RequestTimeoutError(
+                    f"Knowledge Assistant request timed out: {endpoint_name}",
                     cause=exc,
                 ) from exc
             except Exception as exc:
                 span.set_attribute("result", "error")
                 tag_exception(span, exc)
-                raise ExternalServiceError(str(exc), cause=exc) from exc
+                raise DatabricksAPIError(str(exc), cause=exc) from exc
 
     async def ask_stream(
         self, endpoint_name: str, messages: list[dict]
@@ -81,15 +85,15 @@ class KnowledgeAssistantAdapter:
                     if resp.is_error:
                         body = (await resp.aread()).decode("utf-8", errors="ignore")
                         span.set_attribute("result", "error")
-                        raise ExternalServiceError(
+                        raise DatabricksAPIError(
                             f"Knowledge Assistant stream failed: {resp.status_code} {body}"
                         )
                     span.set_attribute("result", "ok")
                     async for chunk in resp.aiter_bytes():
                         yield chunk
-            except ExternalServiceError:
+            except DatabricksAPIError:
                 raise
             except Exception as exc:
                 span.set_attribute("result", "error")
                 tag_exception(span, exc)
-                raise ExternalServiceError(str(exc), cause=exc) from exc
+                raise DatabricksAPIError(str(exc), cause=exc) from exc

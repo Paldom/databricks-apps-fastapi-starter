@@ -1,8 +1,10 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { http, HttpResponse } from 'msw'
 import { SettingsDialog } from './settings-dialog'
 import { resetUIStore, createTestQueryClient } from '@/test/utils'
+import { server } from '@/mocks/server'
 import { QueryClientProvider } from '@tanstack/react-query'
 
 function renderDialog() {
@@ -109,7 +111,12 @@ describe('SettingsDialog', () => {
 
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
-    expect(screen.getByText('Name is required')).toBeInTheDocument()
+    // react-hook-form validates asynchronously on submit
+    expect(await screen.findByText('Name is required')).toBeInTheDocument()
+    expect(screen.getByLabelText('Name')).toHaveAttribute(
+      'aria-invalid',
+      'true'
+    )
   })
 
   it('shows validation error for invalid email', async () => {
@@ -129,8 +136,12 @@ describe('SettingsDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
     expect(
-      screen.getByText('Please enter a valid email address')
+      await screen.findByText('Please enter a valid email address')
     ).toBeInTheDocument()
+    expect(screen.getByLabelText('Email')).toHaveAttribute(
+      'aria-invalid',
+      'true'
+    )
   })
 
   it('saves settings and shows success message', async () => {
@@ -152,6 +163,36 @@ describe('SettingsDialog', () => {
     await waitFor(() => {
       expect(
         screen.getByText('Settings saved successfully.')
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('shows error message when save fails', async () => {
+    server.use(
+      http.put('*/api/settings', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 })
+      )
+    )
+
+    const user = userEvent.setup()
+    renderDialog()
+
+    await user.click(screen.getByRole('button', { name: /profile/i }))
+
+    // Wait for server data to load into the form
+    const nameInput = await screen.findByLabelText('Name')
+    await waitFor(() => {
+      expect((nameInput as HTMLInputElement).value).not.toBe('')
+    })
+
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Someone Else')
+
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Failed to save settings. Please try again.')
       ).toBeInTheDocument()
     })
   })

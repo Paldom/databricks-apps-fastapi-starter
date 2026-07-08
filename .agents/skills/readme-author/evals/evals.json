@@ -1,0 +1,76 @@
+{
+  "skill": "readme-author",
+  "cases": [
+    { "type": "should_trigger", "prompt": "write a README for this project" },
+    { "type": "should_trigger", "prompt": "my readme is a mess, restructure it" },
+    { "type": "should_trigger", "prompt": "can u make the readme less bloated" },
+    { "type": "should_trigger", "prompt": "draft a professional README for my CLI tool" },
+    { "type": "should_trigger", "prompt": "improve the readme so people actually try the project" },
+    { "type": "should_trigger", "prompt": "review my README and tell me what's missing" },
+    { "type": "should_trigger", "prompt": "the readme reads like AI slop, tighten it up" },
+    { "type": "should_trigger", "prompt": "add a quick start section to the readme" },
+    { "type": "should_trigger", "prompt": "new OSS project, I need a landing-page quality readme" },
+    { "type": "should_trigger", "prompt": "readme.md for a python library pls" },
+    { "type": "should_trigger", "prompt": "the readme is out of date after the refactor, sync it with the code" },
+    { "type": "should_trigger", "prompt": "our README still documents the old CLI flags, bring it up to date" },
+    { "type": "should_not_trigger", "prompt": "add topics to my repo so people can find it" },
+    { "type": "should_not_trigger", "prompt": "set a social preview image for the repo" },
+    { "type": "should_not_trigger", "prompt": "write CONTRIBUTING.md for this project" },
+    { "type": "should_not_trigger", "prompt": "add a bug report template" },
+    { "type": "should_not_trigger", "prompt": "protect the main branch" },
+    { "type": "should_not_trigger", "prompt": "audit my repo, how professional is it overall?" },
+    { "type": "should_not_trigger", "prompt": "write API reference docs for this module" },
+    { "type": "should_not_trigger", "prompt": "generate a changelog from the commit history" },
+    { "type": "should_not_trigger", "prompt": "make my github profile readme with stats widgets" },
+    {
+      "type": "quality",
+      "prompt": "Write a README for this repo - it's a Python CLI that syncs dotfiles across machines",
+      "expected_behavior": [
+        "inspects the repo first and uses real install/run commands, never invented ones",
+        "produces H1 + one-line value proposition, at most 5 trust badges, and a copy-pasteable install + smallest-success usage block near the top",
+        "orders sections identity -> proof -> activation -> expansion -> participation -> governance and links out for depth instead of inlining it",
+        "total length appropriate to the project (roughly 200-800 words for a small CLI)",
+        "runs scripts/readme_lint.py on the result and fixes anything it reports"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "My README is 900 lines long. Restructure it without losing information.",
+      "expected_behavior": [
+        "moves deep content into docs/ (or linked files) rather than deleting it",
+        "front-loads what/why/quick-start into the first screen",
+        "adds a table of contents only if the result still exceeds ~400 lines",
+        "does not invent new claims or features while restructuring"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "Write a readme for a brand-new empty repo - we only have the idea: a rust crate for fuzzy time parsing",
+      "expected_behavior": [
+        "derives a plausible one-line value proposition from the idea and marks unknown details as clearly-labelled placeholders",
+        "does not add badges pointing at CI or registries that do not exist yet",
+        "keeps the skeleton short and flags which sections to fill in after code exists"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "we renamed the env vars and added a new subcommand last sprint - update the README",
+      "expected_behavior": [
+        "diffs the recent changes first and starts from the mapped sections (Configuration for env vars, Usage for the subcommand), then searches the whole README for the old identifiers",
+        "preserves the README's existing tone, structure, and formatting - a sync, not a rewrite",
+        "prunes old env var names everywhere; if something is deprecated-but-working it is marked with its replacement instead of deleted",
+        "verifies commands safely (existence/static checks, dry-runs only - nothing mutating or networked) and lists anything left unverified",
+        "re-runs the lint script after the sync"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "add badges to my readme",
+      "expected_behavior": [
+        "adds at most ~5 meaningful trust badges (CI status, license, version/coverage where real)",
+        "verifies the CI workflow file exists before adding its badge and uses the correct actions badge URL",
+        "uses a static shields.io badge for the license and avoids decorative badge walls"
+      ]
+    }
+  ]
+}

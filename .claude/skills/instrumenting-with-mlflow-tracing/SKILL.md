@@ -1,6 +1,6 @@
 ---
 name: instrumenting-with-mlflow-tracing
-description: Instruments Python and TypeScript code with MLflow Tracing for observability. Must be loaded when setting up tracing as part of any workflow including agent evaluation. Triggers on adding tracing, instrumenting agents/LLM apps, getting started with MLflow tracing, tracing specific frameworks (LangGraph, LangChain, OpenAI, DSPy, CrewAI, AutoGen), or when another skill references tracing setup. Examples - "How do I add tracing?", "Instrument my agent", "Trace my LangChain app", "Set up tracing for evaluation"
+description: Instruments Python and TypeScript code with MLflow Tracing for observability. Must be loaded when setting up tracing as part of any workflow including agent evaluation. Triggers on adding tracing, instrumenting agents/LLM apps, getting started with MLflow tracing, tracing specific frameworks (LangGraph, LangChain, OpenAI, Gemini, DSPy, CrewAI, AutoGen), or when another skill references tracing setup. Examples - "How do I add tracing?", "Instrument my agent", "Trace my LangChain app", "Set up tracing for evaluation"
 ---
 
 # MLflow Tracing Instrumentation Guide
@@ -59,7 +59,28 @@ print(f"Found {len(traces)} trace(s)")
 assert len(traces) > 0, "No traces were logged — check tracking URI and experiment settings"
 ```
 
-3. **Report the result** — tell the user how many traces were found and confirm tracing is working
+3. **Verify spans were captured** — confirm the trace contains the expected spans, not just an empty shell:
+
+```python
+trace = traces.iloc[0]
+spans = mlflow.get_trace(trace.trace_id).data.spans
+print(f"Trace has {len(spans)} span(s)")
+for span in spans:
+    print(f"  - {span.name} ({span.span_type})")
+```
+
+4. **Report the result** — tell the user how many traces and spans were found and confirm tracing is working
+
+### If no traces appear
+
+Check these in order:
+
+- **Tracking URI not set** — is `mlflow.set_tracking_uri(...)` called before the agent run? Without this, traces go to a local `./mlruns` directory instead of the configured server.
+- **Autolog warnings** — did `mlflow.autolog()` or framework-specific `mlflow.<framework>.autolog()` raise any warnings during setup? Check stderr for patching failures.
+- **Wrong experiment ID** — verify the experiment ID passed to `search_traces()` matches the experiment active when the code ran (`mlflow.get_experiment_by_name(...)` to confirm).
+- **Network/auth issues** — can the process reach the tracking server? Check for connection errors or 401/403 responses in logs.
+
+For automated validation, use `agent-evaluation/scripts/validate_tracing_runtime.py`.
 
 ---
 

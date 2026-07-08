@@ -1,0 +1,60 @@
+{
+  "skill": "issue-pr-templates",
+  "cases": [
+    { "type": "should_trigger", "prompt": "add issue templates" },
+    { "type": "should_trigger", "prompt": "create a bug report form with required fields" },
+    { "type": "should_trigger", "prompt": "set up YAML issue forms" },
+    { "type": "should_trigger", "prompt": "add a pull request template" },
+    { "type": "should_trigger", "prompt": "make a feature request template" },
+    { "type": "should_trigger", "prompt": "stop blank issues and route questions to discussions" },
+    { "type": "should_trigger", "prompt": "issue forms + labels pls" },
+    { "type": "should_trigger", "prompt": "set up good first issue and help wanted labels" },
+    { "type": "should_trigger", "prompt": "our bug reports are useless - make reporters fill in repro steps" },
+    { "type": "should_trigger", "prompt": "why isn't my issue form showing up on github?" },
+    { "type": "should_not_trigger", "prompt": "write CONTRIBUTING.md" },
+    { "type": "should_not_trigger", "prompt": "triage these open issues for me" },
+    { "type": "should_not_trigger", "prompt": "write a README" },
+    { "type": "should_not_trigger", "prompt": "require pull requests before merging to main" },
+    { "type": "should_not_trigger", "prompt": "review this pull request" },
+    { "type": "should_not_trigger", "prompt": "add topics to the repo" },
+    { "type": "should_not_trigger", "prompt": "auto-close stale issues after 60 days" },
+    { "type": "should_not_trigger", "prompt": "set up github discussions categories" },
+    {
+      "type": "quality",
+      "prompt": "set up issue templates for this repo",
+      "expected_behavior": [
+        "creates .github/ISSUE_TEMPLATE/bug_report.yml and feature_request.yml as YAML issue forms (not legacy markdown), with required fields and auto-applied labels",
+        "adds config.yml with blank_issues_disabled and contact_links routing questions/security away from issues",
+        "uses valid schema (body element types, validations.required) and validates with check-jsonschema --builtin-schema vendor.github-issue-forms",
+        "labels referenced by the forms actually exist or are created via gh label"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "add a PR template",
+      "expected_behavior": [
+        "creates a single .github/PULL_REQUEST_TEMPLATE.md with an actionable checklist (tests run, docs updated, linked issue)",
+        "keeps it short enough that contributors actually fill it in",
+        "if multiple templates are requested, explains GitHub has no picker UI and shows the ?template= workaround"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "why isn't my issue form showing?",
+      "expected_behavior": [
+        "checks file location (.github/ISSUE_TEMPLATE/), .yml extension, presence on the default branch, and schema validity in that order",
+        "runs or recommends check-jsonschema to pinpoint the schema error",
+        "explains forms only render for the default branch"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "make reporters include their version and repro steps",
+      "expected_behavior": [
+        "uses input/textarea elements with validations.required: true",
+        "uses render: shell (or similar) for log/output fields so formatting survives",
+        "keeps optional fields optional - required-everything forms deter reports"
+      ]
+    }
+  ]
+}

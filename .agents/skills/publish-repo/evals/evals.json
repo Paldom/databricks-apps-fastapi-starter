@@ -1,0 +1,48 @@
+{
+  "skill": "publish-repo",
+  "cases": [
+    { "type": "should_trigger", "prompt": "publish this repo to skills.sh" },
+    { "type": "should_trigger", "prompt": "deploy the skills repo" },
+    { "type": "should_trigger", "prompt": "make this repo public and get it listed" },
+    { "type": "should_trigger", "prompt": "release this skills collection" },
+    { "type": "should_trigger", "prompt": "go live with these skills" },
+    { "type": "should_trigger", "prompt": "how do I get this on the skills.sh leaderboard?" },
+    { "type": "should_trigger", "prompt": "flip the repo public and verify installs work" },
+    { "type": "should_trigger", "prompt": "ship it - publish the repo" },
+    { "type": "should_not_trigger", "prompt": "add a skill for changelog drafting" },
+    { "type": "should_not_trigger", "prompt": "fix the trigger evals of the linting skill" },
+    { "type": "should_not_trigger", "prompt": "run make check" },
+    { "type": "should_not_trigger", "prompt": "push my latest commit" },
+    { "type": "should_not_trigger", "prompt": "update the CI workflow" },
+    { "type": "should_not_trigger", "prompt": "install skills from vercel-labs/agent-skills" },
+    { "type": "should_not_trigger", "prompt": "publish my npm package" },
+    { "type": "should_not_trigger", "prompt": "write the README catalog table" },
+    {
+      "type": "quality",
+      "prompt": "/publish-repo",
+      "expected_behavior": [
+        "runs the pre-flight gates (make check, npx skills add . --list, skills.sh.json parse) and stops on any failure",
+        "requires explicit user confirmation of the secret-history scan and personal-file review before flipping visibility",
+        "after the flip: enables PVR, applies the solo-default ruleset, performs the consumer-style verification install locally to seed telemetry",
+        "reports the install command and that the skills.sh page lags the seed install"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "/publish-repo --dry-run",
+      "expected_behavior": [
+        "runs every read-only gate and reports readiness",
+        "does not change visibility or any repo setting",
+        "lists the manual blockers still awaiting user confirmation"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "publish this repo (it has no skills yet)",
+      "expected_behavior": [
+        "refuses: an empty catalogue is never published",
+        "points to add-skill / the goal prompt to build skills first"
+      ]
+    }
+  ]
+}

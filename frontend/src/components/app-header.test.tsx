@@ -1,5 +1,5 @@
 import { MemoryRouter } from 'react-router-dom'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { act, render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppHeader } from './app-header'
@@ -13,7 +13,7 @@ import { server } from '@/mocks/server'
 import { http, HttpResponse } from 'msw'
 
 function RuntimeWrapper({ children }: Readonly<{ children: React.ReactNode }>) {
-  const runtime = useChatRuntime()
+  const runtime = useChatRuntime(null)
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       {children}
@@ -188,15 +188,11 @@ describe('AppHeader', () => {
     await user.click(screen.getByRole('button', { name: /open menu/i }))
     await user.click(await screen.findByText('Rename'))
 
-    // Click the save (check) button - it's the first icon button inside the rename form
     const input = screen.getByDisplayValue('Test Chat')
     await user.clear(input)
     await user.type(input, 'New Name')
 
-    // Find the check/save button (first small icon button after input)
-    const renameForm = input.closest('div')!
-    const buttons = renameForm.querySelectorAll('button')
-    await user.click(buttons[0]) // save button
+    await user.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => {
       expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
@@ -215,12 +211,80 @@ describe('AppHeader', () => {
     await user.click(screen.getByRole('button', { name: /open menu/i }))
     await user.click(await screen.findByText('Rename'))
 
-    const input = screen.getByDisplayValue('Test Chat')
-    const renameForm = input.closest('div')!
-    const buttons = renameForm.querySelectorAll('button')
-    await user.click(buttons[1]) // cancel button
+    expect(screen.getByDisplayValue('Test Chat')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  })
+
+  it('does not rename the newly active chat when the active chat switches mid-rename', async () => {
+    setupProjectAndChat()
+    const patchedIds: string[] = []
+    server.use(
+      http.get('*/api/projects/proj-1/chats', () => {
+        return HttpResponse.json({
+          items: [
+            {
+              id: 'chat-1',
+              title: 'Test Chat',
+              projectId: 'proj-1',
+              createdAt: '2024-01-01T00:00:00Z',
+              updatedAt: '2024-01-01T00:00:00Z',
+            },
+            {
+              id: 'chat-2',
+              title: 'Other Chat',
+              projectId: 'proj-1',
+              createdAt: '2024-01-01T00:00:00Z',
+              updatedAt: '2024-01-01T00:00:00Z',
+            },
+          ],
+          nextCursor: null,
+          hasMore: false,
+        })
+      }),
+      http.patch('*/api/chats/:chatId', ({ params }) => {
+        patchedIds.push(params.chatId as string)
+        return HttpResponse.json({
+          id: params.chatId,
+          title: 'Hijacked Title',
+          projectId: 'proj-1',
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: new Date().toISOString(),
+        })
+      })
+    )
+    const user = userEvent.setup()
+    renderHeader()
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Chat')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /open menu/i }))
+    await user.click(await screen.findByText('Rename'))
+
+    const input = screen.getByDisplayValue('Test Chat')
+    await user.clear(input)
+    await user.type(input, 'Hijacked Title')
+
+    // Switch the active chat mid-rename via the store
+    act(() => {
+      useUIStore.getState().setActiveChatId('chat-2')
+    })
+
+    // The rename is dismissed rather than applied to the newly active chat
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Other Chat')).toBeInTheDocument()
+    })
+
+    // Attempting to save anyway must not rename any chat
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => {
+      expect(patchedIds).toEqual([])
+    })
+    expect(screen.getByText('Other Chat')).toBeInTheDocument()
   })
 
   it('dismisses rename if value is empty', async () => {

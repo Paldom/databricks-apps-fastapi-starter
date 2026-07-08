@@ -77,7 +77,9 @@ class DocumentRepository:
         )
         return result.rowcount > 0
 
-    async def get_document(self, owner_user_id: str, document_id: str) -> FileRecord | None:
+    async def get_document(
+        self, owner_user_id: str, document_id: str
+    ) -> FileRecord | None:
         result = await self._session.execute(
             select(FileRecord).where(
                 FileRecord.id == uuid.UUID(document_id),

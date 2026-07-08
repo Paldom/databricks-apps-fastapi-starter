@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Loader2, MessageSquare } from 'lucide-react'
-import { useTranslation } from '@/i18n/client'
+import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/shared/store/ui'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import {
@@ -32,12 +32,10 @@ function groupByProject(
 
 export function ChatSearchDialog() {
   const { t } = useTranslation()
-  const {
-    searchDialogOpen,
-    setSearchDialogOpen,
-    setActiveChatId,
-    setActiveProjectId,
-  } = useUIStore()
+  const searchDialogOpen = useUIStore((s) => s.searchDialogOpen)
+  const setSearchDialogOpen = useUIStore((s) => s.setSearchDialogOpen)
+  const setActiveChatId = useUIStore((s) => s.setActiveChatId)
+  const setActiveProjectId = useUIStore((s) => s.setActiveProjectId)
 
   const [searchTerm, setSearchTerm] = React.useState('')
   const debouncedTerm = useDebouncedValue(searchTerm, 300)
@@ -62,12 +60,11 @@ export function ChatSearchDialog() {
     }
   )
 
-  // Reset search term when dialog closes
-  React.useEffect(() => {
-    if (!searchDialogOpen) {
-      setSearchTerm('')
-    }
-  }, [searchDialogOpen])
+  const handleOpenChange = (open: boolean) => {
+    setSearchDialogOpen(open)
+    // Reset search term when dialog closes
+    if (!open) setSearchTerm('')
+  }
 
   // Keyboard shortcut: Ctrl/Cmd + K
   React.useEffect(() => {
@@ -116,7 +113,7 @@ export function ChatSearchDialog() {
   return (
     <CommandDialog
       open={searchDialogOpen}
-      onOpenChange={setSearchDialogOpen}
+      onOpenChange={handleOpenChange}
       shouldFilter={false}
     >
       <CommandInput

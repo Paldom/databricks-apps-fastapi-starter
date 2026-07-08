@@ -1,0 +1,35 @@
+# Cost-guardrail module: scheduled stop/start for the app's compute.
+#
+# Apps have no scale-to-zero; this stops the app on weekday evenings and
+# starts it before working hours (times are UTC — adjust to your team).
+# Ships DISABLED: uncomment its line in databricks.yml's `include:` list.
+
+resources:
+  jobs:
+    app_stop_job:
+      name: AppStop-${var.resource_name_suffix}
+      max_concurrent_runs: 1
+      schedule:
+        quartz_cron_expression: "0 0 19 ? * MON-FRI"
+        timezone_id: UTC
+      tasks:
+        - task_key: stop_app
+          notebook_task:
+            notebook_path: ../../notebooks/jobs/app_scheduler.py
+            base_parameters:
+              app_name: ${var.app_name}
+              action: stop
+
+    app_start_job:
+      name: AppStart-${var.resource_name_suffix}
+      max_concurrent_runs: 1
+      schedule:
+        quartz_cron_expression: "0 0 6 ? * MON-FRI"
+        timezone_id: UTC
+      tasks:
+        - task_key: start_app
+          notebook_task:
+            notebook_path: ../../notebooks/jobs/app_scheduler.py
+            base_parameters:
+              app_name: ${var.app_name}
+              action: start

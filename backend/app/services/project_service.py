@@ -10,7 +10,9 @@ class ProjectService:
 
     async def list_projects(self, cursor: str | None, limit: int) -> dict:
         items, next_cursor, has_more = await self._repo.list_projects(
-            self._user_id, cursor, limit,
+            self._user_id,
+            cursor,
+            limit,
         )
         return {"items": items, "next_cursor": next_cursor, "has_more": has_more}
 

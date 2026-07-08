@@ -48,13 +48,17 @@ class ChatOrchestrator:
                 _attach_trace_metadata(thread_id, context)
 
                 input_state = await build_graph_input(
-                    messages, thread_id, self._checkpointer,
+                    messages,
+                    thread_id,
+                    self._checkpointer,
                 )
                 config = {"configurable": {"thread_id": thread_id}}
 
                 seen_tools: set[str] = set()
                 async for event in self._agent.astream_events(
-                    input=input_state, config=config, version="v2",
+                    input=input_state,
+                    config=config,
+                    version="v2",
                 ):
                     for ndjson_event in _translate_event(event, seen_tools):
                         yield ndjson_event
@@ -73,9 +77,7 @@ class ChatOrchestrator:
 
             except Exception as exc:
                 tag_exception(span, exc)
-                self._logger.exception(
-                    "Chat orchestrator error (thread=%s)", thread_id
-                )
+                self._logger.exception("Chat orchestrator error (thread=%s)", thread_id)
                 error: dict[str, Any] = {
                     "type": "error",
                     "message": str(exc),
@@ -125,17 +127,21 @@ def _translate_event(
             args = tc.get("args")
             if name and tc_id not in seen_tools:
                 seen_tools.add(tc_id)
-                out.append({
-                    "type": "tool-call-begin",
-                    "tool_call_id": tc_id,
-                    "tool_name": name,
-                })
+                out.append(
+                    {
+                        "type": "tool-call-begin",
+                        "tool_call_id": tc_id,
+                        "tool_name": name,
+                    }
+                )
             if args:
-                out.append({
-                    "type": "tool-call-delta",
-                    "tool_call_id": tc_id,
-                    "args_delta": args,
-                })
+                out.append(
+                    {
+                        "type": "tool-call-delta",
+                        "tool_call_id": tc_id,
+                        "args_delta": args,
+                    }
+                )
 
     return out
 
@@ -145,9 +151,7 @@ def _translate_event(
 # ---------------------------------------------------------------------------
 
 
-def _attach_trace_metadata(
-    thread_id: str | None, context: ChatContext | None
-) -> None:
+def _attach_trace_metadata(thread_id: str | None, context: ChatContext | None) -> None:
     update_trace_context(
         session_id=thread_id,
         user_id=context.user_id if context else None,

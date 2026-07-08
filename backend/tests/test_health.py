@@ -1,5 +1,3 @@
-from unittest.mock import AsyncMock, MagicMock, patch
-
 from fastapi.testclient import TestClient
 
 import app.main as app_main
@@ -10,7 +8,7 @@ from app.core.deps import get_settings
 def _api_app():
     for route in app_main.app.routes:
         if getattr(route, "path", None) == "/api":
-            return route.app
+            return route.app  # type: ignore[attr-defined]
     raise AssertionError("Mounted /api app not found")
 
 
@@ -35,7 +33,7 @@ def test_health_ready_503_when_no_db(monkeypatch):
     """When the runtime has no engine, /health/ready returns 503."""
     with TestClient(app_main.app) as client:
         # Override the runtime to have no engine
-        client.app.state.runtime.engine = None
+        client.app.state.runtime.engine = None  # type: ignore[attr-defined]
         response = client.get("/api/health/ready")
     assert response.status_code == 503
     data = response.json()

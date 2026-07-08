@@ -9,13 +9,16 @@ future feedback linkage.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel, Field
 
 from app.agents.factory import get_agent_adapter, list_available_backends
 from app.core.config import Settings
-from app.core.deps import get_settings
+from app.core.deps import get_current_user, get_settings
+from app.core.errors import http_error
+from app.models.user_dto import CurrentUser
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 _logger = logging.getLogger(__name__)
@@ -81,18 +84,12 @@ async def invoke_agent(
         workspace_client=workspace_client,
     )
     if adapter is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Backend '{backend}' is not configured or unavailable",
-        )
+        raise http_error(404, f"Backend '{backend}' is not configured or unavailable")
 
     try:
         agent_request = ResponsesAgentRequest(**body)
     except Exception as exc:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Invalid request body: {exc}",
-        )
+        raise http_error(422, f"Invalid request body: {exc}") from exc
 
     result = await adapter.invoke(agent_request)
 
@@ -106,3 +103,43 @@ async def invoke_agent(
         "downstream_trace_id": result.downstream_trace_id,
     }
     return response_dict
+
+
+class FeedbackRequest(BaseModel):
+    """User feedback on an agent answer, linked to its MLflow trace."""
+
+    trace_id: str = Field(..., min_length=1, max_length=200)
+    value: bool | float | str
+    rationale: str | None = Field(default=None, max_length=4000)
+    name: str = Field(default="user_feedback", max_length=100)
+
+
+@router.post("/feedback", status_code=201)
+async def submit_feedback(
+    payload: FeedbackRequest,
+    current_user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, str]:
+    """Attach human feedback to a trace (closes the golden-path loop).
+
+    The chat stream and ``/invocations`` responses surface trace ids
+    (``downstream_trace_id`` / ``trace_id``); the UI posts them back here and
+    MLflow stores the assessment on the trace for evaluation and monitoring.
+    """
+    import mlflow
+    from mlflow.entities import AssessmentSource, AssessmentSourceType
+
+    try:
+        assessment = mlflow.log_feedback(
+            trace_id=payload.trace_id,
+            name=payload.name,
+            value=payload.value,
+            rationale=payload.rationale,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN,
+                source_id=current_user.id,
+            ),
+        )
+    except Exception as exc:
+        raise http_error(502, f"Failed to record feedback: {exc}") from exc
+
+    return {"assessment_id": assessment.assessment_id or ""}

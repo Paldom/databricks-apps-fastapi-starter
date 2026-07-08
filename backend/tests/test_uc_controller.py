@@ -1,8 +1,9 @@
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock
 
 from app.core.databricks.uc_files import UcFilesAdapter
-from app.core.errors import ResourceNotFoundError
+from app.core.errors import NotFoundError
 
 
 @pytest.mark.asyncio
@@ -21,7 +22,7 @@ async def test_download_raises_not_found():
     resp.contents = None
     ws.files.download.return_value = resp
     adapter = UcFilesAdapter(ws, MagicMock())
-    with pytest.raises(ResourceNotFoundError):
+    with pytest.raises(NotFoundError):
         await adapter.download("/root", "missing.txt")
 
 

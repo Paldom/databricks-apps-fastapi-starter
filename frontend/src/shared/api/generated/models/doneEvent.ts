@@ -9,5 +9,7 @@ import type { DoneEventType } from './doneEventType';
 
 export interface DoneEvent {
   finish_reason: DoneEventFinishReason;
+  thread_id?: string | null;
+  trace_id?: string | null;
   type: DoneEventType;
 }

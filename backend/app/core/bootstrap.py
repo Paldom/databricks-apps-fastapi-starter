@@ -3,13 +3,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.core.config import settings
+import app.models  # noqa: F401 - register all models with Base.metadata
+from app.core.config import settings as settings  # re-exported for tests
 from app.core.db import create_async_engine_from_settings, create_session_factory
 from app.core.logging import get_logger, setup_logging
 from app.core.mlflow_runtime import configure_mlflow
 from app.core.observability import get_tracer, tag_exception
 from app.core.runtime import AppRuntime
-import app.models  # noqa: F401 – register all models with Base.metadata
 
 setup_logging(settings.log_level)
 logger = get_logger()
@@ -51,9 +51,11 @@ async def lifespan(application: FastAPI):
 
         # ── LangGraph checkpointer ───────────────────────────────
         try:
-            from app.chat.memory import create_checkpointer
+            from app.chat.memory import create_checkpointer_async
 
-            runtime.langgraph_checkpointer = create_checkpointer(settings)
+            checkpointer_handle = await create_checkpointer_async(settings)
+            runtime.langgraph_checkpointer = checkpointer_handle.saver
+            runtime.langgraph_checkpointer_handle = checkpointer_handle
         except ImportError:
             logger.warning("LangGraph not installed; skipping checkpointer init")
         except Exception as exc:
@@ -68,6 +70,17 @@ async def lifespan(application: FastAPI):
         t1 = time.monotonic()
         with tracer.start_as_current_span("app.shutdown") as shutdown_span:
             logger.debug("Closing AI client and database connections")
+            # Best-effort: a failing checkpointer close must not prevent the
+            # AI client and database engine from being released below.
+            try:
+                if runtime.langgraph_checkpointer_handle is not None:
+                    with tracer.start_as_current_span(
+                        "shutdown.langgraph.checkpointer.close"
+                    ):
+                        await runtime.langgraph_checkpointer_handle.aclose()
+            except Exception as exc:
+                tag_exception(shutdown_span, exc)
+                logger.warning("LangGraph checkpointer close failed: %s", exc)
             try:
                 if runtime.ai_client is not None:
                     with tracer.start_as_current_span("shutdown.ai.client.close"):

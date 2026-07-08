@@ -81,9 +81,9 @@
       "url": "http://localhost:6006/mcp"
     },
     "databricks": {
-      "command": "/Users/dpal/.ai-dev-kit/.venv/bin/python",
+      "command": "/Users/domonkos.pal/.ai-dev-kit/.venv/bin/python",
       "args": [
-        "/Users/dpal/.ai-dev-kit/repo/databricks-mcp-server/run_server.py"
+        "/Users/domonkos.pal/.ai-dev-kit/repo/databricks-mcp-server/run_server.py"
       ],
       "defer_loading": true,
       "env": {

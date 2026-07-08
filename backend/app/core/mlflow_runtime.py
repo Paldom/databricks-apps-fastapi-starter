@@ -95,6 +95,10 @@ def update_trace_context(
     try:
         import mlflow
 
+        # Skip quietly when no trace is active (e.g. background title
+        # generation) — update_current_trace logs a loud warning otherwise.
+        if mlflow.get_current_active_span() is None:
+            return
         mlflow.update_current_trace(tags=metadata)
     except Exception:
         logger.debug("update_current_trace failed", exc_info=True)
@@ -110,7 +114,7 @@ def get_active_trace_id() -> str | None:
     try:
         import mlflow
 
-        return mlflow.get_active_trace_id()  # type: ignore[return-value]
+        return mlflow.get_active_trace_id()
     except Exception:
         return None
 

@@ -27,6 +27,7 @@ class TestSafeAttr:
     def test_long_string_truncated(self):
         long = "x" * 300
         result = safe_attr(long)
+        assert isinstance(result, str)
         assert len(result) == 256
 
     def test_non_string_converted(self):
@@ -47,7 +48,7 @@ class TestTagException:
 
 class TestLoggingFieldNames:
     def test_uses_correct_otel_field_names(self):
-        from app.core.logging import _LOCAL_FORMAT, _FORMAT_DEFAULTS
+        from app.core.logging import _FORMAT_DEFAULTS, _LOCAL_FORMAT
 
         # OpenTelemetry Python uses otelTraceID (capital ID), not otelTraceId
         assert "otelTraceID" in _LOCAL_FORMAT
@@ -86,6 +87,8 @@ class TestDatabricksAppCommand:
             app_yml = yaml.safe_load(f)
 
         source_path = app_yml["resources"]["apps"]["fastapi_app"]["source_code_path"]
-        assert source_path == "./backend", (
-            f"source_code_path should be ./backend, got: {source_path}"
+        # Paths in resources/*.yml resolve relative to that file, so backend/
+        # at the repo root is ../backend.
+        assert source_path == "../backend", (
+            f"source_code_path should be ../backend, got: {source_path}"
         )

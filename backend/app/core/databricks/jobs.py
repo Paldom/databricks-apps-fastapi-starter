@@ -7,7 +7,6 @@ from app.core.databricks._async_bridge import run_sync
 from app.core.errors import ExternalServiceError
 from app.core.observability import get_tracer, tag_exception
 
-
 _tracer = get_tracer()
 
 
@@ -34,14 +33,12 @@ class JobsAdapter:
                     self._ws.jobs.run_now_and_wait,
                     job_id=job_id,
                     notebook_params=notebook_params or {},
-                    error_cls=ExternalServiceError,
                     timeout=timeout,
                 )
                 last_task_id = finished.tasks[-1].run_id
                 out = await run_sync(
                     self._ws.jobs.get_run_output,
                     run_id=last_task_id,
-                    error_cls=ExternalServiceError,
                 )
                 try:
                     result = json.loads(out.notebook_output.result)

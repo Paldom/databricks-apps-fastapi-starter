@@ -1,10 +1,10 @@
 """Centralised database infrastructure.
 
 Public API:
-    Base, TimestampMixin, AuditMixin   – declarative base and mixins
-    get_database_url                   – single-source DB URL builder
-    create_async_engine_from_settings  – async engine factory
-    create_session_factory             – async sessionmaker factory
+    Base, TimestampMixin, AuditMixin   - declarative base and mixins
+    get_database_url                   - single-source DB URL builder
+    create_async_engine_from_settings  - async engine factory
+    create_session_factory             - async sessionmaker factory
 """
 
 from app.core.db.base import AuditMixin, Base, TimestampMixin

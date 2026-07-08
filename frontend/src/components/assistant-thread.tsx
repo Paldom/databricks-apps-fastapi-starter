@@ -1,11 +1,15 @@
 import {
+  AuiIf,
   ThreadPrimitive,
   ComposerPrimitive,
   MessagePrimitive,
 } from '@assistant-ui/react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { MarkdownText } from '@/components/assistant-ui/markdown-text'
+import { ToolFallback } from '@/components/assistant-ui/tool-fallback'
 
 function ThreadMessages() {
   return (
@@ -32,23 +36,31 @@ function AssistantMessage() {
   return (
     <MessagePrimitive.Root className="flex justify-start py-2">
       <div className="max-w-[80%] rounded-lg bg-muted px-4 py-2">
-        <MessagePrimitive.Content />
+        <MessagePrimitive.Content
+          components={{
+            Text: MarkdownText,
+            tools: { Fallback: ToolFallback },
+          }}
+        />
       </div>
     </MessagePrimitive.Root>
   )
 }
 
 function Composer() {
+  const { t } = useTranslation()
+
   return (
     <ComposerPrimitive.Root className="flex items-end gap-2 border-t bg-background p-4">
       <ComposerPrimitive.Input
-        placeholder="Type a message..."
+        placeholder={t('chat.composerPlaceholder')}
         className="flex-1 resize-none rounded-lg border bg-transparent px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
         autoFocus
       />
       <ComposerPrimitive.Send asChild>
         <Button size="icon" className="shrink-0">
           <Send className="h-4 w-4" />
+          <span className="sr-only">{t('chat.send')}</span>
         </Button>
       </ComposerPrimitive.Send>
     </ComposerPrimitive.Root>
@@ -56,14 +68,16 @@ function Composer() {
 }
 
 function ThreadEmpty() {
+  const { t } = useTranslation()
+
   return (
-    <ThreadPrimitive.Empty>
+    <AuiIf condition={(s) => s.thread.isEmpty}>
       <div className="flex h-full items-center justify-center">
         <p className="text-center text-sm text-muted-foreground">
-          Start a conversation by typing a message below.
+          {t('chat.threadEmpty')}
         </p>
       </div>
-    </ThreadPrimitive.Empty>
+    </AuiIf>
   )
 }
 

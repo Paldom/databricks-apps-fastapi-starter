@@ -9,10 +9,16 @@ class ChatService:
         self._user_id = user_id
 
     async def list_project_chats(
-        self, project_id: str, cursor: str | None, limit: int,
+        self,
+        project_id: str,
+        cursor: str | None,
+        limit: int,
     ) -> dict:
         chats, next_cursor, has_more = await self._repo.list_project_chats(
-            self._user_id, project_id, cursor, limit,
+            self._user_id,
+            project_id,
+            cursor,
+            limit,
         )
         items = [
             {
@@ -66,7 +72,10 @@ class ChatService:
 
     async def search_chats(self, q: str, cursor: str | None, limit: int) -> dict:
         items, next_cursor, has_more = await self._repo.search_chats(
-            self._user_id, q, cursor, limit,
+            self._user_id,
+            q,
+            cursor,
+            limit,
         )
         return {"items": items, "next_cursor": next_cursor, "has_more": has_more}
 

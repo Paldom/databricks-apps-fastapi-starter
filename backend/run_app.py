@@ -8,6 +8,7 @@ path manipulation.
 Migrations run automatically on every deploy/restart — there is no separate
 migration step.
 """
+
 from __future__ import annotations
 
 import logging
@@ -28,14 +29,18 @@ def run_migrations() -> None:
     the real error.
     """
     try:
-        from alembic import command as alembic_command
         from alembic.config import Config
+
+        from alembic import command as alembic_command
 
         alembic_cfg = Config("alembic.ini")
         alembic_command.upgrade(alembic_cfg, "head")
-        logger.info("Database migrations completed")
-    except Exception as exc:
-        logger.warning("Database migrations failed: %s", exc)
+        # print: alembic's fileConfig has reconfigured logging by now, so a
+        # plain logger.info here may be filtered — stdout always reaches the
+        # platform log stream.
+        print("Database migrations completed", flush=True)
+    except Exception:
+        logger.exception("Database migrations failed")
 
 
 def run_server() -> None:
@@ -43,7 +48,11 @@ def run_server() -> None:
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
-        port=int(os.environ.get("DATABRICKS_APP_PORT", os.environ.get("UVICORN_PORT", "8000"))),
+        port=int(
+            os.environ.get(
+                "DATABRICKS_APP_PORT", os.environ.get("UVICORN_PORT", "8000")
+            )
+        ),
         log_level=os.environ.get("UVICORN_LOG_LEVEL", "info"),
     )
 

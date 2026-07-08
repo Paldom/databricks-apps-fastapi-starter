@@ -1,6 +1,7 @@
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, MagicMock
 
 import app.core.bootstrap as bootstrap
 import app.main as app_main
@@ -55,7 +56,9 @@ def test_dev_cors_allows_any_origin():
         )
 
     assert response.status_code == 200
-    assert response.headers["access-control-allow-origin"] == "*"
+    # With allow_credentials, "*" is spec-invalid, so starlette >= 0.50
+    # reflects the request origin instead of sending a literal "*".
+    assert response.headers["access-control-allow-origin"] in ("*", origin)
     assert response.headers["access-control-allow-credentials"] == "true"
 
 
