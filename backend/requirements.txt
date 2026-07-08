@@ -176,13 +176,13 @@ langgraph-checkpoint==3.0.1
     #   langgraph
     #   langgraph-checkpoint-postgres
     #   langgraph-prebuilt
-langgraph-checkpoint-postgres==3.0.5
+langgraph-checkpoint-postgres==3.1.0
     # via databricks-apps-fastapi-starter
 langgraph-prebuilt==0.6.5
     # via langgraph
-langgraph-sdk==0.2.15
+langgraph-sdk==0.4.2
     # via langgraph
-langsmith==0.9.3
+langsmith==0.9.7
     # via
     #   langchain
     #   langchain-core
@@ -363,7 +363,7 @@ pydantic==2.13.4
     #   mlflow-tracing
     #   openai
     #   pydantic-settings
-pydantic-core==2.46.4
+pydantic-core==2.47.0
     # via pydantic
 pydantic-settings==2.14.2
     # via databricks-apps-fastapi-starter
