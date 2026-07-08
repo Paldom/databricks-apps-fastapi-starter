@@ -326,7 +326,7 @@ propcache==0.5.2
     # via
     #   aiohttp
     #   yarl
-protobuf==5.29.6
+protobuf==7.35.1
     # via
     #   databricks-ai-search
     #   databricks-sdk
