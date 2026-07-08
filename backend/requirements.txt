@@ -171,7 +171,7 @@ langchain-text-splitters==0.3.11
     # via langchain
 langgraph==0.6.11
     # via databricks-apps-fastapi-starter
-langgraph-checkpoint==3.0.1
+langgraph-checkpoint==4.1.1
     # via
     #   langgraph
     #   langgraph-checkpoint-postgres
