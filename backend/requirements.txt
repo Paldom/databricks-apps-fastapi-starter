@@ -178,7 +178,7 @@ langgraph-checkpoint==3.0.1
     #   langgraph-prebuilt
 langgraph-checkpoint-postgres==3.0.5
     # via databricks-apps-fastapi-starter
-langgraph-prebuilt==0.6.5
+langgraph-prebuilt==1.1.0
     # via langgraph
 langgraph-sdk==0.2.15
     # via langgraph
