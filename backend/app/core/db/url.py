@@ -13,9 +13,7 @@ from sqlalchemy.engine import URL
 from app.core.config import Settings
 
 
-DATABASE_NOT_CONFIGURED_MESSAGE = (
-    "DATABASE_URL or PG* settings are not configured"
-)
+DATABASE_NOT_CONFIGURED_MESSAGE = "DATABASE_URL or PG* settings are not configured"
 
 
 def _build_asyncpg_url(

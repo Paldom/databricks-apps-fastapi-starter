@@ -16,7 +16,11 @@ class DocumentService:
         project_id: str | None = None,
     ) -> dict:
         docs, next_cursor, has_more = await self._repo.list_documents(
-            self._user_id, cursor, limit, status=status, project_id=project_id,
+            self._user_id,
+            cursor,
+            limit,
+            status=status,
+            project_id=project_id,
         )
         items = [
             {

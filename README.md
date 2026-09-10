@@ -51,11 +51,11 @@ This creates the app, Lakebase database, serving endpoint, job, vector search in
 
 These operations require manual action because they involve workspace UI toggles that DAB cannot automate:
 
-| Step | Why it's manual | Command / action |
-|------|----------------|-----------------|
-| **Enable Lakebase preview** | Workspace admin toggle, one-time | Workspace UI > Previews > enable **Lakebase (OLTP)** |
-| **Enable Apps user auth preview** | Workspace admin toggle, one-time | Workspace UI > Previews > enable **User authorization for Databricks Apps** |
-| **Create a UC Volume** | Must exist before the app resource binding can reference it | Create `main.default.starter_volume` in Unity Catalog (or override `volume_full_name` in `databricks.yml`) |
+| Step                              | Why it's manual                                             | Command / action                                                                                           |
+| --------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Enable Lakebase preview**       | Workspace admin toggle, one-time                            | Workspace UI > Previews > enable **Lakebase (OLTP)**                                                       |
+| **Enable Apps user auth preview** | Workspace admin toggle, one-time                            | Workspace UI > Previews > enable **User authorization for Databricks Apps**                                |
+| **Create a UC Volume**            | Must exist before the app resource binding can reference it | Create `main.default.starter_volume` in Unity Catalog (or override `volume_full_name` in `databricks.yml`) |
 
 #### Step 4 -- Start the app
 
@@ -69,14 +69,14 @@ Verify with `GET /api/health/live` and `GET /api/health/ready` from the app URL 
 
 If you want to use the LangGraph supervisor with specialist tools, these additional resources must exist in your workspace. Configure them via bundle variables or `databricks.yml`:
 
-| Resource | Variable | What it enables |
-|----------|----------|----------------|
-| Serving endpoint for supervisor LLM | `supervisor_model` | LangGraph supervisor routing |
-| Serving agent endpoint | `serving_agent_endpoint` | Serving agent tool (Responses API) |
-| Genie space | `genie_space_id` | Genie data specialist tool |
-| AI Gateway embedding endpoint | `ai_gateway_embedding_model` | Knowledge specialist embeddings |
-| Vector Search index + endpoint | `vector_search_index_name`, `vector_search_endpoint_name` | Knowledge specialist retrieval |
-| MLflow experiment | set `MLFLOW_EXPERIMENT_ID` env var | GenAI tracing |
+| Resource                            | Variable                                                  | What it enables                    |
+| ----------------------------------- | --------------------------------------------------------- | ---------------------------------- |
+| Serving endpoint for supervisor LLM | `supervisor_model`                                        | LangGraph supervisor routing       |
+| Serving agent endpoint              | `serving_agent_endpoint`                                  | Serving agent tool (Responses API) |
+| Genie space                         | `genie_space_id`                                          | Genie data specialist tool         |
+| AI Gateway embedding endpoint       | `ai_gateway_embedding_model`                              | Knowledge specialist embeddings    |
+| Vector Search index + endpoint      | `vector_search_index_name`, `vector_search_endpoint_name` | Knowledge specialist retrieval     |
+| MLflow experiment                   | set `MLFLOW_EXPERIMENT_ID` env var                        | GenAI tracing                      |
 
 These are all optional. The app starts and serves chat with just the base deployment.
 
@@ -103,7 +103,7 @@ The service principal must have permission to call the upstream AI Gateway / Fou
 variables:
   serving_agent_endpoint: serving-agent-dev
   serving_agent_uc_model_name: main.default.serving_agent_dev
-  serving_agent_chat_model: databricks-claude-sonnet-4  # or your preferred model
+  serving_agent_chat_model: databricks-claude-sonnet-4 # or your preferred model
 ```
 
 **3. Deploy:**
@@ -135,26 +135,26 @@ There is no workspace Repo sync, no Git credential registration, and no manual `
 
 ### Bundle resources
 
-| Resource | File | Purpose |
-|----------|------|---------|
-| FastAPI App | `resources/app.yml` | App definition with resource bindings and runtime config |
-| Serving Endpoint | `resources/serving.yml` | MLflow model serving (starter) |
-| Serving Agent Deploy | `resources/serving_agent.yml` | Job + experiment to deploy the serving agent |
-| Job + Cluster | `resources/compute.yml` | Spark job for background tasks |
-| Lakebase Instance + Catalog | `resources/database.yml` | PostgreSQL-compatible OLTP database |
-| Vector Search Index | `resources/vector_search.yml` | Delta Sync vector index |
+| Resource                    | File                          | Purpose                                                  |
+| --------------------------- | ----------------------------- | -------------------------------------------------------- |
+| FastAPI App                 | `resources/app.yml`           | App definition with resource bindings and runtime config |
+| Serving Endpoint            | `resources/serving.yml`       | MLflow model serving (starter)                           |
+| Serving Agent Deploy        | `resources/serving_agent.yml` | Job + experiment to deploy the serving agent             |
+| Job + Cluster               | `resources/compute.yml`       | Spark job for background tasks                           |
+| Lakebase Instance + Catalog | `resources/database.yml`      | PostgreSQL-compatible OLTP database                      |
+| Vector Search Index         | `resources/vector_search.yml` | Delta Sync vector index                                  |
 
 ### App resource bindings
 
 The app is granted access to specific Databricks resources with least-privilege permissions:
 
-| Binding name | Resource type | Permission |
-|-------------|---------------|------------|
-| `serving-endpoint` | Serving endpoint | `CAN_QUERY` |
-| `app-job` | Job | `CAN_MANAGE_RUN` |
-| `uc-volume` | UC Volume | `WRITE_VOLUME` |
-| `lakebase-db` | Database (Lakebase) | `CAN_CONNECT_AND_CREATE` |
-| `knowledge-assistant` | Serving endpoint | `CAN_QUERY` |
+| Binding name          | Resource type       | Permission               |
+| --------------------- | ------------------- | ------------------------ |
+| `serving-endpoint`    | Serving endpoint    | `CAN_QUERY`              |
+| `app-job`             | Job                 | `CAN_MANAGE_RUN`         |
+| `uc-volume`           | UC Volume           | `WRITE_VOLUME`           |
+| `lakebase-db`         | Database (Lakebase) | `CAN_CONNECT_AND_CREATE` |
+| `knowledge-assistant` | Serving endpoint    | `CAN_QUERY`              |
 
 These bindings are used with `value_from` in the app's env config, so the app receives resolved values as environment variables at runtime.
 
@@ -228,10 +228,10 @@ Server-side conversation memory is keyed by `thread_id` (maps to the chat sessio
 
 Memory backends:
 
-| Backend | Setting value | Notes |
-|---------|--------------|-------|
-| In-memory | `inmemory` | Default. Suitable for local dev and single-process deployments. State is lost on restart. |
-| Lakebase | `lakebase` | Placeholder for production. Falls back to in-memory until implemented. |
+| Backend   | Setting value | Notes                                                                                     |
+| --------- | ------------- | ----------------------------------------------------------------------------------------- |
+| In-memory | `inmemory`    | Default. Suitable for local dev and single-process deployments. State is lost on restart. |
+| Lakebase  | `lakebase`    | Placeholder for production. Falls back to in-memory until implemented.                    |
 
 Set `LANGGRAPH_MEMORY_BACKEND` to choose.
 
@@ -251,27 +251,27 @@ After the first successful stream response, the controller schedules asynchronou
 
 ### Chat specialist resources
 
-| Resource | Required for | Permission |
-|----------|-------------|------------|
-| Serving Endpoint (supervisor model) | Supervisor LLM and app specialist | `CAN QUERY` |
-| Serving Endpoint (serving specialist) | Serving specialist | `CAN QUERY` |
-| Genie Space | Genie specialist | `CAN RUN` |
-| Vector Search Index | Knowledge specialist | `CAN SELECT` |
-| UC Volume | Knowledge specialist citations | `READ VOLUME` |
-| AI Gateway endpoint | Knowledge specialist embeddings | `CAN QUERY` |
-| Lakebase database | Short-term memory (when using lakebase backend) | Schema/table grants for checkpoints |
-| MLflow Experiment | Tracing | Write access |
+| Resource                              | Required for                                    | Permission                          |
+| ------------------------------------- | ----------------------------------------------- | ----------------------------------- |
+| Serving Endpoint (supervisor model)   | Supervisor LLM and app specialist               | `CAN QUERY`                         |
+| Serving Endpoint (serving specialist) | Serving specialist                              | `CAN QUERY`                         |
+| Genie Space                           | Genie specialist                                | `CAN RUN`                           |
+| Vector Search Index                   | Knowledge specialist                            | `CAN SELECT`                        |
+| UC Volume                             | Knowledge specialist citations                  | `READ VOLUME`                       |
+| AI Gateway endpoint                   | Knowledge specialist embeddings                 | `CAN QUERY`                         |
+| Lakebase database                     | Short-term memory (when using lakebase backend) | Schema/table grants for checkpoints |
+| MLflow Experiment                     | Tracing                                         | Write access                        |
 
 ### Observability
 
 The chat architecture has dual-track observability:
 
-| Signal | System | What it captures |
-|--------|--------|-----------------|
-| App traces | **OpenTelemetry** | Graph execution, memory bootstrap, specialist calls, title generation |
-| GenAI traces | **MLflow** | LangGraph execution (via `langchain.autolog()`), OpenAI calls (via `openai.autolog()`), per-request session/user metadata |
-| Endpoint usage | **AI Gateway** | Configured on the endpoint side, not in app code. Usage data appears in `system.ai_gateway.usage` system table. |
-| Request/response logs | **Inference tables** | A separate endpoint-side feature that logs to Unity Catalog Delta tables. Not controlled by app code. |
+| Signal                | System               | What it captures                                                                                                          |
+| --------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| App traces            | **OpenTelemetry**    | Graph execution, memory bootstrap, specialist calls, title generation                                                     |
+| GenAI traces          | **MLflow**           | LangGraph execution (via `langchain.autolog()`), OpenAI calls (via `openai.autolog()`), per-request session/user metadata |
+| Endpoint usage        | **AI Gateway**       | Configured on the endpoint side, not in app code. Usage data appears in `system.ai_gateway.usage` system table.           |
+| Request/response logs | **Inference tables** | A separate endpoint-side feature that logs to Unity Catalog Delta tables. Not controlled by app code.                     |
 
 MLflow tracing is bootstrapped at startup when `MLFLOW_EXPERIMENT_ID` is set. Per-request trace metadata (`thread_id`, `user_id`) is attached via `mlflow.update_current_trace()`.
 
@@ -296,15 +296,15 @@ Databricks offers three compute layers for hosting GenAI agents. Each has differ
 
 **Databricks Apps** -- best for production-facing agents that need built-in access control, low latency, simple deployment, and horizontal scaling. This is the compute layer used by this starter.
 
-| | Model Serving | Lakeflow Jobs | Databricks Apps |
-|---|---|---|---|
-| **Best for** | Synchronous inference, evals | Long-lived pipelines, batch | Interactive agents, APIs |
-| **Latency** | Low (serverless) | Higher (cluster spin-up) | Low (always-on) |
-| **Timeout** | 297 seconds | None (configurable) | None |
-| **Scaling** | Auto (serverless) | Per-cluster | Horizontal |
-| **Access control** | Endpoint permissions | Job permissions | Built-in user auth |
-| **Monitoring** | AI Gateway, inference tables | Job metrics, logs | OTel, MLflow, AI Gateway |
-| **Deployment** | MLflow model registration | Bundle / workflow | Bundle / app deploy |
+|                    | Model Serving                | Lakeflow Jobs               | Databricks Apps          |
+| ------------------ | ---------------------------- | --------------------------- | ------------------------ |
+| **Best for**       | Synchronous inference, evals | Long-lived pipelines, batch | Interactive agents, APIs |
+| **Latency**        | Low (serverless)             | Higher (cluster spin-up)    | Low (always-on)          |
+| **Timeout**        | 297 seconds                  | None (configurable)         | None                     |
+| **Scaling**        | Auto (serverless)            | Per-cluster                 | Horizontal               |
+| **Access control** | Endpoint permissions         | Job permissions             | Built-in user auth       |
+| **Monitoring**     | AI Gateway, inference tables | Job metrics, logs           | OTel, MLflow, AI Gateway |
+| **Deployment**     | MLflow model registration    | Bundle / workflow           | Bundle / app deploy      |
 
 In practice the answer is rarely one or the other. The recommended approach is to combine all three:
 
@@ -468,13 +468,13 @@ Database migrations run automatically on startup — no separate step is needed.
 
 ### Required secrets
 
-| Secret | Description |
-|--------|-------------|
-| `DATABRICKS_HOST` | Workspace URL (e.g., `https://dbc-123.cloud.databricks.com`) |
-| `DATABRICKS_CLIENT_ID` | Service principal client ID |
-| `DATABRICKS_CLIENT_SECRET` | Service principal client secret (not needed if using OIDC) |
-| `SNYK_TOKEN` | Snyk API token (for security scanning) |
-| `SONAR_TOKEN` | SonarCloud token (for code quality) |
+| Secret                     | Description                                                  |
+| -------------------------- | ------------------------------------------------------------ |
+| `DATABRICKS_HOST`          | Workspace URL (e.g., `https://dbc-123.cloud.databricks.com`) |
+| `DATABRICKS_CLIENT_ID`     | Service principal client ID                                  |
+| `DATABRICKS_CLIENT_SECRET` | Service principal client secret (not needed if using OIDC)   |
+| `SNYK_TOKEN`               | Snyk API token (for security scanning)                       |
+| `SONAR_TOKEN`              | SonarCloud token (for code quality)                          |
 
 ### OIDC configuration
 
@@ -482,13 +482,13 @@ The deploy workflow requests `id-token: write` permission for GitHub OIDC. If yo
 
 ### CI workflows
 
-| Workflow | Trigger | What it does |
-|----------|---------|-------------|
-| `ci.yml` | PR, push to main | Ruff, Mypy, Bandit, pytest, frontend build, OpenAPI drift check, bundle validate |
-| `deploy.yml` | Push to main, manual | `bundle validate` + `bundle deploy` + `bundle run` |
-| `ci-load-test.yml` | PR, manual | Locust performance test (50 users, 60s) |
-| `snyk-security.yml` | PR, push, weekly | Dependency and code security scanning |
-| `sonar.yml` | PR, push to main | SonarCloud code quality |
+| Workflow            | Trigger              | What it does                                                                     |
+| ------------------- | -------------------- | -------------------------------------------------------------------------------- |
+| `ci.yml`            | PR, push to main     | Ruff, Mypy, Bandit, pytest, frontend build, OpenAPI drift check, bundle validate |
+| `deploy.yml`        | Push to main, manual | `bundle validate` + `bundle deploy` + `bundle run`                               |
+| `ci-load-test.yml`  | PR, manual           | Locust performance test (50 users, 60s)                                          |
+| `snyk-security.yml` | PR, push, weekly     | Dependency and code security scanning                                            |
+| `sonar.yml`         | PR, push to main     | SonarCloud code quality                                                          |
 
 ## Deploy Commands
 
@@ -534,11 +534,11 @@ make bundle-summary TARGET=dev
 
 ## Bundle Targets
 
-| Target | Mode | App name | Docs enabled | OBO |
-|--------|------|----------|-------------|-----|
-| `dev` | development | `databricks-apps-fastapi-starter` | yes | no |
-| `staging` | default | `databricks-apps-fastapi-starter-stg` | no | no |
-| `prod` | default | `databricks-apps-fastapi-starter-prod` | no | yes |
+| Target    | Mode        | App name                               | Docs enabled | OBO |
+| --------- | ----------- | -------------------------------------- | ------------ | --- |
+| `dev`     | development | `databricks-apps-fastapi-starter`      | yes          | no  |
+| `staging` | default     | `databricks-apps-fastapi-starter-stg`  | no           | no  |
+| `prod`    | default     | `databricks-apps-fastapi-starter-prod` | no           | yes |
 
 ## Databricks Services
 
@@ -559,32 +559,32 @@ The application reads settings from environment variables using Pydantic `Settin
 
 Key configuration:
 
-| Variable | Description | Bundle-injected |
-|----------|-------------|----------------|
-| `ENABLE_DATABRICKS_INTEGRATIONS` | Enables Databricks-only routes and lazy client initialization | Set to `true` in bundle app envs |
-| `ENABLE_LOCAL_DEV_AUTH_FALLBACK` | Enables development-only fallback identity when forwarded headers are absent | Set to `false` in bundle app envs |
-| `LOCAL_DEV_USER_ID` | Local fallback user id | Manual |
-| `DATABASE_URL` | Canonical DB URL override | Manual |
-| `PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD` | Canonical PG-style DB settings | Manual |
-| `SERVING_ENDPOINT_NAME` | Serving endpoint name | Yes (`value_from: serving-endpoint`) |
-| `JOB_ID` | Job ID for background tasks | Yes (`value_from: app-job`) |
-| `VOLUME_ROOT` | UC volume path | Yes (`value_from: uc-volume`) |
-| `PGHOST/PGDATABASE/PGUSER` | Lakebase connection (injected by `lakebase-db` resource) | Yes (`value_from: lakebase-db`) |
-| `KNOWLEDGE_ASSISTANT_ENDPOINT` | Knowledge Assistant endpoint name | Yes (`value_from: knowledge-assistant`) |
-| `ENVIRONMENT` | Runtime environment label | Set in app_config env |
-| `LOG_LEVEL` | Python logging level | Set in app_config env |
-| `ENABLE_OBO` | On-behalf-of user mode | Set in app_config env |
-| `VECTOR_SEARCH_ENDPOINT_NAME` | Vector search endpoint | Yes (via variable) |
-| `VECTOR_SEARCH_INDEX_NAME` | Vector search index | Yes (via variable) |
-| `LANGGRAPH_MEMORY_BACKEND` | Memory backend (`inmemory` or `lakebase`) | Yes (via variable) |
-| `SUPERVISOR_MODEL` | Model for the LangGraph supervisor | Yes (via variable) |
-| `SERVING_AGENT_ENDPOINT` | Serving agent endpoint | Yes (`value_from: serving-agent`) |
-| `SERVING_AGENT_API_MODE` | `responses` or `chat_completions` | Yes (via variable) |
-| `GENIE_SPACE_ID` | Genie space for data specialist | Yes (via variable) |
-| `KNOWLEDGE_VOLUME_ROOT` | UC Volume root for knowledge specialist | Yes (via variable) |
-| `AI_GATEWAY_EMBEDDING_MODEL` | Embedding model for knowledge specialist | Yes (via variable) |
-| `ENABLE_CHAT_TITLE_GENERATION` | Enable auto title generation | Yes (set to `true`) |
-| `MLFLOW_EXPERIMENT_ID` | MLflow experiment for tracing | Manual |
+| Variable                                     | Description                                                                  | Bundle-injected                         |
+| -------------------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------- |
+| `ENABLE_DATABRICKS_INTEGRATIONS`             | Enables Databricks-only routes and lazy client initialization                | Set to `true` in bundle app envs        |
+| `ENABLE_LOCAL_DEV_AUTH_FALLBACK`             | Enables development-only fallback identity when forwarded headers are absent | Set to `false` in bundle app envs       |
+| `LOCAL_DEV_USER_ID`                          | Local fallback user id                                                       | Manual                                  |
+| `DATABASE_URL`                               | Canonical DB URL override                                                    | Manual                                  |
+| `PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD` | Canonical PG-style DB settings                                               | Manual                                  |
+| `SERVING_ENDPOINT_NAME`                      | Serving endpoint name                                                        | Yes (`value_from: serving-endpoint`)    |
+| `JOB_ID`                                     | Job ID for background tasks                                                  | Yes (`value_from: app-job`)             |
+| `VOLUME_ROOT`                                | UC volume path                                                               | Yes (`value_from: uc-volume`)           |
+| `PGHOST/PGDATABASE/PGUSER`                   | Lakebase connection (injected by `lakebase-db` resource)                     | Yes (`value_from: lakebase-db`)         |
+| `KNOWLEDGE_ASSISTANT_ENDPOINT`               | Knowledge Assistant endpoint name                                            | Yes (`value_from: knowledge-assistant`) |
+| `ENVIRONMENT`                                | Runtime environment label                                                    | Set in app_config env                   |
+| `LOG_LEVEL`                                  | Python logging level                                                         | Set in app_config env                   |
+| `ENABLE_OBO`                                 | On-behalf-of user mode                                                       | Set in app_config env                   |
+| `VECTOR_SEARCH_ENDPOINT_NAME`                | Vector search endpoint                                                       | Yes (via variable)                      |
+| `VECTOR_SEARCH_INDEX_NAME`                   | Vector search index                                                          | Yes (via variable)                      |
+| `LANGGRAPH_MEMORY_BACKEND`                   | Memory backend (`inmemory` or `lakebase`)                                    | Yes (via variable)                      |
+| `SUPERVISOR_MODEL`                           | Model for the LangGraph supervisor                                           | Yes (via variable)                      |
+| `SERVING_AGENT_ENDPOINT`                     | Serving agent endpoint                                                       | Yes (`value_from: serving-agent`)       |
+| `SERVING_AGENT_API_MODE`                     | `responses` or `chat_completions`                                            | Yes (via variable)                      |
+| `GENIE_SPACE_ID`                             | Genie space for data specialist                                              | Yes (via variable)                      |
+| `KNOWLEDGE_VOLUME_ROOT`                      | UC Volume root for knowledge specialist                                      | Yes (via variable)                      |
+| `AI_GATEWAY_EMBEDDING_MODEL`                 | Embedding model for knowledge specialist                                     | Yes (via variable)                      |
+| `ENABLE_CHAT_TITLE_GENERATION`               | Enable auto title generation                                                 | Yes (set to `true`)                     |
+| `MLFLOW_EXPERIMENT_ID`                       | MLflow experiment for tracing                                                | Manual                                  |
 
 See `backend/env.example` for the full list of configuration variables.
 
@@ -594,10 +594,10 @@ See `backend/env.example` for the full list of configuration variables.
 
 Databricks Apps authenticates users and forwards identity via HTTP headers:
 
-| Header | Maps to |
-|--------|---------|
-| `X-Forwarded-User` | `user.id` (primary key) |
-| `X-Forwarded-Email` | `user.email` |
+| Header                           | Maps to                   |
+| -------------------------------- | ------------------------- |
+| `X-Forwarded-User`               | `user.id` (primary key)   |
+| `X-Forwarded-Email`              | `user.email`              |
 | `X-Forwarded-Preferred-Username` | `user.preferred_username` |
 
 For local development you have two options:
@@ -613,10 +613,10 @@ curl http://localhost:8000/api/projects \
 
 ### Request limits
 
-| Content type | Default limit | Setting |
-|-------------|---------------|---------|
-| JSON / other | 1 MiB | `MAX_REQUEST_BODY_BYTES` |
-| Multipart (uploads) | 50 MiB | `MAX_UPLOAD_BYTES` |
+| Content type        | Default limit | Setting                  |
+| ------------------- | ------------- | ------------------------ |
+| JSON / other        | 1 MiB         | `MAX_REQUEST_BODY_BYTES` |
+| Multipart (uploads) | 50 MiB        | `MAX_UPLOAD_BYTES`       |
 
 ### Security headers
 
@@ -648,12 +648,12 @@ Databricks-dependent routes fail at request time with clear `503` responses when
 
 The application ships with OpenTelemetry instrumentation via `opentelemetry-instrument`. When deployed to Databricks Apps, the platform injects the OTLP endpoint and related env vars automatically — no manual exporter/provider setup is needed in app code.
 
-| Signal | Source |
-|--------|--------|
-| HTTP request spans | Auto-instrumented (FastAPI, httpx, requests) |
-| SQL spans | Auto-instrumented (SQLAlchemy) |
-| Dependency spans | Manual spans around Serving, Jobs, AI Gateway, Vector Search, Genie |
-| Log correlation | Every log line includes `otelTraceID`, `otelSpanID`, `request_id` |
+| Signal             | Source                                                              |
+| ------------------ | ------------------------------------------------------------------- |
+| HTTP request spans | Auto-instrumented (FastAPI, httpx, requests)                        |
+| SQL spans          | Auto-instrumented (SQLAlchemy)                                      |
+| Dependency spans   | Manual spans around Serving, Jobs, AI Gateway, Vector Search, Genie |
+| Log correlation    | Every log line includes `otelTraceID`, `otelSpanID`, `request_id`   |
 
 ### Databricks Apps telemetry
 
@@ -714,6 +714,7 @@ Upgrade: `databricks --version` to check, then reinstall via `databricks/setup-c
 ### OIDC federation policy mismatch
 
 If GitHub Actions deploy fails with auth errors when using OIDC, verify:
+
 - The service principal's federation policy matches the repository and branch
 - `id-token: write` permission is set in the workflow
 - `DATABRICKS_CLIENT_ID` matches the service principal
@@ -721,6 +722,7 @@ If GitHub Actions deploy fails with auth errors when using OIDC, verify:
 ### App returns 502
 
 The app must bind to `0.0.0.0` and use the `DATABRICKS_APP_PORT` environment variable. The `backend/run_app.py` launcher handles this automatically. If you see 502 errors, check:
+
 - `backend/run_app.py` is the entry point in your app config
 - The app starts without import errors (check `/logz` in the Apps UI)
 
@@ -731,6 +733,7 @@ databricks bundle validate -t dev
 ```
 
 Common causes:
+
 - Missing or invalid resource references in `resources/*.yml`
 - Unsupported resource types for your CLI version
 - YAML syntax errors in complex variables

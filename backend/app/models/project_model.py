@@ -17,7 +17,9 @@ class Project(Base):
         default=lambda: f"proj-{uuid.uuid4().hex[:12]}",
     )
     owner_user_id: Mapped[str] = mapped_column(
-        String(255), ForeignKey("users.id"), nullable=False,
+        String(255),
+        ForeignKey("users.id"),
+        nullable=False,
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[str] = mapped_column(
@@ -26,6 +28,4 @@ class Project(Base):
         server_default=func.now(),
     )
 
-    __table_args__ = (
-        Index("ix_projects_owner_user_id", "owner_user_id"),
-    )
+    __table_args__ = (Index("ix_projects_owner_user_id", "owner_user_id"),)

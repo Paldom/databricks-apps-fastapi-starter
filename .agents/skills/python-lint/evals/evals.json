@@ -1,0 +1,80 @@
+{
+  "skill": "python-lint",
+  "cases": [
+    { "type": "should_trigger", "prompt": "set up ruff for this package" },
+    { "type": "should_trigger", "prompt": "Please replace our Black, Flake8, and isort toolchain with Ruff, preserving current behavior as closely as possible." },
+    { "type": "should_trigger", "prompt": "which ruff rules should we enable in pyproject.toml?" },
+    { "type": "should_trigger", "prompt": "set up linting for this python project" },
+    { "type": "should_trigger", "prompt": "fix the lint errors in src/ so the checks go green" },
+    { "type": "should_trigger", "prompt": "configure the formatter to use 100-character lines" },
+    { "type": "should_trigger", "prompt": "can u add a [tool.ruff] section to pyproject pls" },
+    { "type": "should_trigger", "prompt": "ruf check failing everywhere after the upgrade, fix teh lint errors" },
+    { "type": "should_trigger", "prompt": "ruff keeps flagging E501 but the formatter already handles line length, sort this out" },
+    { "type": "should_trigger", "prompt": "allow assert in tests but keep the bandit security rules everywhere else" },
+    { "type": "should_trigger", "prompt": "we have a custom flake8 plugin, can we still move to ruff?" },
+    { "type": "should_trigger", "prompt": "huge legacy codebase — how do we adopt ruff without one giant reformat commit?" },
+    { "type": "should_not_trigger", "prompt": "add ruff and ruff-format hooks to our pre-commit config" },
+    { "type": "should_not_trigger", "prompt": "set up a GitHub Actions workflow that runs lint, type-check, and test jobs on every PR" },
+    { "type": "should_not_trigger", "prompt": "make ruff format run automatically whenever claude edits a python file" },
+    { "type": "should_not_trigger", "prompt": "mypy is reporting 40 errors after the upgrade, fix them" },
+    { "type": "should_not_trigger", "prompt": "format the YAML and Markdown files in this repo" },
+    { "type": "should_not_trigger", "prompt": "set up strict type checking for this package" },
+    { "type": "should_not_trigger", "prompt": "ruff passes locally but fails in pre-commit — is the hook rev outdated?" },
+    { "type": "should_not_trigger", "prompt": "the lint job in CI needs uv caching and an all-checks-passed aggregator" },
+    { "type": "should_not_trigger", "prompt": "set up pytest with coverage and a fail_under gate" },
+    { "type": "should_not_trigger", "prompt": "bump the ruff-pre-commit rev so it matches the version CI uses" },
+    {
+      "type": "quality",
+      "prompt": "Set up ruff linting and formatting for my Python package — src layout, requires-python >=3.11, no linter today.",
+      "expected_behavior": [
+        "adds [tool.ruff] config to pyproject.toml with an explicit [tool.ruff.lint] select list beyond the E/F defaults (a curated set including at least E, F, I, UP, B or similar)",
+        "sets target-version or confirms project.requires-python covers it, noting it gates UP (pyupgrade) rewrites",
+        "puts E501 in lint ignore (or explains its absence) because line length is the formatter's job",
+        "pins ruff to a specific version as a dev dependency instead of installing it unpinned",
+        "runs ruff check --fix before ruff format, then reports any remaining violations instead of claiming success"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "Migrate this repo from black + flake8 + isort to ruff.",
+      "expected_behavior": [
+        "translates existing [tool.black], [tool.isort], and .flake8 settings (line length, known-first-party, ignore lists) into [tool.ruff] equivalents before deleting them",
+        "runs the one-time cleanup (ruff check --fix, then ruff format) as a separate reviewed commit and warns output is close to Black but not byte-identical",
+        "checks for Flake8 plugins with no Ruff equivalent and proposes the hybrid pattern with external codes if one exists",
+        "removes black, flake8, and isort from dev dependencies and deletes their config files/sections so two formatters cannot fight",
+        "tells the user to update pre-commit and CI invocations without authoring those files itself"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "The lint gate is red — fix all the ruff errors in src/.",
+      "expected_behavior": [
+        "runs ruff check --fix before ruff format and respects that order",
+        "fixes remaining violations by editing code rather than adding blanket suppressions or deleting rules from select",
+        "any suppression added is a targeted noqa with the specific rule code or a scoped per-file-ignores entry, with a stated reason",
+        "re-runs ruff check and ruff format --check and confirms both exit clean before declaring done",
+        "does not modify CI workflow files or pre-commit config to make the gate pass"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "Ruff is way too noisy in our test files — asserts and magic numbers get flagged constantly. Tune the config.",
+      "expected_behavior": [
+        "adds per-file-ignores entries scoped to the tests directory (e.g. S101 for assert, PLR2004 for magic values) instead of disabling those rules globally",
+        "keeps the same rules active for production code",
+        "briefly justifies why each ignored rule is acceptable in tests",
+        "re-runs ruff check to confirm the test noise is gone and nothing new broke"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "We have a 300k-line legacy codebase. Adopt ruff without a giant reformat commit breaking git blame.",
+      "expected_behavior": [
+        "offers incremental adoption options — a minimal starting select expanded category by category, and/or ruff check --add-noqa bulk suppression tightened module by module",
+        "mentions protecting git blame via an isolated reformat commit recorded in .git-blame-ignore-revs, or changed-lines-only tools such as Darker, with trade-offs",
+        "gets the local baseline clean before recommending any blocking gate",
+        "sets target-version to the oldest supported Python so UP autofixes cannot break it"
+      ]
+    }
+  ]
+}

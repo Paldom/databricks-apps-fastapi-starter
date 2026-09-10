@@ -1,4 +1,5 @@
 """Export the API sub-app OpenAPI spec to openapi.yaml."""
+
 from __future__ import annotations
 
 import argparse

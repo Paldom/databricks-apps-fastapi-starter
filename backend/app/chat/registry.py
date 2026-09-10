@@ -17,7 +17,9 @@ class SpecialistSpec:
     key: str
     description: str
     kind: str
-    config_key: str | tuple[str, ...] | None = None  # Settings field(s); None = always enabled
+    config_key: str | tuple[str, ...] | None = (
+        None  # Settings field(s); None = always enabled
+    )
 
 
 SPECIALISTS: list[SpecialistSpec] = [

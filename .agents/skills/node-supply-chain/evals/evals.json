@@ -1,0 +1,50 @@
+{
+  "skill": "node-supply-chain",
+  "cases": [
+    { "type": "should_trigger", "prompt": "harden our npm dependencies" },
+    { "type": "should_trigger", "prompt": "protect this repo from malicious packages" },
+    { "type": "should_trigger", "prompt": "set up dependabot with a cooldown" },
+    { "type": "should_trigger", "prompt": "should we block postinstall scripts?" },
+    { "type": "should_trigger", "prompt": "audit the dependency tree" },
+    { "type": "should_trigger", "prompt": "lock down npm tokens for the org" },
+    { "type": "should_trigger", "prompt": "pin our github actions to commit SHAs" },
+    { "type": "should_trigger", "prompt": "verify provenance of our dependencies" },
+    { "type": "should_trigger", "prompt": "another npm worm in the news - are we exposed?" },
+    { "type": "should_not_trigger", "prompt": "publish our package with provenance" },
+    { "type": "should_not_trigger", "prompt": "enable secret scanning on the repo" },
+    { "type": "should_not_trigger", "prompt": "set up the CI matrix" },
+    { "type": "should_not_trigger", "prompt": "fix this CVE in our own code" },
+    { "type": "should_not_trigger", "prompt": "add eslint security rules" },
+    { "type": "should_not_trigger", "prompt": "configure package exports" },
+    { "type": "should_not_trigger", "prompt": "rotate this leaked AWS key" },
+    { "type": "should_not_trigger", "prompt": "upgrade react to the latest version" },
+    {
+      "type": "quality",
+      "prompt": "harden this repo's supply chain",
+      "expected_behavior": [
+        "layers the real controls: committed lockfile + npm ci, Dependabot weekly grouped updates with cooldown (security updates bypass it by design; transitive npm deps not covered), install-script policy for the repo's actual package manager (npm >= 12 allowScripts allowlist, npm 11 ignore-scripts, pnpm allowBuilds, yarn enableScripts), SHA-pinned third-party actions",
+        "explicitly warns against blanket auto-merge of bot PRs (bot-opened PRs have delivered malware on green CI)",
+        "distinguishes what this skill owns (npm/dependency hygiene) from repo settings like rulesets/secret scanning and routes those elsewhere",
+        "verifies with the skill's audit script or npm audit signatures"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "a dependency we use was compromised upstream - respond",
+      "expected_behavior": [
+        "checks exposure precisely (lockfile resolution, affected version ranges, install-script execution window) before mass-upgrading",
+        "pins or overrides to a known-good version and documents the incident window",
+        "recommends cooldown + provenance verification going forward, not panic-pinning everything forever"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "set up dependabot for this pnpm monorepo",
+      "expected_behavior": [
+        "configures grouped weekly updates with cooldown for npm ecosystem + github-actions",
+        "notes cooldown does not apply to transitive deps and security PRs bypass it",
+        "requires CI + review before merge on bot PRs (no blanket auto-merge)"
+      ]
+    }
+  ]
+}

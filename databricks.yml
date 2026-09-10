@@ -36,7 +36,7 @@ variables:
     default: "false"
   cluster_node_type:
     description: Node type for job clusters
-    default: i3.xlarge
+    default: Standard_DS3_v2
   knowledge_assistant_endpoint_name:
     description: Name of the Knowledge Assistant serving endpoint (created in Agent Bricks)
     default: ""
@@ -99,7 +99,7 @@ variables:
     default: uploads
   knowledge_upload_root:
     description: Volume subpath monitored by file-arrival trigger
-    default: /Volumes/main/starter_rag/uploads/knowledge/uploads
+    default: /Volumes/main/starter_rag/uploads/knowledge/uploads/
   rag_checkpoint_root:
     description: Checkpoint root for raw ingestion (outside upload subtree)
     default: /Volumes/main/starter_rag/uploads/system/checkpoints/rag_ingestion

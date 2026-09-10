@@ -29,9 +29,11 @@ class TestConfigureMlflow:
 
         # MLflow is installed in this env; configure_mlflow should succeed
         # (may warn about tracking URI, but should not raise)
-        with patch("mlflow.set_experiment"), \
-             patch("mlflow.langchain.autolog"), \
-             patch("mlflow.openai.autolog"):
+        with (
+            patch("mlflow.set_experiment"),
+            patch("mlflow.langchain.autolog"),
+            patch("mlflow.openai.autolog"),
+        ):
             result = configure_mlflow("12345")
             assert result is True
             assert is_mlflow_enabled() is True
@@ -59,11 +61,7 @@ class TestExtractTraceId:
         assert self.extract(payload) == "tr-meta-1"
 
     def test_databricks_output_trace_id(self):
-        payload = {
-            "databricks_output": {
-                "trace": {"trace_id": "tr-db-1"}
-            }
-        }
+        payload = {"databricks_output": {"trace": {"trace_id": "tr-db-1"}}}
         assert self.extract(payload) == "tr-db-1"
 
     def test_sdk_object_with_metadata(self):

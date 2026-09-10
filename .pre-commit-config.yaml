@@ -1,0 +1,105 @@
+# Commit gate. The same config runs in CI (`pre-commit run --all-files`) and in the
+# agent Stop hook (.claude/hooks/stop-verify.sh), so local, agent and CI results agree.
+# Hook revs are pinned; ruff/mypy revs must match backend/pyproject.toml dev pins.
+default_install_hook_types: [pre-commit, pre-push]
+exclude: ^(\.local/|\.agents/skills/|frontend/src/shared/api/generated/|backend/public/|backend/uv\.lock$|frontend/package-lock\.json$|\.secrets\.baseline$)
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.md$
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+        exclude: ^(resources/|databricks\.yml$) # bundle YAML uses ${var} syntax; validated by `bundle validate`
+      - id: check-toml
+      - id: check-json
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: no-commit-to-branch
+        args: [--branch, main]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.6
+    hooks:
+      - id: ruff-check
+        args: [--fix, --exit-non-zero-on-fix, --config, backend/pyproject.toml]
+        files: ^(backend|notebooks)/.*\.py$
+      - id: ruff-format
+        args: [--config, backend/pyproject.toml]
+        files: ^(backend|notebooks)/.*\.py$
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: [--baseline, .secrets.baseline]
+        exclude: ^(package-lock\.json|backend/uv\.lock|backend/openapi\.yaml|skills-lock\.json|\.secrets\.baseline|frontend/public/mockServiceWorker\.js)$
+
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.37.1
+    hooks:
+      - id: check-github-workflows
+      - id: check-dependabot
+
+  - repo: https://github.com/abravalheri/validate-pyproject
+    rev: v0.25
+    hooks:
+      - id: validate-pyproject
+        files: ^backend/pyproject\.toml$
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (backend/app)
+        entry: uv run --frozen --directory backend mypy app
+        require_serial: true
+        language: system
+        pass_filenames: false
+        files: ^backend/(app/.*\.py|pyproject\.toml)$
+      - id: import-linter
+        name: import-linter (layer contracts)
+        entry: uv run --frozen --directory backend lint-imports
+        require_serial: true
+        language: system
+        pass_filenames: false
+        files: ^backend/(app/.*\.py|pyproject\.toml)$
+      - id: uv-lock-check
+        name: uv lock --check (backend)
+        entry: uv lock --check --project backend
+        language: system
+        pass_filenames: false
+        files: ^backend/(pyproject\.toml|uv\.lock)$
+      - id: prettier
+        name: prettier (yaml, json, markdown; frontend sources)
+        entry: frontend/node_modules/.bin/prettier --write --config frontend/.prettierrc --ignore-path .prettierignore
+        language: system
+        types_or: [yaml, json, markdown, ts, tsx, css]
+        exclude: ^(resources/|databricks\.yml$|backend/openapi\.yaml$|.*\.lock$|package-lock\.json$|skills-lock\.json$|\.secrets\.baseline$|frontend/(public|coverage|reports)/)
+      - id: eslint
+        name: eslint (frontend)
+        entry: npm --prefix frontend run lint --silent --
+        language: system
+        pass_filenames: false
+        files: ^frontend/(src/.*\.(ts|tsx)|eslint\.config\.js)$
+      - id: tsc
+        name: tsc --noEmit (frontend, pre-push)
+        entry: npm --prefix frontend run typecheck --silent
+        language: system
+        pass_filenames: false
+        files: ^frontend/(src/.*\.(ts|tsx)|tsconfig\.json)$
+        stages: [pre-push]
+      - id: pytest
+        name: pytest (backend, pre-push)
+        entry: uv run --frozen --directory backend pytest -q
+        require_serial: true
+        language: system
+        pass_filenames: false
+        files: ^backend/.*\.py$
+        stages: [pre-push]

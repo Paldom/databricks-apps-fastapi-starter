@@ -48,6 +48,8 @@ async def update_user_settings(
     service: UserSettingsService = Depends(get_user_settings_service),
 ) -> UserSettings:
     result = await service.update_settings(
-        name=body.name, email=body.email, notifications=body.notifications,
+        name=body.name,
+        email=body.email,
+        notifications=body.notifications,
     )
     return UserSettings(**result)

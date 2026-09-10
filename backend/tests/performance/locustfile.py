@@ -13,6 +13,7 @@ import os
 from databricks.sdk import WorkspaceClient
 from locust import HttpUser, task, between
 
+
 class DatabricksAppsUser(HttpUser):
     host = os.getenv("HOST", "http://localhost:8000")
     wait_time = between(1, 3)

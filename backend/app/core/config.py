@@ -129,10 +129,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     def has_database_config(self) -> bool:
-        return bool(
-            os.getenv("DATABASE_URL")
-            or self.has_pg_database_config()
-        )
+        return bool(os.getenv("DATABASE_URL") or self.has_pg_database_config())
 
     def has_ai_config(self) -> bool:
         return bool(self.serving_endpoint_name)
@@ -141,9 +138,7 @@ class Settings(BaseSettings):
         return bool(self.knowledge_assistant_endpoint)
 
     def has_vector_search_config(self) -> bool:
-        return bool(
-            self.vector_search_endpoint_name and self.vector_search_index_name
-        )
+        return bool(self.vector_search_endpoint_name and self.vector_search_index_name)
 
     def has_genie_config(self) -> bool:
         return bool(self.genie_space_id)
@@ -170,10 +165,7 @@ class Settings(BaseSettings):
             self.databricks_host
             and (
                 self.databricks_token
-                or (
-                    self.databricks_client_id
-                    and self.databricks_client_secret
-                )
+                or (self.databricks_client_id and self.databricks_client_secret)
             )
         )
 

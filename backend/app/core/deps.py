@@ -11,7 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from app.core.config import Settings, settings
 from app.core.db.deps import get_async_session, get_engine  # noqa: F401 – re-export
 from app.core.errors import AuthenticationError
-from app.core.integrations import ensure_ai_client, ensure_vector_index, ensure_workspace_client
+from app.core.integrations import (
+    ensure_ai_client,
+    ensure_vector_index,
+    ensure_workspace_client,
+)
 from app.core.logging import get_logger as _get_logger
 from app.core.runtime import AppRuntime, get_app_runtime
 from app.models.user_dto import CurrentUser, UserInfo
@@ -101,6 +105,7 @@ def get_project_repo(
     session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> ProjectRepository:
     from app.repositories.project_repository import ProjectRepository
+
     return ProjectRepository(session)
 
 
@@ -108,6 +113,7 @@ def get_chat_repo(
     session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> ChatRepository:
     from app.repositories.chat_repository import ChatRepository
+
     return ChatRepository(session)
 
 
@@ -115,6 +121,7 @@ def get_document_repo(
     session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> DocumentRepository:
     from app.repositories.document_repository import DocumentRepository
+
     return DocumentRepository(session)
 
 
@@ -122,6 +129,7 @@ def get_user_settings_repo(
     session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> UserSettingsRepository:
     from app.repositories.user_settings_repository import UserSettingsRepository
+
     return UserSettingsRepository(session)
 
 
@@ -130,6 +138,7 @@ def get_project_service(
     user: Annotated[CurrentUser, Depends(get_current_user)],
 ) -> ProjectService:
     from app.services.project_service import ProjectService
+
     return ProjectService(repo, user.id)
 
 
@@ -138,6 +147,7 @@ def get_chat_service(
     user: Annotated[CurrentUser, Depends(get_current_user)],
 ) -> ChatService:
     from app.services.chat_service import ChatService
+
     return ChatService(repo, user.id)
 
 
@@ -146,6 +156,7 @@ def get_document_service(
     user: Annotated[CurrentUser, Depends(get_current_user)],
 ) -> DocumentService:
     from app.services.document_service import DocumentService
+
     return DocumentService(repo, user.id)
 
 
@@ -154,8 +165,10 @@ def get_user_settings_service(
     user: Annotated[CurrentUser, Depends(get_current_user)],
 ) -> UserSettingsService:
     from app.services.user_settings_service import UserSettingsService
+
     return UserSettingsService(
-        repo, user.id,
+        repo,
+        user.id,
         default_name=user.name or user.id,
         default_email=user.email,
     )
@@ -201,7 +214,8 @@ def get_chat_orchestrator(
     # Registry → enabled specs → tools + prompt
     enabled_specs = get_enabled_specs(s)
     tools = build_tools(
-        enabled_specs, s,
+        enabled_specs,
+        s,
         ai_client=ai_client,
         workspace_client=_try_get_workspace_client(request),
         vector_index=_try_get_vector_index(request),

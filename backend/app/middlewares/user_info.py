@@ -56,7 +56,9 @@ async def user_info_middleware(request: Request, call_next):
                         request.state.user_id = db_user.id
             except Exception:
                 logging.getLogger(__name__).warning(
-                    "User upsert failed for %s; using header identity", user_id, exc_info=True,
+                    "User upsert failed for %s; using header identity",
+                    user_id,
+                    exc_info=True,
                 )
     else:
         request.state.user = None

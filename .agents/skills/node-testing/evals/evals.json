@@ -1,0 +1,50 @@
+{
+  "skill": "node-testing",
+  "cases": [
+    { "type": "should_trigger", "prompt": "set up tests for this package" },
+    { "type": "should_trigger", "prompt": "vitest or node:test for a small library?" },
+    { "type": "should_trigger", "prompt": "add coverage with a threshold that fails CI" },
+    { "type": "should_trigger", "prompt": "configure vitest for this monorepo" },
+    { "type": "should_trigger", "prompt": "write component tests with react testing library" },
+    { "type": "should_trigger", "prompt": "our jest setup is ancient, modernize it" },
+    { "type": "should_trigger", "prompt": "add tests + coverage pls" },
+    { "type": "should_trigger", "prompt": "how do I mock fetch in my tests?" },
+    { "type": "should_trigger", "prompt": "tests are flaky, fix the test setup" },
+    { "type": "should_not_trigger", "prompt": "set up playwright e2e for the app" },
+    { "type": "should_not_trigger", "prompt": "add eslint" },
+    { "type": "should_not_trigger", "prompt": "make the CI matrix run on node 22 and 24" },
+    { "type": "should_not_trigger", "prompt": "tighten tsconfig strict flags" },
+    { "type": "should_not_trigger", "prompt": "fix the package exports so imports resolve" },
+    { "type": "should_not_trigger", "prompt": "cut a release" },
+    { "type": "should_not_trigger", "prompt": "why does this function return undefined" },
+    { "type": "should_not_trigger", "prompt": "review this PR's test quality" },
+    {
+      "type": "quality",
+      "prompt": "set up testing for a new typescript library",
+      "expected_behavior": [
+        "recommends Vitest for anything non-trivial and node:test only for dependency-free pure-Node libraries, with the tradeoff stated",
+        "configures v8 coverage (AST-remapped accuracy) with a threshold that fails CI, not an informational report",
+        "TypeScript works without a transpile step (native Vitest handling or tsx loader for node:test)",
+        "adds test + coverage scripts and points at where CI wires them"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "add react testing library to our vite app",
+      "expected_behavior": [
+        "sets up Vitest with jsdom (or browser mode with the tradeoff explained) and RTL with user-event",
+        "shows a real render/screen/assert example against an actual component from the repo, not a toy",
+        "routes E2E flows to Playwright rather than stretching RTL"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "our coverage number is high but bugs still ship - fix our testing approach",
+      "expected_behavior": [
+        "explains coverage is a gap-finder, not a quality guarantee; recommends assertion quality and edge-case review over chasing percentage",
+        "suggests PR-delta coverage or mutation-testing style probes rather than raising the global threshold",
+        "avoids adding vanity thresholds that incentivize shallow tests"
+      ]
+    }
+  ]
+}

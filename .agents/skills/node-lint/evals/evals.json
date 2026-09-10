@@ -1,0 +1,51 @@
+{
+  "skill": "node-lint",
+  "cases": [
+    { "type": "should_trigger", "prompt": "set up linting for this typescript project" },
+    { "type": "should_trigger", "prompt": "should we use biome or eslint?" },
+    { "type": "should_trigger", "prompt": "migrate our eslintrc to flat config" },
+    { "type": "should_trigger", "prompt": "add prettier and make it play nice with eslint" },
+    { "type": "should_trigger", "prompt": "our linter is slow, can we switch to something faster" },
+    { "type": "should_trigger", "prompt": "configure biome for this repo" },
+    { "type": "should_trigger", "prompt": "lint + format setup pls" },
+    { "type": "should_trigger", "prompt": "eslint keeps fighting prettier, fix the config" },
+    { "type": "should_trigger", "prompt": "tune the lint rules, too many false positives" },
+    { "type": "should_trigger", "prompt": "add import sorting and unused-import removal" },
+    { "type": "should_not_trigger", "prompt": "tighten the tsconfig strictness" },
+    { "type": "should_not_trigger", "prompt": "set up vitest for this package" },
+    { "type": "should_not_trigger", "prompt": "add a CI matrix for node versions" },
+    { "type": "should_not_trigger", "prompt": "fix the failing type check" },
+    { "type": "should_not_trigger", "prompt": "configure package.json exports" },
+    { "type": "should_not_trigger", "prompt": "publish this package to npm" },
+    { "type": "should_not_trigger", "prompt": "harden next.config for production" },
+    { "type": "should_not_trigger", "prompt": "audit our dependencies for malicious packages" },
+    {
+      "type": "quality",
+      "prompt": "set up linting and formatting for a new TypeScript library",
+      "expected_behavior": [
+        "asks about or detects plugin needs before choosing: Biome as the one-tool default, ESLint v10 flat config + Prettier when the plugin ecosystem is needed",
+        "writes flat config only for ESLint (eslintrc is removed in v10) and never mixes formatters",
+        "wires format-check and lint into package.json scripts and points CI at them",
+        "runs the skill's verifier script to confirm the config parses and the tools run clean"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "migrate this eslintrc + prettier setup to something faster",
+      "expected_behavior": [
+        "offers the two real paths: ESLint v10 flat-config migration or a Biome migration (biome migrate eslint), with honest plugin-coverage tradeoffs",
+        "preserves intentional rule customizations instead of resetting to defaults",
+        "verifies the migrated setup produces no new errors on the existing codebase before deleting the old config"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "biome for a next.js app - good idea?",
+      "expected_behavior": [
+        "explains eslint-config-next coverage (Next-specific and RSC rules) that Biome does not fully replace",
+        "recommends keeping eslint-config-next for Next apps or a split setup (Biome format + ESLint next rules) with the tradeoff stated",
+        "does not claim Biome replaces tsc type checking"
+      ]
+    }
+  ]
+}

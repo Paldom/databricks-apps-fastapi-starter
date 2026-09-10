@@ -3,7 +3,11 @@ from __future__ import annotations
 from sqlalchemy import text
 
 from app.core.config import Settings
-from app.core.integrations import ensure_ai_client, ensure_vector_index, ensure_workspace_client
+from app.core.integrations import (
+    ensure_ai_client,
+    ensure_vector_index,
+    ensure_workspace_client,
+)
 from app.core.runtime import AppRuntime
 from app.models.health_dto import (
     DependencyCheck,
@@ -66,8 +70,7 @@ async def build_detailed_health(
     ai = check_ai(runtime, settings)
     vector_search = check_vector_search(runtime, settings)
     all_ok = all(
-        c.status == HealthStatus.OK
-        for c in [database, workspace, ai, vector_search]
+        c.status == HealthStatus.OK for c in [database, workspace, ai, vector_search]
     )
     return DetailedHealthResponse(
         ok=all_ok,

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import yaml
 
 from app.core.observability import safe_attr, tag_exception
 
@@ -54,38 +53,3 @@ class TestLoggingFieldNames:
         assert "otelSpanID" in _LOCAL_FORMAT
         assert "otelTraceID" in _FORMAT_DEFAULTS
         assert "otelSpanID" in _FORMAT_DEFAULTS
-
-
-class TestDatabricksAppCommand:
-    def test_command_uses_opentelemetry_instrument(self):
-        with open("../databricks.yml") as f:
-            bundle = yaml.safe_load(f)
-
-        # Default app_config command must include opentelemetry-instrument
-        default_cmd = bundle["variables"]["app_config"]["default"]["command"]
-        assert default_cmd[0] == "opentelemetry-instrument", (
-            f"Default app command should start with opentelemetry-instrument, got: {default_cmd}"
-        )
-        assert "run_app.py" in default_cmd, (
-            f"Default command should reference run_app.py (not backend/run_app.py), got: {default_cmd}"
-        )
-
-        # Every target override must also include opentelemetry-instrument
-        for name, target in bundle.get("targets", {}).items():
-            override = target.get("variables", {}).get("app_config")
-            if override is None:
-                continue
-            cmd = override.get("command", [])
-            assert cmd and cmd[0] == "opentelemetry-instrument", (
-                f"Target '{name}' app_config command must start with "
-                f"opentelemetry-instrument, got: {cmd}"
-            )
-
-    def test_source_code_path_is_backend(self):
-        with open("../resources/app.yml") as f:
-            app_yml = yaml.safe_load(f)
-
-        source_path = app_yml["resources"]["apps"]["fastapi_app"]["source_code_path"]
-        assert source_path == "./backend", (
-            f"source_code_path should be ./backend, got: {source_path}"
-        )

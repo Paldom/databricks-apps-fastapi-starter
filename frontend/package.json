@@ -1,7 +1,10 @@
 {
-  "name": "react-advanced-app",
+  "name": "databricks-apps-fastapi-starter-frontend",
   "private": true,
   "version": "0.0.1",
+  "engines": {
+    "node": ">=22 <25"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -103,12 +106,5 @@
     "workerDirectory": [
       "public"
     ]
-  },
-  "lint-staged": {
-    "**/*.{ts,tsx,js,mjs,cjs}": [
-      "eslint --fix --no-warn-ignored",
-      "prettier --write"
-    ],
-    "**/*.{json,css,md,mdx,yml,yaml,html}": "prettier --write"
   }
 }

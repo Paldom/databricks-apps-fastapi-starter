@@ -9,14 +9,16 @@ from app.models.base import AuditMixin, Base
 class ChatSession(AuditMixin, Base):
     __tablename__ = "chat_sessions"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id: Mapped[str] = mapped_column(
-        String(255), ForeignKey("users.id"), nullable=False,
+        String(255),
+        ForeignKey("users.id"),
+        nullable=False,
     )
     project_id: Mapped[str | None] = mapped_column(
-        String(255), ForeignKey("projects.id", ondelete="CASCADE"), nullable=True,
+        String(255),
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=True,
     )
     title: Mapped[str | None] = mapped_column(String(500), nullable=True)
     status: Mapped[str] = mapped_column(

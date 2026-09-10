@@ -15,7 +15,10 @@ class ProjectRepository:
         self._session = session
 
     async def list_projects(
-        self, owner_user_id: str, cursor: str | None, limit: int,
+        self,
+        owner_user_id: str,
+        cursor: str | None,
+        limit: int,
     ) -> tuple[list[dict], str | None, bool]:
         # Count chats per project via subquery
         chat_count_sq = (
@@ -77,7 +80,10 @@ class ProjectRepository:
         return project
 
     async def update_project(
-        self, owner_user_id: str, project_id: str, name: str,
+        self,
+        owner_user_id: str,
+        project_id: str,
+        name: str,
     ) -> Project | None:
         result = await self._session.execute(
             select(Project).where(

@@ -21,7 +21,12 @@ from pydantic import BaseModel
 
 from app.core.config import Settings
 from app.core.databricks.uc_files import UcFilesAdapter
-from app.core.deps import get_current_user, get_logger, get_settings, get_workspace_client
+from app.core.deps import (
+    get_current_user,
+    get_logger,
+    get_settings,
+    get_workspace_client,
+)
 from app.core.errors import ConfigurationError, RequestTooLargeError
 from app.core.integrations import databricks_integrations_disabled_message
 from app.models.user_dto import CurrentUser
@@ -117,7 +122,10 @@ async def upload_knowledge_file(
 
     adapter = UcFilesAdapter(get_workspace_client(request), logger)
     uploaded = await adapter.upload(
-        settings.volume_root, relative_path, payload, overwrite=False,
+        settings.volume_root,
+        relative_path,
+        payload,
+        overwrite=False,
     )
 
     full_path = f"{settings.volume_root.rstrip('/')}/{relative_path}"

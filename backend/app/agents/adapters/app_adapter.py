@@ -17,10 +17,7 @@ from app.core.mlflow_runtime import extract_trace_id
 
 
 def _serialize_input(request: ResponsesAgentRequest) -> list[dict[str, Any]]:
-    return [
-        item.model_dump(exclude_none=True) if hasattr(item, "model_dump") else item
-        for item in request.input
-    ]
+    return [item.model_dump(exclude_none=True) for item in request.input]
 
 
 class DatabricksAppAdapter:

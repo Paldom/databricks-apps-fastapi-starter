@@ -1,15 +1,73 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "enabledPlugins": {
+    "databricks@claude-plugins-official": true
+  },
   "hooks": {
-    "SessionStart": [
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-bash.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/lint-edited-file.sh\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Stop": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "bash /Users/dpal/.ai-dev-kit/repo/.claude-plugin/check_update.sh",
-            "timeout": 5
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop-verify.sh\"",
+            "timeout": 300
           }
         ]
       }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(make check:*)",
+      "Bash(make lint:*)",
+      "Bash(make typecheck:*)",
+      "Bash(make test:*)",
+      "Bash(make precommit:*)",
+      "Bash(uv run --frozen --directory backend pre-commit run:*)",
+      "Bash(uv run --directory backend pytest:*)",
+      "Bash(uv run --directory backend ruff:*)",
+      "Bash(uv run --directory backend mypy:*)",
+      "Bash(npm --prefix frontend run lint:*)",
+      "Bash(npm --prefix frontend run typecheck:*)",
+      "Bash(npm --prefix frontend run test:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(databricks bundle validate:*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./backend/.env)",
+      "Read(./.env.mcp)",
+      "Edit(./.env)",
+      "Edit(./backend/.env)",
+      "Edit(./backend/uv.lock)",
+      "Edit(./frontend/package-lock.json)",
+      "Edit(./frontend/src/shared/api/generated/**)"
     ]
   }
 }

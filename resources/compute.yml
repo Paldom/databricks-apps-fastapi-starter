@@ -42,7 +42,7 @@ resources:
         file_arrival:
           url: ${var.knowledge_upload_root}
           min_time_between_triggers_seconds: 60
-          wait_after_last_change_seconds: 15
+          wait_after_last_change_seconds: 61
 
       job_clusters:
         - job_cluster_key: rag_ingestion

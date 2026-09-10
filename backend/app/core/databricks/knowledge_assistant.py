@@ -27,9 +27,7 @@ class KnowledgeAssistantAdapter:
                 "ka.endpoint": safe_attr(endpoint_name),
             },
         ) as span:
-            self._logger.info(
-                "Querying Knowledge Assistant endpoint %s", endpoint_name
-            )
+            self._logger.info("Querying Knowledge Assistant endpoint %s", endpoint_name)
             try:
                 resp = await self._client.post(
                     "/serving-endpoints/responses",

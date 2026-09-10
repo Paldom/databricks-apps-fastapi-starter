@@ -82,6 +82,13 @@ generate: openapi-export frontend-api-gen requirements-export
 
 # ── Checks ─────────────────────────────────────────────────────────
 
+setup: install  ## Install deps, git hooks and agent skills
+	uv run --project backend pre-commit install --install-hooks
+	bash scripts/setup-agentic.sh
+
+precommit:  ## Run the commit gate over all files
+	uv run --project backend pre-commit run --all-files
+
 format:
 	cd $(BACKEND_DIR) && $(UV) run ruff format .
 	cd $(FRONTEND_DIR) && $(NPM) run format
@@ -104,7 +111,7 @@ test:
 frontend-build:
 	cd $(FRONTEND_DIR) && $(NPM) run build
 
-check: lint typecheck security test frontend-build bundle-validate
+check: precommit lint typecheck security test frontend-build  ## Offline quality gate (CI runs the same); bundle-validate needs workspace auth
 
 # ── Performance ────────────────────────────────────────────────────
 

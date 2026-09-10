@@ -45,7 +45,8 @@ def build_tools(
             log.warning("Unknown specialist kind %r for %s", spec.kind, spec.key)
             continue
         tool = builder_fn(  # type: ignore[operator]
-            spec, settings,
+            spec,
+            settings,
             ai_client=ai_client,
             workspace_client=workspace_client,
             vector_index=vector_index,
@@ -83,12 +84,14 @@ def _build_app_agent_tool(
             attributes={"tool": "app_agent", "app_name": safe_attr(app_name)},
         ) as span:
             try:
-                request = ResponsesAgentRequest(
-                    input=[{"role": "user", "content": question}],
+                request = ResponsesAgentRequest.model_validate(
+                    {"input": [{"role": "user", "content": question}]}
                 )
                 result = await adapter.invoke(request)
                 if result.downstream_trace_id:
-                    span.set_attribute("downstream.trace_id", result.downstream_trace_id)
+                    span.set_attribute(
+                        "downstream.trace_id", result.downstream_trace_id
+                    )
                 span.set_attribute("result", "ok")
                 return result.text
             except Exception as exc:
@@ -129,8 +132,8 @@ def _build_genie_tool(
                 if workspace_client is None:
                     return "Genie unavailable: workspace client not configured"
                 adapter = GenieAdapter(workspace_client, space_id)
-                request = ResponsesAgentRequest(
-                    input=[{"role": "user", "content": question}],
+                request = ResponsesAgentRequest.model_validate(
+                    {"input": [{"role": "user", "content": question}]}
                 )
                 result = await adapter.invoke(request)
                 span.set_attribute("result", "ok")
@@ -164,7 +167,10 @@ def _build_knowledge_tool(
         return _build_ka_endpoint_tool(spec, ka_endpoint, ai_client=ai_client)
 
     return _build_direct_vs_tool(
-        spec, settings, ai_client=ai_client, vector_index=vector_index,
+        spec,
+        settings,
+        ai_client=ai_client,
+        vector_index=vector_index,
     )
 
 
@@ -320,12 +326,14 @@ def _build_serving_tool(
             },
         ) as span:
             try:
-                request = ResponsesAgentRequest(
-                    input=[{"role": "user", "content": question}],
+                request = ResponsesAgentRequest.model_validate(
+                    {"input": [{"role": "user", "content": question}]}
                 )
                 result = await adapter.invoke(request)
                 if result.downstream_trace_id:
-                    span.set_attribute("downstream.trace_id", result.downstream_trace_id)
+                    span.set_attribute(
+                        "downstream.trace_id", result.downstream_trace_id
+                    )
                 span.set_attribute("result", "ok")
                 return result.text
             except Exception as exc:

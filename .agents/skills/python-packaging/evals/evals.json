@@ -1,0 +1,78 @@
+{
+  "skill": "python-packaging",
+  "cases": [
+    { "type": "should_trigger", "prompt": "package this project so other teams can pip install it" },
+    { "type": "should_trigger", "prompt": "set up pyproject.toml for my library" },
+    { "type": "should_trigger", "prompt": "which build backend should I use, hatchling or uv_build?" },
+    { "type": "should_trigger", "prompt": "build a wheel and check what actually ends up inside it" },
+    { "type": "should_trigger", "prompt": "switch this repo from poetry to uv" },
+    { "type": "should_trigger", "prompt": "modernize this old setup.py project" },
+    { "type": "should_trigger", "prompt": "uv build fails saying the backend can't find my module" },
+    { "type": "should_trigger", "prompt": "shoud my python lib use a src layout?" },
+    { "type": "should_trigger", "prompt": "my wheel doesn't include py.typed even though the file is in the repo" },
+    { "type": "should_trigger", "prompt": "make this a proper installable package with a CLI entry point" },
+    { "type": "should_trigger", "prompt": "convert our requirements.txt workflow to a lockfile-based setup" },
+    { "type": "should_trigger", "prompt": "where do dev dependencies go, dependency-groups or optional-dependencies?" },
+    { "type": "should_not_trigger", "prompt": "publish this package to PyPI" },
+    { "type": "should_not_trigger", "prompt": "bump the version and tag a release" },
+    { "type": "should_not_trigger", "prompt": "set up trusted publishing so CI can upload the package" },
+    { "type": "should_not_trigger", "prompt": "make this package typed - add py.typed and strict mypy" },
+    { "type": "should_not_trigger", "prompt": "add [tool.ruff] to pyproject.toml and fix the lint errors" },
+    { "type": "should_not_trigger", "prompt": "add a GitHub Actions workflow that builds and tests the package" },
+    { "type": "should_not_trigger", "prompt": "run the test suite on 3.11, 3.12 and 3.13 with uv" },
+    { "type": "should_not_trigger", "prompt": "audit our dependencies for known vulnerabilities" },
+    { "type": "should_not_trigger", "prompt": "set up dependabot so uv.lock stays fresh" },
+    { "type": "should_not_trigger", "prompt": "generate a changelog from conventional commits for the next release" },
+    {
+      "type": "quality",
+      "prompt": "Package this library properly. It currently has a flat mylib/ directory, a setup.py, and a requirements.txt. I want a modern pyproject-based setup managed with uv.",
+      "expected_behavior": [
+        "moves the package to a src/ layout and explains that tests then exercise the installed package instead of the working-directory copy",
+        "writes a pyproject.toml with complete [project] metadata (name, version, description, readme, requires-python, license, dependencies)",
+        "picks a build backend and states the concrete trade-off driving the choice (pure Python vs C extensions vs VCS-tag versioning)",
+        "carries requirements.txt entries into [project.dependencies] / [dependency-groups] before deleting setup.py and requirements.txt",
+        "runs uv build and verifies the sdist and wheel contents before declaring the task done"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "which build backend should I pick for a new pure-python library?",
+      "expected_behavior": [
+        "compares uv_build, hatchling, and setuptools with concrete trade-offs instead of declaring one absolute winner",
+        "shows a [build-system] snippet that pins uv_build with an upper version bound and explains why the bound matters",
+        "states that uv_build does not support C or Cython extension modules",
+        "does not present unverified speed multipliers as established fact"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "my built wheel is missing py.typed even though the file exists in the repo",
+      "expected_behavior": [
+        "inspects the built wheel contents (unzip -l or the bundled check script) to confirm the file is absent from the artifact",
+        "identifies which build backend is in use and adds the matching include or package-data configuration",
+        "rebuilds and verifies py.typed is now present inside the wheel, not just in the source tree",
+        "keeps scope to file inclusion mechanics and defers typing strategy or type-checker setup to the python-typing skill"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "migrate this poetry project to uv",
+      "expected_behavior": [
+        "converts [tool.poetry] metadata and dependencies to PEP 621 [project] fields and dev dependencies to [dependency-groups]",
+        "switches [build-system] away from poetry-core only after verifying resolution with uv lock and uv sync",
+        "commits uv.lock and warns against running pip inside the uv-managed project",
+        "runs uv build at the end to prove artifacts still build"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "uv build fails: the backend can't find my module",
+      "expected_behavior": [
+        "checks the layout against what uv_build expects (src/<module>/__init__.py or flat <module>/, module named after the normalized project name)",
+        "uses [tool.uv.build-backend] module-name or module-root when the import name differs from the project name",
+        "mentions that uv_build discovers one module by default and needs module-name (a list for several modules) declared in [tool.uv.build-backend] otherwise",
+        "re-runs uv build to confirm the fix"
+      ]
+    }
+  ]
+}

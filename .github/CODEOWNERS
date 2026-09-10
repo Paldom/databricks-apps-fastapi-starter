@@ -1,0 +1,9 @@
+/.claude/ @Paldom
+/.agents/ @Paldom
+/resources/ @Paldom
+/.github/ @Paldom
+/databricks.yml @Paldom
+/.pre-commit-config.yaml @Paldom
+/backend/uv.lock @Paldom
+/frontend/package-lock.json @Paldom
+/scripts/ @Paldom

@@ -1,0 +1,78 @@
+{
+  "skill": "python-typing",
+  "cases": [
+    { "type": "should_trigger", "prompt": "add type checking to my package" },
+    { "type": "should_trigger", "prompt": "Set up mypy in strict mode for this repo" },
+    { "type": "should_trigger", "prompt": "should we use mypy or pyright for this library?" },
+    { "type": "should_trigger", "prompt": "downstream users say all the types from our package show up as Any" },
+    { "type": "should_trigger", "prompt": "mypy strict = true is throwing hundreds of errors, how do I roll it out gradually?" },
+    { "type": "should_trigger", "prompt": "is ty ready to replace mypy in our CI gate?" },
+    { "type": "should_trigger", "prompt": "pyright keeps flagging my pydantic model constructors, how do i fix taht" },
+    { "type": "should_trigger", "prompt": "how do I silence mypy for just the tests module but keep src strict" },
+    { "type": "should_trigger", "prompt": "make this package typed" },
+    { "type": "should_trigger", "prompt": "we publish a library — how do consumers actually get our type hints?" },
+    { "type": "should_trigger", "prompt": "setup basedpyright pls" },
+    { "type": "should_trigger", "prompt": "fix these errors from pyright strict mode" },
+    { "type": "should_not_trigger", "prompt": "ruff is flagging missing annotations under the ANN rules, fix the lint errors" },
+    { "type": "should_not_trigger", "prompt": "add a GitHub Actions workflow that runs mypy on every pull request" },
+    { "type": "should_not_trigger", "prompt": "add mypy to our pre-commit config" },
+    { "type": "should_not_trigger", "prompt": "getting TypeError at runtime, 'NoneType' object is not subscriptable — help me debug it" },
+    { "type": "should_not_trigger", "prompt": "the pytest suite is failing after the refactor, fix the tests" },
+    { "type": "should_not_trigger", "prompt": "set up pyproject.toml metadata and a src layout for this project" },
+    { "type": "should_not_trigger", "prompt": "build the wheel and check that the sdist includes the README" },
+    { "type": "should_not_trigger", "prompt": "publish the package to PyPI with trusted publishing" },
+    { "type": "should_not_trigger", "prompt": "run the test suite on Python 3.10 through 3.13 with tox" },
+    { "type": "should_not_trigger", "prompt": "just add type hints to this one helper function real quick" },
+    {
+      "type": "quality",
+      "prompt": "Add type checking to my Python package",
+      "expected_behavior": [
+        "inspects the repo (or asks) for framework dependencies like Django, SQLAlchemy, or Pydantic and for src vs flat layout before recommending a checker, and presents the mypy vs pyright vs ty choice as unsettled trade-offs rather than declaring one winner",
+        "writes checker config into pyproject.toml with strictness matched to project age — strict for a new project, a documented ratchet plan for a legacy one",
+        "adds the checker as a pinned dev dependency and runs it via uv (noting a plain pip fallback), then fixes or triages the reported errors",
+        "for a library, adds py.typed and configures the build backend to include it",
+        "does not quote specific speed multipliers or conformance percentages as established facts"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "mypy --strict reports 400 errors on our legacy codebase, roll it out gradually",
+      "expected_behavior": [
+        "proposes a per-module ratchet (global strict with [[tool.mypy.overrides]] exempting legacy modules, or staged flag adoption) instead of a big-bang fix or abandoning strict",
+        "warns that global strict plus per-module rule downgrades do not compose cleanly and shows working override config (ignore_errors for legacy modules, ignore_missing_imports for untyped deps)",
+        "recommends error-code-scoped ignores like '# type: ignore[arg-type]' with warn_unused_ignores enabled, not bare ignores",
+        "defines the ratchet direction — the override/exemption list only shrinks over time and is tracked as debt"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "Downstream users of our library say all our types show up as Any in their editor",
+      "expected_behavior": [
+        "diagnoses a missing or unshipped py.typed marker (PEP 561) as the likely cause",
+        "adds py.typed inside the import package and adds the build-backend include config the backend needs (e.g. setuptools package-data)",
+        "builds the wheel and verifies py.typed is actually inside the built artifact, not just the source tree",
+        "recommends checking the public API with both mypy and pyright since downstream consumers use both"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "pyright strict keeps flagging our Pydantic model constructors as errors",
+      "expected_behavior": [
+        "explains the root cause — static checkers cannot see through Pydantic before/wrap validators and coercion, so constructor calls with pre-validation input types look wrong statically",
+        "presents options with trade-offs (mypy with the pydantic.mypy plugin, rule-scoped pyright ignores, relaxing specific rules for model modules) instead of one blanket fix",
+        "warns against blanket '# type: ignore' and against assuming a statically clean model is runtime-safe, since Pydantic coerces by default unless its own strict mode is enabled",
+        "does not add a second type checker as a CI gate without flagging the dual suppression-comment cost"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "should I use mypy, pyright, or ty?",
+      "expected_behavior": [
+        "frames the checker race as genuinely unsettled and maps situations to checkers — plugin-dependent stacks to mypy, new projects or editor-first teams to pyright/basedpyright, risk-tolerant uv shops to a ty pilot, huge monorepos to evaluating Pyrefly",
+        "flags ty and Pyrefly maturity caveats, including the absence of a plugin system for Django/SQLAlchemy/Pydantic stacks",
+        "avoids quoting benchmark multipliers or conformance percentages as fact",
+        "recommends committing to one primary CI checker and warns that running two means maintaining parallel suppression comments"
+      ]
+    }
+  ]
+}

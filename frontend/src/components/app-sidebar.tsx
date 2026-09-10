@@ -71,13 +71,16 @@ function getInitials(name: string) {
     .join('')
 }
 
-function getUserLabels(user?: {
-  id: string
-  email?: string | null
-  name?: string | null
-  preferred_username?: string | null
-} | null) {
-  const primary = user?.name || user?.preferred_username || user?.email || user?.id || ''
+function getUserLabels(
+  user?: {
+    id: string
+    email?: string | null
+    name?: string | null
+    preferred_username?: string | null
+  } | null
+) {
+  const primary =
+    user?.name || user?.preferred_username || user?.email || user?.id || ''
   const secondary = user?.email || user?.preferred_username || user?.id || ''
   return { primary, secondary }
 }
@@ -504,7 +507,9 @@ export function AppSidebar() {
                 <SidebarMenuButton>
                   <Avatar className="h-6 w-6">
                     <AvatarFallback>
-                      {currentUserQuery.isLoading ? '...' : getInitials(userName)}
+                      {currentUserQuery.isLoading
+                        ? '...'
+                        : getInitials(userName)}
                     </AvatarFallback>
                   </Avatar>
 

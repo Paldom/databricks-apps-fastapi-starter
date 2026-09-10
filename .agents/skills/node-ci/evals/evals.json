@@ -1,0 +1,50 @@
+{
+  "skill": "node-ci",
+  "cases": [
+    { "type": "should_trigger", "prompt": "set up GitHub Actions for this node package" },
+    { "type": "should_trigger", "prompt": "add a CI matrix for supported node versions" },
+    { "type": "should_trigger", "prompt": "which node versions should we test against?" },
+    { "type": "should_trigger", "prompt": "cache npm installs in CI" },
+    { "type": "should_trigger", "prompt": "set up pnpm in GitHub Actions" },
+    { "type": "should_trigger", "prompt": "make one required check instead of five matrix legs" },
+    { "type": "should_trigger", "prompt": "CI is slow, speed up the workflow" },
+    { "type": "should_trigger", "prompt": "our merge queue never runs checks, fix it" },
+    { "type": "should_trigger", "prompt": "node ci workflow pls" },
+    { "type": "should_not_trigger", "prompt": "set up the release/publish pipeline" },
+    { "type": "should_not_trigger", "prompt": "choose lint rules" },
+    { "type": "should_not_trigger", "prompt": "write tests for the parser" },
+    { "type": "should_not_trigger", "prompt": "configure package exports" },
+    { "type": "should_not_trigger", "prompt": "pin our github actions to SHAs" },
+    { "type": "should_not_trigger", "prompt": "protect the main branch with a ruleset" },
+    { "type": "should_not_trigger", "prompt": "why is this docker build failing" },
+    { "type": "should_not_trigger", "prompt": "add dependabot" },
+    {
+      "type": "quality",
+      "prompt": "add CI for this typescript package",
+      "expected_behavior": [
+        "matrix on maintained LTS lines (22 + 24, optionally 26 as experimental/allowed-failure; Node 20 is EOL)",
+        "setup-node@v7 with the built-in cache keyed to the lockfile; pnpm via pnpm/action-setup (corepack is gone from Node >= 25/26)",
+        "wires lint + type-check + test as jobs feeding a single all-checks-passed aggregator (if always() + result check) as the only required check",
+        "adds concurrency cancel-in-progress and timeout-minutes"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "we enabled a merge queue and PRs are stuck",
+      "expected_behavior": [
+        "adds merge_group to every workflow backing a required check (pull_request alone never reports in the queue)",
+        "verifies the required-check names match what the workflows actually report",
+        "explains why the queue silently fails without the trigger"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "CI takes 15 minutes for a small package, make it fast",
+      "expected_behavior": [
+        "profiles before cutting: identifies install vs build vs test time from run logs",
+        "applies the real levers: lockfile-keyed caching, fail-fast strategy choices, splitting slow suites, avoiding redundant matrix legs",
+        "does not sacrifice required gates for speed without saying so"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "skill": "node-packaging",
+  "cases": [
+    { "type": "should_trigger", "prompt": "set up package.json exports for this library" },
+    { "type": "should_trigger", "prompt": "should we ship ESM only or dual ESM/CJS?" },
+    { "type": "should_trigger", "prompt": "configure tsdown to build the package" },
+    { "type": "should_trigger", "prompt": "consumers say our types don't resolve, fix the package" },
+    { "type": "should_trigger", "prompt": "prep this repo for npm publish" },
+    { "type": "should_trigger", "prompt": "add publint and arethetypeswrong checks" },
+    { "type": "should_trigger", "prompt": "the npm tarball includes junk, whitelist the files" },
+    { "type": "should_trigger", "prompt": "migrate this package from tsup" },
+    { "type": "should_trigger", "prompt": "dual package hazard - are we exposed?" },
+    { "type": "should_not_trigger", "prompt": "bump the version and publish to npm" },
+    { "type": "should_not_trigger", "prompt": "set up changesets" },
+    { "type": "should_not_trigger", "prompt": "configure npm trusted publishing" },
+    { "type": "should_not_trigger", "prompt": "tighten the tsconfig" },
+    { "type": "should_not_trigger", "prompt": "set up vitest" },
+    { "type": "should_not_trigger", "prompt": "add eslint flat config" },
+    { "type": "should_not_trigger", "prompt": "audit dependencies for vulnerabilities" },
+    { "type": "should_not_trigger", "prompt": "optimize the next.js bundle size" },
+    {
+      "type": "quality",
+      "prompt": "package this typescript library for npm",
+      "expected_behavior": [
+        "defaults to ESM-only for a new package (Node ^20.19/>=22.12 require(esm), Node 20 EOL) and offers dual format only when older-Node consumers are a stated requirement",
+        "writes a correct exports map (types condition ordered first where relevant) and a files whitelist, engines field",
+        "sets up tsdown (or keeps tsup with rationale) emitting declarations",
+        "gates publishing on publint + arethetypeswrong via prepublishOnly or the verifier script"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "consumers report ERR_REQUIRE_ESM from our package",
+      "expected_behavior": [
+        "diagnoses the consumer Node range and module format mismatch instead of blindly adding CJS",
+        "offers the real options: document the supported Node range for require(esm), or add a genuine dual build, with the dual-package hazard explained",
+        "verifies the fix with attw/publint before declaring done"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "check if our package is publishable",
+      "expected_behavior": [
+        "runs the deterministic checks (publint, attw, npm pack --dry-run tarball inspection)",
+        "reports concrete findings with the exports/types fix for each",
+        "does not actually publish anything"
+      ]
+    }
+  ]
+}

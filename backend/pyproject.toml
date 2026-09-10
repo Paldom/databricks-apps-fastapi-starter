@@ -36,8 +36,10 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "ruff",
-    "mypy",
+    "ruff==0.15.6",
+    "mypy==1.19.1",
+    "pre-commit>=4.3,<5",
+    "import-linter>=2.3,<3",
     "bandit",
     "alembic==1.18.4",
     "pytest",
@@ -79,3 +81,11 @@ exclude = [
     "tests*",
     "notebooks*",
 ]
+
+[tool.importlinter]
+root_package = "app"
+
+[[tool.importlinter.contracts]]
+name = "Layered architecture: api -> services -> repositories -> models"
+type = "layers"
+layers = ["app.api", "app.services", "app.repositories", "app.models"]

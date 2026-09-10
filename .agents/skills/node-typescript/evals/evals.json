@@ -1,0 +1,50 @@
+{
+  "skill": "node-typescript",
+  "cases": [
+    { "type": "should_trigger", "prompt": "set up typescript for this library" },
+    { "type": "should_trigger", "prompt": "tighten our tsconfig" },
+    { "type": "should_trigger", "prompt": "what module / moduleResolution should this package use?" },
+    { "type": "should_trigger", "prompt": "add a type-check step that fails the build" },
+    { "type": "should_trigger", "prompt": "should we turn on isolatedDeclarations?" },
+    { "type": "should_trigger", "prompt": "upgrade to typescript 6, what breaks?" },
+    { "type": "should_trigger", "prompt": "strict mode pls, the codebase is full of anys" },
+    { "type": "should_trigger", "prompt": "our published types are broken for consumers, fix the declaration output" },
+    { "type": "should_trigger", "prompt": "verbatimModuleSyntax - do we need it?" },
+    { "type": "should_not_trigger", "prompt": "set up eslint for typescript" },
+    { "type": "should_not_trigger", "prompt": "add vitest with typescript support" },
+    { "type": "should_not_trigger", "prompt": "configure tsdown to bundle the package" },
+    { "type": "should_not_trigger", "prompt": "fix the exports field so types resolve" },
+    { "type": "should_not_trigger", "prompt": "set up the CI matrix" },
+    { "type": "should_not_trigger", "prompt": "publish to npm with provenance" },
+    { "type": "should_not_trigger", "prompt": "why is my react component re-rendering" },
+    { "type": "should_not_trigger", "prompt": "write type tests for this generic function" },
+    {
+      "type": "quality",
+      "prompt": "set up tsconfig for a library we'll publish to npm",
+      "expected_behavior": [
+        "uses TS 6-era guidance: strict on, verbatimModuleSyntax, isolatedDeclarations where the API surface allows (verify flag status for the installed TS major), declaration + declarationMap",
+        "chooses module/moduleResolution by consumption model (nodenext for Node-resolved libraries, bundler only for bundled code) and says why",
+        "adds a tsc --noEmit (or equivalent) gate to scripts/CI",
+        "notes tsconfig defaults changed in TS 6.0 so copied older configs may double-specify or contradict"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "make this codebase strict without breaking the team",
+      "expected_behavior": [
+        "proposes an incremental path (strict flags file-by-file or per-flag ratchet) rather than one big-bang flip",
+        "quantifies the current error surface first (tsc --noEmit count)",
+        "keeps CI green throughout by gating only on files already migrated or on no-new-errors"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "should we wait for the go-based typescript compiler?",
+      "expected_behavior": [
+        "states that TypeScript 7 (native compiler) is GA and current, names the 6.x compatibility package for API-dependent tooling, and lists the options 7 removed instead of inventing timelines",
+        "recommends configs that stay compatible (standard tsconfig, no compiler-specific hacks)",
+        "does not block current work on future tooling"
+      ]
+    }
+  ]
+}

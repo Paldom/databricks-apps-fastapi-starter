@@ -1,0 +1,45 @@
+# AGENTS.md
+
+<!-- Canonical agent rules file. Keep CLAUDE.md as a one-line "@AGENTS.md"
+     import so every agent reads the same rules. Keep this under ~200 lines,
+     hand-curated and repo-specific: generic auto-generated overviews have
+     measurably hurt agent performance. Every line should encode something an
+     agent got wrong here, or would. -->
+
+<one paragraph: what this package is and does>
+
+## Commands
+
+- Install/sync: `uv sync`
+- Test: `uv run pytest`
+- Lint + format: `uv run ruff check --fix . && uv run ruff format .`
+- Type check: `uv run mypy src/`
+- Full gate (run before calling any task done): `make check`  <!-- or the equivalent -->
+
+## Environment
+
+- Use `uv` for everything — never `pip install`, `poetry`, or bare `python`.
+  Add dependencies with `uv add <pkg>` (dev: `uv add --dev <pkg>`).
+- Never edit `uv.lock` by hand; it changes only via uv commands.
+
+## Definition of done
+
+- Lint, type check, and tests all pass locally before you present work as
+  complete. Run them; do not assume.
+- Never weaken a gate to pass it: no lowering coverage thresholds, no
+  skipping/deleting failing tests, no `|| true`, no `--no-verify`.
+- If you changed a public API, update its docs in the same change.
+
+## Review boundaries
+
+- Flag — do not silently change — anything touching authentication, payments,
+  dependency declarations, lockfiles, `.github/workflows/`, or `.claude/`.
+- New dependencies require explicit human sign-off; verify the package exists
+  and is established before adding it (agents have hallucinated package names
+  that attackers then registered).
+
+## Conventions
+
+<3-8 repo-specific lines: layout, naming, patterns reviewers keep correcting.
+Source them from recurring PR feedback — repeated review comments are missing
+repo knowledge in disguise.>

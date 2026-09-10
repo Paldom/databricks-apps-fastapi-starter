@@ -104,12 +104,27 @@ for mod_name in _OPTIONAL_STUBS:
             stub = types.ModuleType(mod_name)
             # Commonly referenced names
             for attr in (
-                "BaseChatModel", "BaseTool", "ToolNode", "StateGraph", "AnyMessage",
-                "HumanMessage", "SystemMessage", "AIMessage", "ChatOpenAI",
-                "MemorySaver", "BaseCheckpointSaver", "CompiledStateGraph",
-                "set_experiment", "update_current_trace", "autolog", "trace",
-                "create_react_agent", "BaseStore",
-                "ResponsesAgent", "set_model", "SpanType",
+                "BaseChatModel",
+                "BaseTool",
+                "ToolNode",
+                "StateGraph",
+                "AnyMessage",
+                "HumanMessage",
+                "SystemMessage",
+                "AIMessage",
+                "ChatOpenAI",
+                "MemorySaver",
+                "BaseCheckpointSaver",
+                "CompiledStateGraph",
+                "set_experiment",
+                "update_current_trace",
+                "autolog",
+                "trace",
+                "create_react_agent",
+                "BaseStore",
+                "ResponsesAgent",
+                "set_model",
+                "SpanType",
             ):
                 setattr(stub, attr, MagicMock)
             stub.tool = lambda f=None, **kw: f if f else (lambda fn: fn)  # type: ignore[attr-defined]
@@ -180,19 +195,13 @@ def mock_lifespan(monkeypatch):
     monkeypatch.setattr(bootstrap.settings, "pg_user", "starter")
     monkeypatch.setattr(bootstrap.settings, "pg_password", "secret")
     monkeypatch.setattr(bootstrap.settings, "environment", "test")
-    monkeypatch.setattr(
-        bootstrap.settings, "enable_databricks_integrations", False
-    )
-    monkeypatch.setattr(
-        bootstrap.settings, "enable_local_dev_auth_fallback", None
-    )
+    monkeypatch.setattr(bootstrap.settings, "enable_databricks_integrations", False)
+    monkeypatch.setattr(bootstrap.settings, "enable_local_dev_auth_fallback", None)
     monkeypatch.setattr(bootstrap.settings, "local_dev_user_id", "local-dev-user")
     monkeypatch.setattr(bootstrap.settings, "databricks_host", "http://localhost")
     monkeypatch.setattr(bootstrap.settings, "databricks_token", "test-token")
     monkeypatch.setattr(bootstrap.settings, "serving_endpoint_name", "starter-endpoint")
-    monkeypatch.setattr(
-        bootstrap.settings, "vector_search_endpoint_name", "starter-vs"
-    )
+    monkeypatch.setattr(bootstrap.settings, "vector_search_endpoint_name", "starter-vs")
     monkeypatch.setattr(
         bootstrap.settings,
         "vector_search_index_name",

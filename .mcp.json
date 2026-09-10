@@ -2,19 +2,14 @@
   "mcpServers": {
     "context7": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@upstash/context7-mcp"
-      ],
+      "args": ["-y", "@upstash/context7-mcp"],
       "env": {
         "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
       }
     },
     "deep-research": {
       "command": "uvx",
-      "args": [
-        "mcp-server-deep-research"
-      ]
+      "args": ["mcp-server-deep-research"]
     },
     "figma": {
       "type": "http",
@@ -36,42 +31,29 @@
     },
     "github-actions": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-github-actions"
-      ],
+      "args": ["-y", "@modelcontextprotocol/server-github-actions"],
       "env": {
         "GITHUB_TOKEN": "${GITHUB_TOKEN}"
       }
     },
     "playwright": {
       "command": "npx",
-      "args": [
-        "@playwright/mcp@latest"
-      ]
+      "args": ["@playwright/mcp@latest"]
     },
     "pytest": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-pytest"
-      ]
+      "args": ["-y", "@modelcontextprotocol/server-pytest"]
     },
     "ref": {
       "command": "npx",
-      "args": [
-        "ref-tools-mcp@latest"
-      ],
+      "args": ["ref-tools-mcp@latest"],
       "env": {
         "REF_API_KEY": "${REF_API_KEY}"
       }
     },
     "sqlalchemy": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-sqlalchemy"
-      ],
+      "args": ["-y", "@modelcontextprotocol/server-sqlalchemy"],
       "env": {
         "DATABASE_URL": "${DATABASE_URL}"
       }
@@ -79,16 +61,6 @@
     "storybook": {
       "type": "http",
       "url": "http://localhost:6006/mcp"
-    },
-    "databricks": {
-      "command": "/Users/dpal/.ai-dev-kit/.venv/bin/python",
-      "args": [
-        "/Users/dpal/.ai-dev-kit/repo/databricks-mcp-server/run_server.py"
-      ],
-      "defer_loading": true,
-      "env": {
-        "DATABRICKS_CONFIG_PROFILE": "DEFAULT"
-      }
     }
   }
 }

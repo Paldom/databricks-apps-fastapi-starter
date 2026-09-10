@@ -31,9 +31,7 @@ def _make_responses_result(text: str = "Hello", trace_id: str | None = None):
                 "id": "msg_test",
                 "role": "assistant",
                 "status": "completed",
-                "content": [
-                    {"type": "output_text", "text": text, "annotations": []}
-                ],
+                "content": [{"type": "output_text", "text": text, "annotations": []}],
             }
         ],
     }
@@ -70,9 +68,7 @@ class TestDatabricksAppAdapter:
         )
 
         adapter = DatabricksAppAdapter(mock_client, "my-app")
-        req = ResponsesAgentRequest(
-            input=[{"role": "user", "content": "test"}]
-        )
+        req = ResponsesAgentRequest(input=[{"role": "user", "content": "test"}])
 
         result = _run(adapter.invoke(req))
 
@@ -102,9 +98,7 @@ class TestServingEndpointAdapter:
         adapter = ServingEndpointAdapter(
             mock_client, "my-endpoint", api_mode="responses"
         )
-        req = ResponsesAgentRequest(
-            input=[{"role": "user", "content": "test"}]
-        )
+        req = ResponsesAgentRequest(input=[{"role": "user", "content": "test"}])
 
         result = _run(adapter.invoke(req))
 
@@ -125,9 +119,7 @@ class TestServingEndpointAdapter:
         adapter = ServingEndpointAdapter(
             mock_client, "legacy-endpoint", api_mode="chat_completions"
         )
-        req = ResponsesAgentRequest(
-            input=[{"role": "user", "content": "test"}]
-        )
+        req = ResponsesAgentRequest(input=[{"role": "user", "content": "test"}])
 
         result = _run(adapter.invoke(req))
 
@@ -136,8 +128,14 @@ class TestServingEndpointAdapter:
         assert result.downstream_trace_id == "tr-legacy-1"
         assert result.metadata["api_mode"] == "chat_completions"
         # Should have legacy marker in custom_outputs
-        obj = result.response.model_dump() if hasattr(result.response, "model_dump") else dict(result.response)
-        assert obj.get("custom_outputs", {}).get("legacy_api_mode") == "chat_completions"
+        obj = (
+            result.response.model_dump()
+            if hasattr(result.response, "model_dump")
+            else dict(result.response)
+        )
+        assert (
+            obj.get("custom_outputs", {}).get("legacy_api_mode") == "chat_completions"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -179,7 +177,11 @@ class TestGenieAdapter:
         assert result.downstream_trace_id is None  # Genie doesn't provide trace IDs
 
         # Structured outputs preserved in custom_outputs
-        resp_dict = result.response.model_dump() if hasattr(result.response, "model_dump") else dict(result.response)
+        resp_dict = (
+            result.response.model_dump()
+            if hasattr(result.response, "model_dump")
+            else dict(result.response)
+        )
         custom = resp_dict.get("custom_outputs", {})
         assert custom["backend"] == "genie"
         assert custom["sql"] == "SELECT SUM(revenue) FROM sales"

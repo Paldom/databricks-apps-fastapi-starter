@@ -23,10 +23,7 @@ _DATABRICKS_OPTIONS = {"databricks_options": {"return_trace": True}}
 
 
 def _serialize_input(request: ResponsesAgentRequest) -> list[dict[str, Any]]:
-    return [
-        item.model_dump(exclude_none=True) if hasattr(item, "model_dump") else item
-        for item in request.input
-    ]
+    return [item.model_dump(exclude_none=True) for item in request.input]
 
 
 class ServingEndpointAdapter:
@@ -101,9 +98,7 @@ class ServingEndpointAdapter:
         self, request: ResponsesAgentRequest
     ) -> AsyncIterator[ResponsesAgentStreamEvent]:
         if self._api_mode != "responses":
-            raise NotImplementedError(
-                "Streaming only supported in 'responses' mode"
-            )
+            raise NotImplementedError("Streaming only supported in 'responses' mode")
 
         async for event in await self._client.responses.create(
             model=self._endpoint,

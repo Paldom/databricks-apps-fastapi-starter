@@ -29,7 +29,9 @@ async def run_sync(
             return await asyncio.wait_for(coro, timeout=timeout)
         return await coro
     except asyncio.TimeoutError:
-        detail = f"{getattr(func, '__qualname__', str(func))} timed out after {timeout}s"
+        detail = (
+            f"{getattr(func, '__qualname__', str(func))} timed out after {timeout}s"
+        )
         logger.warning("Timeout | %s", detail)
         raise error_cls(detail) from None
     except error_cls:

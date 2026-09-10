@@ -10,12 +10,7 @@ async def workspace_client_middleware(request: Request, call_next):
     runtime = get_app_runtime(request.app)
     request.state.w = None
     token = request.headers.get("X-Forwarded-Access-Token")
-    if (
-        settings.databricks_integrations_enabled()
-        and
-        settings.enable_obo
-        and token
-    ):
+    if settings.databricks_integrations_enabled() and settings.enable_obo and token:
         host = settings.databricks_host
         if host is None:
             try:

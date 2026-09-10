@@ -8,6 +8,7 @@ path manipulation.
 Migrations run automatically on every deploy/restart — there is no separate
 migration step.
 """
+
 from __future__ import annotations
 
 import logging
@@ -43,7 +44,11 @@ def run_server() -> None:
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
-        port=int(os.environ.get("DATABRICKS_APP_PORT", os.environ.get("UVICORN_PORT", "8000"))),
+        port=int(
+            os.environ.get(
+                "DATABRICKS_APP_PORT", os.environ.get("UVICORN_PORT", "8000")
+            )
+        ),
         log_level=os.environ.get("UVICORN_LOG_LEVEL", "info"),
     )
 

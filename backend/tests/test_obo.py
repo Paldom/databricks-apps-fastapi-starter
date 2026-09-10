@@ -15,9 +15,7 @@ def test_workspace_client_middleware_uses_header(monkeypatch):
     monkeypatch.setattr(settings, "enable_obo", True)
     monkeypatch.setattr(settings, "enable_databricks_integrations", True)
     monkeypatch.setattr(settings, "databricks_host", None)
-    monkeypatch.setattr(
-        "app.middlewares.workspace_client.WorkspaceClient", DummyWC
-    )
+    monkeypatch.setattr("app.middlewares.workspace_client.WorkspaceClient", DummyWC)
 
     with TestClient(app_main.app) as client:
         client.app.state.runtime.workspace_client = MagicMock(
@@ -44,9 +42,7 @@ def test_workspace_client_middleware_ignores_header_when_disabled(monkeypatch):
 
     monkeypatch.setattr(settings, "enable_obo", False)
     monkeypatch.setattr(settings, "enable_databricks_integrations", False)
-    monkeypatch.setattr(
-        "app.middlewares.workspace_client.WorkspaceClient", dummy_wc
-    )
+    monkeypatch.setattr("app.middlewares.workspace_client.WorkspaceClient", dummy_wc)
 
     with TestClient(app_main.app) as client:
         client.app.state.runtime.workspace_client = "default"

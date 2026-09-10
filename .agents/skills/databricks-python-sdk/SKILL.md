@@ -1,6 +1,10 @@
 ---
 name: databricks-python-sdk
 description: "Databricks development guidance including Python SDK, Databricks Connect, CLI, and REST API. Use when working with databricks-sdk, databricks-connect, or Databricks APIs."
+compatibility: Requires databricks CLI (>= v1.0.0)
+metadata:
+  version: "0.1.0"
+parent: databricks-core
 ---
 
 # Databricks Development Guide
@@ -91,10 +95,14 @@ databricks --profile MY_PROFILE clusters list
 # Common commands
 databricks clusters list
 databricks jobs list
-databricks workspace ls /Users/me
+databricks workspace list /Users/me
 ```
 
 ---
+
+## SDK Reference
+
+For a per-API table of method signatures and direct doc URLs (Clusters, Jobs, SQL warehouses, Unity Catalog, Serving, Vector Search, etc.), see [references/doc-index.md](references/doc-index.md). Worked examples for the main API surfaces live under [`examples/`](examples/).
 
 ## SDK Documentation Architecture
 
@@ -616,10 +624,10 @@ If I'm unsure about a method, I should:
 
 ## Related Skills
 
-- **[databricks-config](../databricks-config/SKILL.md)** - profile and authentication setup
-- **[databricks-bundles](../databricks-bundles/SKILL.md)** - deploying resources via DABs
-- **[databricks-jobs](../databricks-jobs/SKILL.md)** - job orchestration patterns
+- **databricks-core** - profile and authentication setup
+- **databricks-dabs** - deploying resources via DABs
+- **databricks-jobs** - job orchestration patterns
 - **[databricks-unity-catalog](../databricks-unity-catalog/SKILL.md)** - catalog governance
-- **[databricks-model-serving](../databricks-model-serving/SKILL.md)** - serving endpoint management
+- **databricks-model-serving** - serving endpoint management
 - **[databricks-vector-search](../databricks-vector-search/SKILL.md)** - vector index operations
-- **[databricks-lakebase-provisioned](../databricks-lakebase-provisioned/SKILL.md)** - managed PostgreSQL via SDK
+- **databricks-lakebase** - managed PostgreSQL with autoscaling + branching

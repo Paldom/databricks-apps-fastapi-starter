@@ -1,0 +1,25 @@
+# Root prettier ignore (used by the pre-commit hook and `make format`).
+node_modules
+dist
+coverage
+reports
+storybook-static
+.local
+.databricks
+.venv
+.uv-cache
+*.lock
+package-lock.json
+skills-lock.json
+.secrets.baseline
+backend/public
+backend/openapi.yaml
+frontend/src/shared/api/generated
+frontend/public/locales
+frontend/public/mockServiceWorker.js
+.agents/skills
+.claude/skills
+.github/skills
+.gemini/skills
+.cursor/skills
+.opencode/skills

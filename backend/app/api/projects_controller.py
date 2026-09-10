@@ -35,9 +35,7 @@ class PaginatedProjects(CursorPage[Project]):
 
 
 class CreateProjectRequest(ApiModel):
-    model_config = ConfigDict(
-        json_schema_extra={"example": {"name": "New Project"}}
-    )
+    model_config = ConfigDict(json_schema_extra={"example": {"name": "New Project"}})
 
     name: str
 

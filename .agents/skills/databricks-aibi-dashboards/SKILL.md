@@ -1,59 +1,387 @@
 ---
 name: databricks-aibi-dashboards
-description: "Create Databricks AI/BI dashboards. CRITICAL: You MUST test ALL SQL queries via execute_sql BEFORE deploying. Follow guidelines strictly."
+description: "Create Databricks AI/BI dashboards. Must use when creating, updating, or deploying Lakeview dashboards as Databricks Dashboard have a unique json structure. CRITICAL: You MUST test ALL SQL queries via CLI BEFORE deploying. Follow guidelines strictly."
+compatibility: Requires databricks CLI (>= v1.0.0)
+metadata:
+  version: "0.2.1"
+parent: databricks-core
 ---
 
 # AI/BI Dashboard Skill
 
-Create Databricks AI/BI dashboards (formerly Lakeview dashboards). **Follow these guidelines strictly.**
+Create Databricks AI/BI dashboards (formerly Lakeview dashboards).
+A dashboard should be showing something relevant for a human, typically some KPI on the top, and based on the story, some graph (often temporal), and we see "something happens".
+**Follow these guidelines strictly.**
 
-## CRITICAL: MANDATORY VALIDATION WORKFLOW
+> **When a custom app fits better:** A managed AI/BI dashboard is the right tool for read-only KPIs, charts, and filters over governed tables. If the user instead needs a *custom-code interactive app* — write-back / data entry, bespoke UI or interactions beyond the dashboard grid, embedded or auth-gated workflows, or a conversational Genie/chat assistant as the primary surface — build a Databricks App instead with the `databricks-apps` skill (which brings in `databricks-app-design` for the data-screen UX). Linking an "Ask Genie" space to *this* dashboard stays here (see Linking a Genie Space below).
 
-**You MUST follow this workflow exactly. Skipping validation causes broken dashboards.**
+## Quick Reference
+
+| Task | Command |
+|------|---------|
+| List warehouses | `databricks warehouses list` |
+| List tables | `databricks experimental aitools tools query --warehouse WH "SHOW TABLES IN catalog.schema"` |
+| Get schema | `databricks experimental aitools tools discover-schema catalog.schema.table1 catalog.schema.table2` |
+| Test query | `databricks experimental aitools tools query --warehouse WH "SELECT..."` |
+| Create dashboard | `databricks lakeview create --display-name "X" --warehouse-id "WH" --dataset-catalog CATALOG --dataset-schema SCHEMA --serialized-dashboard "$(cat file.json)" --json '{"parent_path": "/Workspace/Users/<you>/path"}'` — `--dataset-catalog` / `--dataset-schema` are **flag-only** (REQUIRED; CLI silently drops them if put in `--json`); `parent_path` is JSON-only (no flag). Queries must use bare table names. |
+| Update dashboard | `databricks lakeview update DASHBOARD_ID --serialized-dashboard "$(cat file.json)"` |
+| Publish | `databricks lakeview publish DASHBOARD_ID --warehouse-id WH` |
+| Delete | `databricks lakeview trash DASHBOARD_ID` |
+
+> **`--warehouse` flag**: if `databricks experimental aitools tools query --warehouse WH "..."` fails with `unknown flag: --warehouse` on your CLI version, set `DATABRICKS_WAREHOUSE_ID=WH` in the environment instead and drop the flag — the command auto-picks it from there.
+
+---
+
+## Widget Index (Version + Where Documented)
+
+> **Wrong version = broken widget!** This is the #1 cause of dashboard errors.
+
+| Widget Type | Version | Documented in |
+|-------------|---------|---------------|
+| text (markdown, no spec block) | N/A | [1-widget-specifications.md#text-headersdescriptions](references/1-widget-specifications.md#text-headersdescriptions) |
+| `counter` (KPI + sparkline + comparison) | **2** | [1-widget-specifications.md#counter-kpi](references/1-widget-specifications.md#counter-kpi) |
+| `table` | **2** | [1-widget-specifications.md#table](references/1-widget-specifications.md#table) |
+| `bar`, `line` | **3** | [1-widget-specifications.md#line--bar-charts](references/1-widget-specifications.md#line--bar-charts) |
+| `pie` | **3** | [1-widget-specifications.md#pie-chart](references/1-widget-specifications.md#pie-chart) |
+| `symbol-map` (lat/lon point map) | **2** | [1-widget-specifications.md#symbol-map-bubble-map](references/1-widget-specifications.md#symbol-map-bubble-map) |
+| `area` | **3** | [2-advanced-widget-specifications.md#area-chart](references/2-advanced-widget-specifications.md#area-chart) |
+| `scatter` | **3** | [2-advanced-widget-specifications.md#scatter-plot--bubble-chart](references/2-advanced-widget-specifications.md#scatter-plot--bubble-chart) |
+| `combo` (bar+line, dual-axis) | **1** | [2-advanced-widget-specifications.md#combo-chart-bar--line](references/2-advanced-widget-specifications.md#combo-chart-bar--line) |
+| `choropleth-map` (regions colored by value) | **1** | [2-advanced-widget-specifications.md#choropleth-map](references/2-advanced-widget-specifications.md#choropleth-map) |
+| `forecast-line` (with `AI_FORECAST` SQL) | **1** | [2-advanced-widget-specifications.md#forecast-line-with-ai_forecast](references/2-advanced-widget-specifications.md#forecast-line-with-ai_forecast) |
+| `pivot` (with conditional cell rules) | **3** | [2-advanced-widget-specifications.md#pivot](references/2-advanced-widget-specifications.md#pivot) |
+| `histogram` (with `bin(col, binWidth=N)`) | **3** | [2-advanced-widget-specifications.md#histogram](references/2-advanced-widget-specifications.md#histogram) |
+| `sankey` | **1** | [2-advanced-widget-specifications.md#sankey](references/2-advanced-widget-specifications.md#sankey) |
+| `heatmap` | **3** | [2-advanced-widget-specifications.md#heatmap](references/2-advanced-widget-specifications.md#heatmap) |
+| `funnel` | **1** | [2-advanced-widget-specifications.md#funnel](references/2-advanced-widget-specifications.md#funnel) |
+| `box` | **1** | [2-advanced-widget-specifications.md#box](references/2-advanced-widget-specifications.md#box) |
+| `waterfall` | **1** | [2-advanced-widget-specifications.md#waterfall](references/2-advanced-widget-specifications.md#waterfall) |
+| `filter-single-select`, `filter-multi-select`, `filter-date-range-picker` | **2** | [3-filters.md#filter-widget-structure](references/3-filters.md#filter-widget-structure) |
+| `range-slider` | **2** | [3-filters.md#range-slider-numeric-range-filter](references/3-filters.md#range-slider-numeric-range-filter) |
+
+> Cohort retention charts are built as a `pivot` with a color-scale cell style — there is no `cohort` widget type. See pivot in [2-advanced-widget-specifications.md](references/2-advanced-widget-specifications.md).
+
+---
+
+## NEW DASHBOARD CREATION WORKFLOW
+
+**You MUST test ALL SQL queries via CLI BEFORE deploying. Follow the overall logic in these steps for new dashboard - Skipping validation causes broken dashboards.**
+
+### Step 1: Get Warehouse ID if not already known
+
+```bash
+# List warehouses to find one for SQL execution
+databricks warehouses list
+```
+
+### Step 2: Discover Table Schemas and existing data pattern
+
+A good dashboard comes from knowing the data first. Spend time here — the exploration drives design decisions in Step 4 (which widgets, which filters, which groupings).
+
+Use `discover-schema` as the default — one call returns columns, types, sample rows, null counts, and row count. If you only know the schema, list tables first with `query "SHOW TABLES IN ..."`.
+
+`databricks experimental aitools tools discover-schema catalog.schema.orders catalog.schema.customers`
+
+Sample rows alone don't tell you what to build. you can write aggregate SQL through `databricks experimental aitools tools query --warehouse <WH> "..."` to probe typically:
+
+- **Cardinality** of candidate grouping columns → decides chart color-group vs. table (≤8 distinct values for charts, see Cardinality & Readability below).
+- **Top categorical values** → populates filter options and chart legends meaningfully.
+- **Numeric distribution** (min/max/avg/percentiles) → decides KPI with delta vs. trend chart (flat metrics shouldn't be line charts, see Data Variance Considerations below).
+- **Trend viability** at daily/weekly/monthly grain → picks the right trend granularity.
+- **Story confirmation** — run the aggregations you plan to put in the dashboard and check they're not flat, empty, or uninteresting. Fix the query or adjust the story before moving on.
+
+Fan out independent probes in one call — pass several positional SQLs (and/or repeated `--file`) and they run in parallel (default `--concurrency 8`):
+
+```bash
+DATABRICKS_WAREHOUSE_ID=<WH> databricks experimental aitools tools query --output json \
+  "SELECT COUNT(*) FROM catalog.schema.orders" \
+  "SELECT region, COUNT(*) FROM catalog.schema.orders GROUP BY region ORDER BY 2 DESC LIMIT 10" \
+  "SELECT MIN(ts), MAX(ts) FROM catalog.schema.orders"
+```
+
+- **`--output json` is mandatory** in multi-query mode. Returns one object per statement: `{sql, state, rows, error}`; failures are per-statement (`state: "FAILED"`), others still succeed.
+- ⚠️ **Don't trust the exit code** (a failed statement can still exit `0`) — gate on each object's `state != "SUCCEEDED"`.
+
+> **Dashboard queries are different** — inside the dashboard JSON, the `FROM` clause must reference ONLY the table name, with no catalog or schema prefix:
+> - ✅ Correct: `FROM trips`
+> - ❌ Wrong: `FROM nyctaxi.trips`
+> - ❌ Wrong: `FROM samples.nyctaxi.trips`
+>
+> The catalog and schema are supplied separately via the `--dataset-catalog` and `--dataset-schema` flags when you run `databricks lakeview create`. These flags do NOT rewrite the query — they only fill in the catalog/schema when the query omits them. If you hardcode a catalog or schema in the `FROM` clause, the flags are ignored for that query and the dashboard won't be portable across environments.
+
+
+### Step 3: Verify Data Matches Story
+The datasets.querylines in the dashboard json (see example below) must be tested to ensure 
+
+Before finalizing, run the SQL Queries you intend to add in each dataset to confirm that they run properly and that the result are valid.
+This is crucial, as the widget defined in the json will use the query field output to render the visualization. The value should also make sense at a business level.
+Remember that for the filter to work, the query should have the field available (so typically group by the filter field)
+
+If values don't match expectations, ensure the query is correct, fix the data if you can, or adjust the story before creating the dashboard.
+
+### Step 4: Plan Dashboard Structure
+
+Before writing JSON, plan your dashboard:
+
+1. You must know the expected specific JSON structure. For this, **Read reference files**: [1-widget-specifications.md](references/1-widget-specifications.md), [3-filters.md](references/3-filters.md).
+
+Always make sure you read an entire example to understand the structure, like [4-examples.md](references/4-examples.md).
+
+2. Think: **What widgets?** Map each visualization to a dataset:
+   | Widget | Type | Dataset | Has filter field? |
+   |--------|------|---------|-------------------|
+   | Revenue KPI | counter | ds_sales | ✓ date, region |
+   | Trend Chart | line | ds_sales | ✓ date, region |
+   | Top Products | table | ds_products | ✗ no date | 
+   ...
+
+3. **What filters?** For each filter, verify ALL datasets you want filtered contain the filter field.
+   > **Filters only affect datasets that have the filter field.** A pre-aggregated table without dates WON'T be date-filtered.
+
+4. **Build the dashboard JSON** as a local working file (intermediate step, not the deliverable).
+
+### Step 5: Deploy
+
+**Now deploy the JSON to the workspace.** Run `databricks lakeview create` (below). Your task is not complete until this command succeeds and returns a dashboard ID — the JSON file alone is an intermediate working artifact.
+
+After deploying, the same `lakeview` subcommands manage the dashboard's lifecycle (list, get, update, publish, trash).
+
+```bash
+# Deploy: creates the dashboard in the workspace and returns a dashboard ID.
+# Canonical form — MIX flags + --json. Each field has exactly ONE valid place:
+#   --dataset-catalog / --dataset-schema : FLAG-ONLY (REQUIRED — no JSON field).
+#       The CLI silently warns "unknown field" and drops them if put in --json,
+#       leaving every dataset query unable to resolve its catalog.schema.
+#   parent_path : JSON-ONLY (no flag). Without it, dashboard lands at
+#       /Users/<you>/<display-name>.
+#   display_name / warehouse_id / serialized_dashboard : either form works;
+#       prefer flags for readability.
+# Queries inside dashboard.json MUST use bare table names ("FROM trips", never
+# "FROM schema.trips" or "FROM catalog.schema.trips") — --dataset-catalog and
+# --dataset-schema only fill in missing parts, they do NOT rewrite hardcoded
+# prefixes.
+databricks lakeview create \
+  --display-name "My Dashboard" \
+  --warehouse-id "abc123def456" \
+  --dataset-catalog "my_catalog" \
+  --dataset-schema "my_schema" \
+  --serialized-dashboard "$(cat dashboard.json)" \
+  --json '{"parent_path": "/Workspace/Users/me@co.com/dashboards"}'
+
+# List all dashboards
+databricks lakeview list
+
+# Get dashboard details
+databricks lakeview get DASHBOARD_ID
+
+# Update a dashboard
+databricks lakeview update DASHBOARD_ID --serialized-dashboard "$(cat dashboard.json)"
+
+# Publish a dashboard
+databricks lakeview publish DASHBOARD_ID --warehouse-id WAREHOUSE_ID
+
+# Unpublish a dashboard
+databricks lakeview unpublish DASHBOARD_ID
+
+# Delete (trash) a dashboard
+databricks lakeview trash DASHBOARD_ID
+
+# By default, after creation, tag dashboards to track resources created with this skill
+databricks workspace-entity-tag-assignments create-tag-assignment \
+  dashboards DASHBOARD_ID aidevkit_project --tag-value ai-dev-kit
+```
+
+---
+
+## UPDATING AN EXISTING DASHBOARD
+
+To change a dashboard that already exists, build the updated JSON with the [creation workflow](#new-dashboard-creation-workflow) above, then deploy it with `update` + `publish` on the **same** `DASHBOARD_ID` — never re-run `create`/import.
+
+- **Don't `create`/import to update.** That mints a new dashboard id + URL and breaks any link you've already shared; `create` is for brand-new dashboards only.
+- **`update` changes only the draft.** The `/published` link viewers see stays on the last snapshot until you `publish` again — so always `publish` after `update`.
+
+---
+
+## JSON Structure (Required Skeleton)
+
+Every dashboard's `serialized_dashboard` content must follow this exact structure:
+
+Important: ALWAYS add a space or `\n` at the end of each `queryLines` value as they are concatenated to create the dataset.
+
+```json
+{
+  "datasets": [
+    {
+      "name": "ds_x",
+      "displayName": "Dataset X",
+      "queryLines": ["SELECT col1, col2 ", "FROM my_table"]
+    }
+  ],
+  "pages": [
+    {
+      "name": "main",
+      "displayName": "Main",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {"widget": {/* INLINE widget definition */}, "position": {"x":0,"y":0,"width":2,"height":3}}
+      ]
+    }
+  ]
+}
+```
+
+**Structural rules (violations cause "failed to parse serialized dashboard"):**
+- `queryLines`: Array of strings, NOT `"query": "string"`. Elements are **joined verbatim** with no separator — end each line with ` ` or `\n` (or strip `-- comments`). A line ending in `-- comment` with no newline swallows the next line.
+- Widgets: INLINE in `layout[].widget`, NOT a separate `"widgets"` array
+- `pageType`: Required on every page (`PAGE_TYPE_CANVAS` or `PAGE_TYPE_GLOBAL_FILTERS`)
+- Query binding: `query.fields[].name` must exactly match `encodings.*.fieldName`
+
+### Theme & Color (always set this — it makes or breaks the dashboard)
+
+Top-level `uiSettings.theme` controls colors, fonts, and widget chrome across every widget on the dashboard. Without it, the dashboard inherits the workspace default and looks generic. **Set the full block on every dashboard you create** — a coherent palette is the single highest-impact polish item.
+
+Mental model — **60/30/10 rule** mapped to theme keys: **60% neutral** = canvas/widget/border backgrounds (set `widgetBorderColor = widgetBackgroundColor` to hide borders); **30% secondary** = `fontColor` + `visualizationColors` (the content weight); **10% accent** = `selectionColor` for filters / tabs / active selections — pick something distinct from text and palette; a safe-blue around `#2272B4` matches the hyperlink convention and works as a default.
+
+```json
+{
+  "datasets": [...],
+  "pages": [...],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {"light": "#FCFCFC", "dark": "#1F272D"},
+      "widgetBackgroundColor": {"light": "#FFFFFF", "dark": "#11171C"},
+      "fontColor":             {"light": "#11171C", "dark": "#E8ECF0"},
+      "selectionColor":        {"light": "#2272B4", "dark": "#8ACAFF"},
+      "visualizationColors": [
+        "#FFA600", "#FF7054", "#DE5582", "#995495",
+        "#4E5185", "#1D425C", "#99DDB4"
+      ],
+      "widgetHeaderAlignment": "LEFT"
+    }
+  }
+}
+```
+
+**Theme keys** (mechanics):
+
+- `visualizationColors`: ordered palette every chart series and category mapping cycles through. **Positions are 0-indexed**: `position: 0` = first color (`#FFA600` above), `position: 6` = seventh (`#99DDB4`). Length 5–8 is typical.
+- Background / font / selection colors take `light` + `dark` pairs; the dashboard auto-selects based on viewer mode.
+- `widgetHeaderAlignment`: `"LEFT"` (default), `"CENTER"`, or `"RIGHT"`. Optional top-level: `fontFamily` (e.g. `"Space Grotesk"`, `"Inter"` — sans-serif keeps dense data readable; don't override per widget) and `widgetCornerRadius` (integer px, e.g. `12` for rounded corners; `0` or omit = square).
+- Per-widget color references: `{"themeColorType": "visualizationColors", "position": N}` (0-indexed) to pin to a palette slot, or `{"hex": "#FF0000"}` for an exact color outside the palette.
+
+**Palette-design rules** (this is what separates a polished dashboard from a noisy one):
+
+1. **One coherent color family per dashboard, distinct across the suite.** Walk **across hues** (e.g., amber → coral → pink → purple → navy), not one color faded toward white — a single-hue lightness ramp reads as one color and the viewer can't tell categories apart. Adjacent stops must be visually distinct: if you squint and two blur into one, push them further apart. Single-hue ramps are for **quantitative** widgets only (`colorRamp.mode: "custom-sequential"`), never for `visualizationColors`.
+2. **Pin semantic colors as literal hex, outside the palette.** "Bad" = a warm coral (e.g. `#FF7E5C`), "good" = a calm teal/green. Use `color.scale.mappings` with a bare hex string — `{"value": "Critical", "color": "#FF7E5C"}` — **not** `{"hex": "..."}` or `themeColorType: position` (both are silently dropped on chart widgets). Reuse the good-teal that's already in the palette so it never clashes.
+3. **Color non-categorical widgets explicitly so they join the family.** Maps & heatmaps: `colorRamp.mode: "custom-sequential"` with `{start, end}` from the family (if directional: `start` = bad color, `end` = good color). Forecast / multi-series: pin per-series via `color.scale.mappings` keyed on `displayName` (actual = solid family color, forecast = contrast/alert, threshold = muted tone). Sparkline counters: set `value.color` to a family color, not grey.
+4. **"Lighter / more pastel" tweak**: nudge all stops up in lightness *together*; don't recolor individual ones. Re-sync the pinned semantic hex values; keep enough contrast on the alert color that it still reads as a warning.
+
+**Starter palettes** (pick one and adapt — extend to 7-8 stops if needed; semantic red/green stay as literal hex per rule 2):
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│  STEP 1: Get table schemas via get_table_details(catalog, schema)  │
-├─────────────────────────────────────────────────────────────────────┤
-│  STEP 2: Write SQL queries for each dataset                        │
-├─────────────────────────────────────────────────────────────────────┤
-│  STEP 3: TEST EVERY QUERY via execute_sql() ← DO NOT SKIP!         │
-│          - If query fails, FIX IT before proceeding                │
-│          - Verify column names match what widgets will reference   │
-│          - Verify data types are correct (dates, numbers, strings) │
-├─────────────────────────────────────────────────────────────────────┤
-│  STEP 4: Build dashboard JSON using ONLY verified queries          │
-├─────────────────────────────────────────────────────────────────────┤
-│  STEP 5: Deploy via create_or_update_dashboard()                   │
-└─────────────────────────────────────────────────────────────────────┘
+#094074  #3C6997  #5ADBFF  #FFDD4A  #FE9000
+#003F5C  #594E90  #BC4C96  #FF5F66  #FFA600
+#4A8CC7  #F59770  #FFD84A  #F0E09E  #6DD980
+#440154  #3B528B  #21918C  #5EC962  #FDE725
+#4E79A7  #F28E2C  #E15759  #76B7B2  #59A14F
+#0072B2  #E69F00  #009E73  #CC79A7  #D55E00
+#0D0887  #7E03A8  #CC4778  #F89441  #F0F921
+#6929C4  #1192E8  #005D5D  #9F1853  #FA4D56
 ```
 
-**WARNING: If you deploy without testing queries, widgets WILL show "Invalid widget definition" errors!**
+~4-5% of viewers have color blindness (mostly red/green). Rows 4 and 6 above (viridis, Okabe-Ito) are CB-safe by design; verify customized palettes via simulator (Adobe Color, `colorbrewer2.org`). Don't put red and green adjacent, and rely on lightness contrast — not hue alone — between adjacent stops.
 
-## Available MCP Tools
+### Linking a Genie Space (Optional)
 
-| Tool | Description |
-|------|-------------|
-| `get_table_details` | **STEP 1**: Get table schemas for designing queries |
-| `execute_sql` | **STEP 3**: Test SQL queries - MANDATORY before deployment! |
-| `get_best_warehouse` | Get available warehouse ID |
-| `create_or_update_dashboard` | **STEP 5**: Deploy dashboard JSON (only after validation!) |
-| `get_dashboard` | Get dashboard details by ID, or list all dashboards (omit dashboard_id) |
-| `delete_dashboard` | Move dashboard to trash |
-| `publish_dashboard` | Publish (`publish=True`) or unpublish (`publish=False`) a dashboard |
+To add an "Ask Genie" button to the dashboard, or to link a genie space/room with an ID, add `uiSettings.genieSpace` to the JSON (alongside `theme` if you have one):
+
+```json
+"uiSettings": {
+  "theme": { /* ... */ },
+  "genieSpace": {
+    "isEnabled": true,
+    "overrideId": "your-genie-space-id-here",
+    "enablementMode": "ENABLED"
+  }
+}
+```
+
+> **Genie is NOT a widget.** Link via `uiSettings.genieSpace` only. There is no `"widgetType": "assistant"`.
+
+---
+
+## Design Best Practices
+
+Apply unless user specifies otherwise:
+- **Global date filter**: When data has temporal columns, add a date range filter. Most dashboards need time-based filtering.
+- **KPI time bounds**: Use time-bounded metrics that enable period comparison (MoM, YoY). Unbounded "all-time" totals are less actionable.
+- **Value formatting**: Format values based on their meaning — currency with symbol, percentages with %, large numbers compacted (K/M/B).
+- **Chart selection**: Match cardinality to chart type. Few distinct values → bar with color grouping (or pie if you really want a snapshot); many values → table.
+
+## Reference Files
+
+> **Before generating any dashboard JSON, read [4-examples.md](references/4-examples.md) first.** It's a complete reference dashboard exercising every construct (dataset measures + `MEASURE()`, sparkline counters, forecast-line with annotations, pivot with conditional cells, symbol-map, histogram, range-slider filter, theme). Use it to learn the JSON shape; then adapt to the user's data and demo story — keep the structure, swap the tables, metrics, palette, and narrative for the case you're building.
+
+| What are you building? | Reference |
+|------------------------|-----------|
+| **Start here** — full working dashboard template | [4-examples.md](references/4-examples.md) |
+| Any widget (text, counter, table, chart) | [1-widget-specifications.md](references/1-widget-specifications.md) |
+| Advanced charts (area, scatter/Bubble, combo (Line+Bar), Choropleth map) | [2-advanced-widget-specifications.md](references/2-advanced-widget-specifications.md) |
+| Dashboard with filters (global or page-level) | [3-filters.md](references/3-filters.md) |
+| Debugging a broken dashboard | [5-troubleshooting.md](references/5-troubleshooting.md) |
 
 ---
 
 ## Implementation Guidelines
 
-### 1) DATASET ARCHITECTURE (STRICT)
+### 1) DATASET ARCHITECTURE
 
-- **One dataset per domain** (e.g., orders, customers, products)
-- **Exactly ONE valid SQL query per dataset** (no multiple queries separated by `;`)
-- Always use **fully-qualified table names**: `catalog.schema.table_name`
+- **Fewer datasets is better — aim for one dataset that backs as many widgets as possible.** Clicking a value on a chart (e.g., a bar, a slice) acts as a filter on **that dataset**, and every other widget sharing the same dataset re-renders with the click applied. Splitting widgets across many narrow datasets breaks this cross-filtering and forces users to set explicit filter widgets for what should "just work". Prefer one wide dataset per domain (orders, cases, customers); only split when a widget genuinely needs different grain, pre-aggregation, or a parameter the others can't tolerate.
+- **Two ways to define a dataset**:
+  - **SQL query**: `{"name": "ds_x", "displayName": "...", "queryLines": ["SELECT ...", "FROM table"]}` — full control, can include `WITH` / `JOIN` / `AI_FORECAST` / etc.
+  - **UC asset shorthand**: `{"name": "ds_x", "asset_name": "catalog.schema.table_or_view"}` — no SQL needed. Works for tables, views, and metric views. You can still stack `columns` (measures + derived dimensions) on top: `{"name": "ds_x", "asset_name": "...", "columns": [{"displayName": "Total Revenue", "expression": "SUM(\`amount_usd\`)"}]}` — same `MEASURE()` pattern.
+- **Exactly ONE valid SQL query per dataset** when using `queryLines` (no multiple queries separated by `;`)
+- **Queries must use bare table names only** — no catalog, no schema prefix. Example: `FROM orders`, never `FROM gold.orders` or `FROM main.gold.orders`. The catalog and schema come from the `--dataset-catalog` and `--dataset-schema` flags at creation time. These flags only fill in missing parts — they do NOT override any catalog/schema written in the query.
 - SELECT must include all dimensions needed by widgets and all derived columns via `AS` aliases
 - Put ALL business logic (CASE/WHEN, COALESCE, ratios) into the dataset SELECT with explicit aliases
 - **Contract rule**: Every widget `fieldName` must exactly match a dataset column or alias
+- **Add ORDER BY** when visualization depends on data order:
+  - Time series: `ORDER BY date` for chronological display
+  - Rankings/Top-N: `ORDER BY metric DESC LIMIT 10` for "Top 10" charts
+  - Categorical charts: `ORDER BY metric DESC` to show largest values first
+
+#### Dataset-level measures + `MEASURE()`
+
+Widget expressions are usually inline aggregations (`{"name": "sum(x)", "expression": "SUM(\`x\`)"}`). But you can also **declare reusable measures on the dataset itself** and reference them by name — every widget that consumes the dataset can use the same metric without redefining it.
+
+Two ways to define measures:
+
+1. **Dashboard-level `columns`** (works on any dataset — SQL query or `asset_name`):
+   ```json
+   {
+     "name": "ds_support",
+     "queryLines": ["SELECT * FROM support_cases"],
+     "columns": [
+       {"displayName": "Total Cases",     "description": "Count of cases",
+        "expression": "COUNT(`case_id`)"},
+       {"displayName": "Reopen Rate %",   "description": "% of reopened cases",
+        "expression": "SUM(CASE WHEN `reopened_flag` THEN 1 ELSE 0 END) * 100.0 / COUNT(`case_id`)"},
+       {"displayName": "Priority Level",  "description": "Sorted priority label",
+        "expression": "CASE WHEN `priority`='Critical' THEN '1-Critical' ELSE '4-Low' END"}
+     ]
+   }
+   ```
+
+2. **Metric-view source** — if the dataset's `asset_name` (or `FROM` clause) is a UC metric view, its YAML-defined measures are already queryable. **Do not redeclare them** in `columns`. See [databricks-metric-views](../databricks-metric-views/SKILL.md).
+
+Either way, widgets reference the measure by name:
+
+```json
+"fields": [{"name": "measure(Total Cases)", "expression": "MEASURE(`Total Cases`)"}],
+"encodings": {"value": {"fieldName": "measure(Total Cases)", "displayName": "Total Cases"}}
+```
+
+`MEASURE(\`...\`)` works in counter, table, bar, line, pie, pivot — any widget that takes a field expression. Mix it with inline aggregations freely.
 
 ### 2) WIDGET FIELD EXPRESSIONS
 
@@ -81,26 +409,10 @@ Create Databricks AI/BI dashboards (formerly Lakeview dashboards). **Follow thes
 
 Allowed expressions in widget queries (you CANNOT use CAST or other SQL in expressions):
 
-**For numbers:**
 ```json
-{"name": "sum(revenue)", "expression": "SUM(`revenue`)"}
-{"name": "avg(price)", "expression": "AVG(`price`)"}
-{"name": "count(orders)", "expression": "COUNT(`order_id`)"}
-{"name": "countdistinct(customers)", "expression": "COUNT(DISTINCT `customer_id`)"}
-{"name": "min(date)", "expression": "MIN(`order_date`)"}
-{"name": "max(date)", "expression": "MAX(`order_date`)"}
-```
-
-**For dates** (use daily for timeseries, weekly/monthly for grouped comparisons):
-```json
-{"name": "daily(date)", "expression": "DATE_TRUNC(\"DAY\", `date`)"}
-{"name": "weekly(date)", "expression": "DATE_TRUNC(\"WEEK\", `date`)"}
-{"name": "monthly(date)", "expression": "DATE_TRUNC(\"MONTH\", `date`)"}
-```
-
-**Simple field reference** (for pre-aggregated data):
-```json
-{"name": "category", "expression": "`category`"}
+{"name": "(sum|avg|count|countdistinct|min|max)(col)", "expression": "(SUM|AVG|COUNT|COUNT(DISTINCT)|MIN|MAX)(`col`)"}
+{"name": "(daily|weekly|monthly)(date)", "expression": "DATE_TRUNC(\"(DAY|WEEK|MONTH)\", `date`)"}
+{"name": "field", "expression": "`field`"}
 ```
 
 If you need conditional logic or multi-field formulas, compute a derived column in the dataset SQL first.
@@ -111,32 +423,53 @@ If you need conditional logic or multi-field formulas, compute a derived column 
 - Date truncation: `DATE_TRUNC('DAY'|'WEEK'|'MONTH'|'QUARTER'|'YEAR', column)`
 - **AVOID** `INTERVAL` syntax - use functions instead
 
-### 4) LAYOUT (6-Column Grid, NO GAPS)
+### 4) LAYOUT (12-Column Grid, NO GAPS)
 
-Each widget has a position: `{"x": 0, "y": 0, "width": 2, "height": 4}`
+**Every page must include `"layoutVersion": "GRID_V1"`** alongside `pageType`.
 
-**CRITICAL**: Each row must fill width=6 exactly. No gaps allowed.
+```json
+{
+  "name": "overview",
+  "displayName": "Overview",
+  "pageType": "PAGE_TYPE_CANVAS",
+  "layoutVersion": "GRID_V1",
+  "layout": [...]
+}
+```
+
+Each widget has a position: `{"x": 0, "y": 0, "width": 4, "height": 4}`
+
+**Pick the subdivision based on the audience.** The 12-column grid divides cleanly into 3, 4, or 6 columns: a 3-column layout (each widget `width: 4`) reduces cognitive load and fits an executive overview; a 4-column (`width: 3`) is the all-rounder; a 6-column (`width: 2`) packs the most density for technical / operations dashboards where the reader is hunting through many metrics at once.
+
+**Default rule**: each row should fill width=12 exactly — no gaps. Once you're confident with the grid, you can stagger heights across columns (a tall widget on the left paired with several shorter ones on the right) so the two halves don't share row boundaries — see [4-examples.md](references/4-examples.md#layout-12-col-grid) for the pattern. Start with strict rows; relax only when the stagger reads better visually.
+
+```
+CORRECT:                            WRONG:
+y=0: [w=12]                         y=0: [w=8]____  ← gap!
+y=1: [w=4][w=4][w=4]  ← fills 12    y=1: [w=2][w=2][w=2][w=2]__  ← gap!
+y=4: [w=6][w=6]       ← fills 12
+```
 
 **Recommended widget sizes:**
 
 | Widget Type | Width | Height | Notes |
 |-------------|-------|--------|-------|
-| Text header | 6 | 1 | Full width; use SEPARATE widgets for title and subtitle |
-| Counter/KPI | 2 | **3-4** | **NEVER height=2** - too cramped! |
-| Line/Bar chart | 3 | **5-6** | Pair side-by-side to fill row |
-| Pie chart | 3 | **5-6** | Needs space for legend |
-| Full-width chart | 6 | 5-7 | For detailed time series |
-| Table | 6 | 5-8 | Full width for readability |
+| Text header | 12 | 1 | Full width; use SEPARATE widgets for title and subtitle |
+| Counter/KPI | 4 | **3-4** | **NEVER height=2** - too cramped! |
+| Line/Bar/Area chart | 6 | **5-6** | Pair side-by-side to fill row |
+| Pie chart | 6 | **5-6** | Needs space for legend |
+| Full-width chart | 12 | 5-7 | For detailed time series |
+| Table | 12 | 5-8 | Full width for readability |
 
 **Standard dashboard structure:**
 ```text
-y=0:  Title (w=6, h=1) - Dashboard title (use separate widget!)
-y=1:  Subtitle (w=6, h=1) - Description (use separate widget!)
-y=2:  KPIs (w=2 each, h=3) - 3 key metrics side-by-side
-y=5:  Section header (w=6, h=1) - "Trends" or similar
-y=6:  Charts (w=3 each, h=5) - Two charts side-by-side
-y=11: Section header (w=6, h=1) - "Details"
-y=12: Table (w=6, h=6) - Detailed data
+y=0:  Title (w=12, h=1) - Dashboard title (use separate widget!)
+y=1:  Subtitle (w=12, h=1) - Description (use separate widget!)
+y=2:  KPIs (w=4 each, h=3) - 3 key metrics side-by-side
+y=5:  Section header (w=12, h=1) - "Trends" or similar
+y=6:  Charts (w=6 each, h=5) - Two charts side-by-side
+y=11: Section header (w=12, h=1) - "Details"
+y=12: Table (w=12, h=6) - Detailed data
 ```
 
 ### 5) CARDINALITY & READABILITY (CRITICAL)
@@ -146,776 +479,50 @@ y=12: Table (w=6, h=6) - Detailed data
 | Dimension Type | Max Values | Examples |
 |----------------|------------|----------|
 | Chart color/groups | **3-8** | 4 regions, 5 product lines, 3 tiers |
-| Filters | 4-10 | 8 countries, 5 channels |
+| Filters | 4-15 | 8 countries, 5 channels |
 | High cardinality | **Table only** | customer_id, order_id, SKU |
 
 **Before creating any chart with color/grouping:**
-1. Check column cardinality (use `get_table_details` to see distinct values)
+1. Check column cardinality via discover-schema or a COUNT DISTINCT query
 2. If >10 distinct values, aggregate to higher level OR use TOP-N + "Other" bucket
 3. For high-cardinality dimensions, use a table widget instead of a chart
 
-### 6) WIDGET SPECIFICATIONS
-
-**Widget Naming Convention (CRITICAL):**
-- `widget.name`: alphanumeric + hyphens + underscores ONLY (no spaces, parentheses, colons)
-- `frame.title`: human-readable name (any characters allowed)
-- `widget.queries[0].name`: always use `"main_query"`
-
-**CRITICAL VERSION REQUIREMENTS:**
-
-| Widget Type | Version |
-|-------------|---------|
-| counter | 2 |
-| table | 2 |
-| filter-multi-select | 2 |
-| filter-single-select | 2 |
-| filter-date-range-picker | 2 |
-| bar | 3 |
-| line | 3 |
-| pie | 3 |
-| text | N/A (no spec block) |
-
----
-
-**Text (Headers/Descriptions):**
-- **CRITICAL: Text widgets do NOT use a spec block!**
-- Use `multilineTextboxSpec` directly on the widget
-- Supports markdown: `#`, `##`, `###`, `**bold**`, `*italic*`
-- **CRITICAL: Multiple items in the `lines` array are concatenated on a single line, NOT displayed as separate lines!**
-- For title + subtitle, use **separate text widgets** at different y positions
-
-```json
-// CORRECT: Separate widgets for title and subtitle
-{
-  "widget": {
-    "name": "title",
-    "multilineTextboxSpec": {
-      "lines": ["## Dashboard Title"]
-    }
-  },
-  "position": {"x": 0, "y": 0, "width": 6, "height": 1}
-},
-{
-  "widget": {
-    "name": "subtitle",
-    "multilineTextboxSpec": {
-      "lines": ["Description text here"]
-    }
-  },
-  "position": {"x": 0, "y": 1, "width": 6, "height": 1}
-}
-
-// WRONG: Multiple lines concatenate into one line!
-{
-  "widget": {
-    "name": "title-widget",
-    "multilineTextboxSpec": {
-      "lines": ["## Dashboard Title", "Description text here"]  // Becomes "## Dashboard TitleDescription text here"
-    }
-  },
-  "position": {"x": 0, "y": 0, "width": 6, "height": 2}
-}
-```
-
----
-
-**Counter (KPI):**
-- `version`: **2** (NOT 3!)
-- `widgetType`: "counter"
-- **Percent values must be 0-1** in the data (not 0-100)
-
-**Two patterns for counters:**
-
-**Pattern 1: Pre-aggregated dataset (1 row, no filters)**
-- Dataset returns exactly 1 row
-- Use `"disaggregated": true` and simple field reference
-- Field `name` matches dataset column directly
-
-```json
-{
-  "widget": {
-    "name": "total-revenue",
-    "queries": [{
-      "name": "main_query",
-      "query": {
-        "datasetName": "summary_ds",
-        "fields": [{"name": "revenue", "expression": "`revenue`"}],
-        "disaggregated": true
-      }
-    }],
-    "spec": {
-      "version": 2,
-      "widgetType": "counter",
-      "encodings": {
-        "value": {"fieldName": "revenue", "displayName": "Total Revenue"}
-      },
-      "frame": {"showTitle": true, "title": "Total Revenue"}
-    }
-  },
-  "position": {"x": 0, "y": 0, "width": 2, "height": 3}
-}
-```
-
-**Pattern 2: Aggregating widget (multi-row dataset, supports filters)**
-- Dataset returns multiple rows (e.g., grouped by a filter dimension)
-- Use `"disaggregated": false` and aggregation expression
-- **CRITICAL**: Field `name` MUST match `fieldName` exactly (e.g., `"sum(spend)"`)
-
-```json
-{
-  "widget": {
-    "name": "total-spend",
-    "queries": [{
-      "name": "main_query",
-      "query": {
-        "datasetName": "by_category",
-        "fields": [{"name": "sum(spend)", "expression": "SUM(`spend`)"}],
-        "disaggregated": false
-      }
-    }],
-    "spec": {
-      "version": 2,
-      "widgetType": "counter",
-      "encodings": {
-        "value": {"fieldName": "sum(spend)", "displayName": "Total Spend"}
-      },
-      "frame": {"showTitle": true, "title": "Total Spend"}
-    }
-  },
-  "position": {"x": 0, "y": 0, "width": 2, "height": 3}
-}
-```
-
----
-
-**Table:**
-- `version`: **2** (NOT 1 or 3!)
-- `widgetType`: "table"
-- **Columns only need `fieldName` and `displayName`** - no other properties!
-- Use `"disaggregated": true` for raw rows
-
-```json
-{
-  "widget": {
-    "name": "details-table",
-    "queries": [{
-      "name": "main_query",
-      "query": {
-        "datasetName": "details_ds",
-        "fields": [
-          {"name": "name", "expression": "`name`"},
-          {"name": "value", "expression": "`value`"}
-        ],
-        "disaggregated": true
-      }
-    }],
-    "spec": {
-      "version": 2,
-      "widgetType": "table",
-      "encodings": {
-        "columns": [
-          {"fieldName": "name", "displayName": "Name"},
-          {"fieldName": "value", "displayName": "Value"}
-        ]
-      },
-      "frame": {"showTitle": true, "title": "Details"}
-    }
-  },
-  "position": {"x": 0, "y": 0, "width": 6, "height": 6}
-}
-```
-
----
-
-**Line / Bar Charts:**
-- `version`: **3**
-- `widgetType`: "line" or "bar"
-- Use `x`, `y`, optional `color` encodings
-- `scale.type`: `"temporal"` (dates), `"quantitative"` (numbers), `"categorical"` (strings)
-- Use `"disaggregated": true` with pre-aggregated dataset data
-
-**Multiple Lines - Two Approaches:**
-
-1. **Multi-Y Fields** (different metrics on same chart):
-```json
-"y": {
-  "scale": {"type": "quantitative"},
-  "fields": [
-    {"fieldName": "sum(orders)", "displayName": "Orders"},
-    {"fieldName": "sum(returns)", "displayName": "Returns"}
-  ]
-}
-```
-
-2. **Color Grouping** (same metric split by dimension):
-```json
-"y": {"fieldName": "sum(revenue)", "scale": {"type": "quantitative"}},
-"color": {"fieldName": "region", "scale": {"type": "categorical"}, "displayName": "Region"}
-```
-
-**Bar Chart Modes:**
-- **Stacked** (default): No `mark` field - bars stack on top of each other
-- **Grouped**: Add `"mark": {"layout": "group"}` - bars side-by-side for comparison
-
-**Pie Chart:**
-- `version`: **3**
-- `widgetType`: "pie"
-- `angle`: quantitative aggregate
-- `color`: categorical dimension
-- Limit to 3-8 categories for readability
-
-### 7) FILTERS (Global vs Page-Level)
-
-> **CRITICAL**: Filter widgets use DIFFERENT widget types than charts!
-> - Valid types: `filter-multi-select`, `filter-single-select`, `filter-date-range-picker`
-> - **DO NOT** use `widgetType: "filter"` - this does not exist and will cause errors
-> - Filters use `spec.version: 2`
-> - **ALWAYS include `frame` with `showTitle: true`** for filter widgets
-
-**Filter widget types:**
-- `filter-date-range-picker`: for DATE/TIMESTAMP fields
-- `filter-single-select`: categorical with single selection
-- `filter-multi-select`: categorical with multiple selections
-
----
-
-#### Global Filters vs Page-Level Filters
-
-| Type | Placement | Scope | Use Case |
-|------|-----------|-------|----------|
-| **Global Filter** | Dedicated page with `"pageType": "PAGE_TYPE_GLOBAL_FILTERS"` | Affects ALL pages that have datasets with the filter field | Cross-dashboard filtering (e.g., date range, campaign) |
-| **Page-Level Filter** | Regular page with `"pageType": "PAGE_TYPE_CANVAS"` | Affects ONLY widgets on that same page | Page-specific filtering (e.g., platform filter on breakdown page only) |
-
-**Key Insight**: A filter only affects datasets that contain the filter field. To have a filter affect only specific pages:
-1. Include the filter dimension in datasets for pages that should be filtered
-2. Exclude the filter dimension from datasets for pages that should NOT be filtered
-
----
-
-#### Filter Widget Structure
-
-> **CRITICAL**: Do NOT use `associative_filter_predicate_group` - it causes SQL errors!
-> Use a simple field expression instead.
-
-```json
-{
-  "widget": {
-    "name": "filter_region",
-    "queries": [{
-      "name": "ds_data_region",
-      "query": {
-        "datasetName": "ds_data",
-        "fields": [
-          {"name": "region", "expression": "`region`"}
-        ],
-        "disaggregated": false
-      }
-    }],
-    "spec": {
-      "version": 2,
-      "widgetType": "filter-multi-select",
-      "encodings": {
-        "fields": [{
-          "fieldName": "region",
-          "displayName": "Region",
-          "queryName": "ds_data_region"
-        }]
-      },
-      "frame": {"showTitle": true, "title": "Region"}
-    }
-  },
-  "position": {"x": 0, "y": 0, "width": 2, "height": 2}
-}
-```
-
----
-
-#### Global Filter Example
-
-Place on a dedicated filter page:
-
-```json
-{
-  "name": "filters",
-  "displayName": "Filters",
-  "pageType": "PAGE_TYPE_GLOBAL_FILTERS",
-  "layout": [
-    {
-      "widget": {
-        "name": "filter_campaign",
-        "queries": [{
-          "name": "ds_campaign",
-          "query": {
-            "datasetName": "overview",
-            "fields": [{"name": "campaign_name", "expression": "`campaign_name`"}],
-            "disaggregated": false
-          }
-        }],
-        "spec": {
-          "version": 2,
-          "widgetType": "filter-multi-select",
-          "encodings": {
-            "fields": [{
-              "fieldName": "campaign_name",
-              "displayName": "Campaign",
-              "queryName": "ds_campaign"
-            }]
-          },
-          "frame": {"showTitle": true, "title": "Campaign"}
-        }
-      },
-      "position": {"x": 0, "y": 0, "width": 2, "height": 2}
-    }
-  ]
-}
-```
-
----
-
-#### Page-Level Filter Example
-
-Place directly on a canvas page (affects only that page):
-
-```json
-{
-  "name": "platform_breakdown",
-  "displayName": "Platform Breakdown",
-  "pageType": "PAGE_TYPE_CANVAS",
-  "layout": [
-    {
-      "widget": {
-        "name": "page-title",
-        "multilineTextboxSpec": {"lines": ["## Platform Breakdown"]}
-      },
-      "position": {"x": 0, "y": 0, "width": 4, "height": 1}
-    },
-    {
-      "widget": {
-        "name": "filter_platform",
-        "queries": [{
-          "name": "ds_platform",
-          "query": {
-            "datasetName": "platform_data",
-            "fields": [{"name": "platform", "expression": "`platform`"}],
-            "disaggregated": false
-          }
-        }],
-        "spec": {
-          "version": 2,
-          "widgetType": "filter-multi-select",
-          "encodings": {
-            "fields": [{
-              "fieldName": "platform",
-              "displayName": "Platform",
-              "queryName": "ds_platform"
-            }]
-          },
-          "frame": {"showTitle": true, "title": "Platform"}
-        }
-      },
-      "position": {"x": 4, "y": 0, "width": 2, "height": 2}
-    }
-    // ... other widgets on this page
-  ]
-}
-```
-
----
-
-**Filter Layout Guidelines:**
-- Global filters: Position on dedicated filter page, stack vertically at `x=0`
-- Page-level filters: Position in header area of page (e.g., top-right corner)
-- Typical sizing: `width: 2, height: 2`
-
-### 8) QUALITY CHECKLIST
+### 6) QUALITY CHECKLIST
 
 Before deploying, verify:
 1. All widget names use only alphanumeric + hyphens + underscores
-2. All rows sum to width=6 with no gaps
-3. KPIs use height 3-4, charts use height 5-6
-4. Chart dimensions have ≤8 distinct values
-5. All widget fieldNames match dataset columns exactly
-6. **Field `name` in query.fields matches `fieldName` in encodings exactly** (e.g., both `"sum(spend)"`)
-7. Counter datasets: use `disaggregated: true` for 1-row datasets, `disaggregated: false` with aggregation for multi-row
-8. Percent values are 0-1 (not 0-100)
-9. SQL uses Spark syntax (date_sub, not INTERVAL)
-10. **All SQL queries tested via `execute_sql` and return expected data**
+2. **Every page has `"layoutVersion": "GRID_V1"`**
+3. All rows sum to width=12 with no gaps
+4. KPIs use height 3-4, charts use height 5-6
+5. Chart dimensions have reasonable cardinality (≤8 for colors/groups)
+6. All widget fieldNames match dataset columns exactly
+7. **Field `name` in query.fields matches `fieldName` in encodings exactly** (e.g., both `"sum(spend)"`)
+8. Counter datasets: use `disaggregated: true` for 1-row datasets, `disaggregated: false` with aggregation for multi-row
+9. **Percent values must be 0-1 for `number-percent` format** (0.865 displays as "86.5%", don't forget to set the format). If data is 0-100, either divide by 100 in SQL or use `number` format instead.
+10. SQL uses Spark syntax (date_sub, not INTERVAL)
+11. **All SQL queries tested via CLI and return expected data**
+12. **Every dataset you want filtered MUST contain the filter field** — filters only affect datasets with that column in their query
 
 ---
 
-## Complete Example
+## Data Variance Considerations
 
-```python
-import json
+Before creating trend charts, check if the metric has enough variance to visualize meaningfully:
 
-# Step 1: Check table schema
-table_info = get_table_details(catalog="samples", schema="nyctaxi")
-
-# Step 2: Test queries
-execute_sql("SELECT COUNT(*) as trips, AVG(fare_amount) as avg_fare, AVG(trip_distance) as avg_distance FROM samples.nyctaxi.trips")
-execute_sql("""
-    SELECT pickup_zip, COUNT(*) as trip_count
-    FROM samples.nyctaxi.trips
-    GROUP BY pickup_zip
-    ORDER BY trip_count DESC
-    LIMIT 10
-""")
-
-# Step 3: Build dashboard JSON
-dashboard = {
-    "datasets": [
-        {
-            "name": "summary",
-            "displayName": "Summary Stats",
-            "queryLines": [
-                "SELECT COUNT(*) as trips, AVG(fare_amount) as avg_fare, ",
-                "AVG(trip_distance) as avg_distance ",
-                "FROM samples.nyctaxi.trips "
-            ]
-        },
-        {
-            "name": "by_zip",
-            "displayName": "Trips by ZIP",
-            "queryLines": [
-                "SELECT pickup_zip, COUNT(*) as trip_count ",
-                "FROM samples.nyctaxi.trips ",
-                "GROUP BY pickup_zip ",
-                "ORDER BY trip_count DESC ",
-                "LIMIT 10 "
-            ]
-        }
-    ],
-    "pages": [{
-        "name": "overview",
-        "displayName": "NYC Taxi Overview",
-        "pageType": "PAGE_TYPE_CANVAS",
-        "layout": [
-            # Text header - NO spec block! Use SEPARATE widgets for title and subtitle!
-            {
-                "widget": {
-                    "name": "title",
-                    "multilineTextboxSpec": {
-                        "lines": ["## NYC Taxi Dashboard"]
-                    }
-                },
-                "position": {"x": 0, "y": 0, "width": 6, "height": 1}
-            },
-            {
-                "widget": {
-                    "name": "subtitle",
-                    "multilineTextboxSpec": {
-                        "lines": ["Trip statistics and analysis"]
-                    }
-                },
-                "position": {"x": 0, "y": 1, "width": 6, "height": 1}
-            },
-            # Counter - version 2, width 2!
-            {
-                "widget": {
-                    "name": "total-trips",
-                    "queries": [{
-                        "name": "main_query",
-                        "query": {
-                            "datasetName": "summary",
-                            "fields": [{"name": "trips", "expression": "`trips`"}],
-                            "disaggregated": True
-                        }
-                    }],
-                    "spec": {
-                        "version": 2,
-                        "widgetType": "counter",
-                        "encodings": {
-                            "value": {"fieldName": "trips", "displayName": "Total Trips"}
-                        },
-                        "frame": {"title": "Total Trips", "showTitle": True}
-                    }
-                },
-                "position": {"x": 0, "y": 2, "width": 2, "height": 3}
-            },
-            {
-                "widget": {
-                    "name": "avg-fare",
-                    "queries": [{
-                        "name": "main_query",
-                        "query": {
-                            "datasetName": "summary",
-                            "fields": [{"name": "avg_fare", "expression": "`avg_fare`"}],
-                            "disaggregated": True
-                        }
-                    }],
-                    "spec": {
-                        "version": 2,
-                        "widgetType": "counter",
-                        "encodings": {
-                            "value": {"fieldName": "avg_fare", "displayName": "Avg Fare"}
-                        },
-                        "frame": {"title": "Average Fare", "showTitle": True}
-                    }
-                },
-                "position": {"x": 2, "y": 2, "width": 2, "height": 3}
-            },
-            {
-                "widget": {
-                    "name": "total-distance",
-                    "queries": [{
-                        "name": "main_query",
-                        "query": {
-                            "datasetName": "summary",
-                            "fields": [{"name": "avg_distance", "expression": "`avg_distance`"}],
-                            "disaggregated": True
-                        }
-                    }],
-                    "spec": {
-                        "version": 2,
-                        "widgetType": "counter",
-                        "encodings": {
-                            "value": {"fieldName": "avg_distance", "displayName": "Avg Distance"}
-                        },
-                        "frame": {"title": "Average Distance", "showTitle": True}
-                    }
-                },
-                "position": {"x": 4, "y": 2, "width": 2, "height": 3}
-            },
-            # Bar chart - version 3
-            {
-                "widget": {
-                    "name": "trips-by-zip",
-                    "queries": [{
-                        "name": "main_query",
-                        "query": {
-                            "datasetName": "by_zip",
-                            "fields": [
-                                {"name": "pickup_zip", "expression": "`pickup_zip`"},
-                                {"name": "trip_count", "expression": "`trip_count`"}
-                            ],
-                            "disaggregated": True
-                        }
-                    }],
-                    "spec": {
-                        "version": 3,
-                        "widgetType": "bar",
-                        "encodings": {
-                            "x": {"fieldName": "pickup_zip", "scale": {"type": "categorical"}, "displayName": "ZIP"},
-                            "y": {"fieldName": "trip_count", "scale": {"type": "quantitative"}, "displayName": "Trips"}
-                        },
-                        "frame": {"title": "Trips by Pickup ZIP", "showTitle": True}
-                    }
-                },
-                "position": {"x": 0, "y": 5, "width": 6, "height": 5}
-            },
-            # Table - version 2, minimal column props!
-            {
-                "widget": {
-                    "name": "zip-table",
-                    "queries": [{
-                        "name": "main_query",
-                        "query": {
-                            "datasetName": "by_zip",
-                            "fields": [
-                                {"name": "pickup_zip", "expression": "`pickup_zip`"},
-                                {"name": "trip_count", "expression": "`trip_count`"}
-                            ],
-                            "disaggregated": True
-                        }
-                    }],
-                    "spec": {
-                        "version": 2,
-                        "widgetType": "table",
-                        "encodings": {
-                            "columns": [
-                                {"fieldName": "pickup_zip", "displayName": "ZIP Code"},
-                                {"fieldName": "trip_count", "displayName": "Trip Count"}
-                            ]
-                        },
-                        "frame": {"title": "Top ZIP Codes", "showTitle": True}
-                    }
-                },
-                "position": {"x": 0, "y": 10, "width": 6, "height": 5}
-            }
-        ]
-    }]
-}
-
-# Step 4: Deploy
-result = create_or_update_dashboard(
-    display_name="NYC Taxi Dashboard",
-    parent_path="/Workspace/Users/me/dashboards",
-    serialized_dashboard=json.dumps(dashboard),
-    warehouse_id=get_best_warehouse(),
-)
-print(result["url"])
+```sql
+SELECT MIN(metric), MAX(metric), MAX(metric) - MIN(metric) as range FROM dataset
 ```
 
-## Complete Example with Filters
+If the range is very small relative to the scale (e.g., 83-89% on a 0-100 scale), the chart will appear nearly flat. Consider:
+- Showing as KPI with delta/comparison instead of chart
+- Using a table to display exact values
+- Adjusting the visualization to focus on the variance
 
-```python
-import json
-
-# Dashboard with a global filter for region
-dashboard_with_filters = {
-    "datasets": [
-        {
-            "name": "sales",
-            "displayName": "Sales Data",
-            "queryLines": [
-                "SELECT region, SUM(revenue) as total_revenue ",
-                "FROM catalog.schema.sales ",
-                "GROUP BY region"
-            ]
-        }
-    ],
-    "pages": [
-        {
-            "name": "overview",
-            "displayName": "Sales Overview",
-            "pageType": "PAGE_TYPE_CANVAS",
-            "layout": [
-                {
-                    "widget": {
-                        "name": "total-revenue",
-                        "queries": [{
-                            "name": "main_query",
-                            "query": {
-                                "datasetName": "sales",
-                                "fields": [{"name": "total_revenue", "expression": "`total_revenue`"}],
-                                "disaggregated": True
-                            }
-                        }],
-                        "spec": {
-                            "version": 2,  # Version 2 for counters!
-                            "widgetType": "counter",
-                            "encodings": {
-                                "value": {"fieldName": "total_revenue", "displayName": "Total Revenue"}
-                            },
-                            "frame": {"title": "Total Revenue", "showTitle": True}
-                        }
-                    },
-                    "position": {"x": 0, "y": 0, "width": 6, "height": 3}
-                }
-            ]
-        },
-        {
-            "name": "filters",
-            "displayName": "Filters",
-            "pageType": "PAGE_TYPE_GLOBAL_FILTERS",  # Required for global filter page!
-            "layout": [
-                {
-                    "widget": {
-                        "name": "filter_region",
-                        "queries": [{
-                            "name": "ds_sales_region",
-                            "query": {
-                                "datasetName": "sales",
-                                "fields": [
-                                    {"name": "region", "expression": "`region`"}
-                                    # DO NOT use associative_filter_predicate_group - causes SQL errors!
-                                ],
-                                "disaggregated": False  # False for filters!
-                            }
-                        }],
-                        "spec": {
-                            "version": 2,  # Version 2 for filters!
-                            "widgetType": "filter-multi-select",  # NOT "filter"!
-                            "encodings": {
-                                "fields": [{
-                                    "fieldName": "region",
-                                    "displayName": "Region",
-                                    "queryName": "ds_sales_region"  # Must match query name!
-                                }]
-                            },
-                            "frame": {"showTitle": True, "title": "Region"}  # Always show title!
-                        }
-                    },
-                    "position": {"x": 0, "y": 0, "width": 2, "height": 2}
-                }
-            ]
-        }
-    ]
-}
-
-# Deploy with filters
-result = create_or_update_dashboard(
-    display_name="Sales Dashboard with Filters",
-    parent_path="/Workspace/Users/me/dashboards",
-    serialized_dashboard=json.dumps(dashboard_with_filters),
-    warehouse_id=get_best_warehouse(),
-)
-print(result["url"])
-```
-
-## Troubleshooting
-
-### Widget shows "no selected fields to visualize"
-
-**This is a field name mismatch error.** The `name` in `query.fields` must exactly match the `fieldName` in `encodings`.
-
-**Fix:** Ensure names match exactly:
-```json
-// WRONG - names don't match
-"fields": [{"name": "spend", "expression": "SUM(`spend`)"}]
-"encodings": {"value": {"fieldName": "sum(spend)", ...}}  // ERROR!
-
-// CORRECT - names match
-"fields": [{"name": "sum(spend)", "expression": "SUM(`spend`)"}]
-"encodings": {"value": {"fieldName": "sum(spend)", ...}}  // OK!
-```
-
-### Widget shows "Invalid widget definition"
-
-**Check version numbers:**
-- Counters: `version: 2`
-- Tables: `version: 2`
-- Filters: `version: 2`
-- Bar/Line/Pie charts: `version: 3`
-
-**Text widget errors:**
-- Text widgets must NOT have a `spec` block
-- Use `multilineTextboxSpec` directly on the widget object
-- Do NOT use `widgetType: "text"` - this is invalid
-
-**Table widget errors:**
-- Use `version: 2` (NOT 1 or 3)
-- Column objects only need `fieldName` and `displayName`
-- Do NOT add `type`, `numberFormat`, or other column properties
-
-**Counter widget errors:**
-- Use `version: 2` (NOT 3)
-- Ensure dataset returns exactly 1 row
-
-### Dashboard shows empty widgets
-- Run the dataset SQL query directly to check data exists
-- Verify column aliases match widget field expressions
-- Check `disaggregated` flag (should be `true` for pre-aggregated data)
-
-### Layout has gaps
-- Ensure each row sums to width=6
-- Check that y positions don't skip values
-
-### Filter shows "Invalid widget definition"
-- Check `widgetType` is one of: `filter-multi-select`, `filter-single-select`, `filter-date-range-picker`
-- **DO NOT** use `widgetType: "filter"` - this is invalid
-- Verify `spec.version` is `2`
-- Ensure `queryName` in encodings matches the query `name`
-- Confirm `disaggregated: false` in filter queries
-- Ensure `frame` with `showTitle: true` is included
-
-### Filter not affecting expected pages
-- **Global filters** (on `PAGE_TYPE_GLOBAL_FILTERS` page) affect all datasets containing the filter field
-- **Page-level filters** (on `PAGE_TYPE_CANVAS` page) only affect widgets on that same page
-- A filter only works on datasets that include the filter dimension column
-
-### Filter shows "UNRESOLVED_COLUMN" error for `associative_filter_predicate_group`
-- **DO NOT** use `COUNT_IF(\`associative_filter_predicate_group\`)` in filter queries
-- This internal expression causes SQL errors when the dashboard executes queries
-- Use a simple field expression instead: `{"name": "field", "expression": "\`field\`"}`
-
-### Text widget shows title and description on same line
-- Multiple items in the `lines` array are **concatenated**, not displayed on separate lines
-- Use **separate text widgets** for title and subtitle at different y positions
-- Example: title at y=0 with height=1, subtitle at y=1 with height=1
+---
 
 ## Related Skills
 
+- **[databricks-apps](../../skills/databricks-apps/SKILL.md)** - when the user needs a custom-code interactive app (write-back, bespoke UI, in-app chat / Genie) instead of a managed dashboard
 - **[databricks-unity-catalog](../databricks-unity-catalog/SKILL.md)** - for querying the underlying data and system tables
-- **[databricks-spark-declarative-pipelines](../databricks-spark-declarative-pipelines/SKILL.md)** - for building the data pipelines that feed dashboards
+- **[databricks-pipelines](../databricks-pipelines/SKILL.md)** - for building the data pipelines that feed dashboards
 - **[databricks-jobs](../databricks-jobs/SKILL.md)** - for scheduling dashboard data refreshes

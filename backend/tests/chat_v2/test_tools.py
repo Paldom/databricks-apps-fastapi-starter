@@ -73,7 +73,9 @@ class TestServingTool:
 
         from app.chat.tools import _build_serving_tool
 
-        spec = SpecialistSpec(key="serving_endpoint", description="test", kind="serving_endpoint")
+        spec = SpecialistSpec(
+            key="serving_endpoint", description="test", kind="serving_endpoint"
+        )
         settings = MagicMock()
         settings.serving_agent_endpoint = "my-endpoint"
         settings.serving_agent_api_mode = "chat_completions"
@@ -101,7 +103,11 @@ class TestServingTool:
                     "role": "assistant",
                     "status": "completed",
                     "content": [
-                        {"type": "output_text", "text": "Response answer", "annotations": []}
+                        {
+                            "type": "output_text",
+                            "text": "Response answer",
+                            "annotations": [],
+                        }
                     ],
                 }
             ]
@@ -110,7 +116,9 @@ class TestServingTool:
 
         from app.chat.tools import _build_serving_tool
 
-        spec = SpecialistSpec(key="serving_endpoint", description="test", kind="serving_endpoint")
+        spec = SpecialistSpec(
+            key="serving_endpoint", description="test", kind="serving_endpoint"
+        )
         settings = MagicMock()
         settings.serving_agent_endpoint = "my-endpoint"
         settings.serving_agent_api_mode = "responses"

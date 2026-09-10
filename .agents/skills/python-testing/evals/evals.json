@@ -1,0 +1,82 @@
+{
+  "skill": "python-testing",
+  "cases": [
+    { "type": "should_trigger", "prompt": "Set up pytest for this package" },
+    { "type": "should_trigger", "prompt": "add coverage reporting with a fail-under gate to our test suite" },
+    { "type": "should_trigger", "prompt": "can u set up test coverge so the build fails under 85%?" },
+    { "type": "should_trigger", "prompt": "we need to run the tests on python 3.10 through 3.14" },
+    { "type": "should_trigger", "prompt": "should we use tox or nox for multi-version testing?" },
+    { "type": "should_trigger", "prompt": "add hypothesis property-based tests for the parser" },
+    { "type": "should_trigger", "prompt": "my AI agent keeps rewriting tests until they pass - how do I make the suite catch that?" },
+    { "type": "should_trigger", "prompt": "add mutation testing so tests that never assert anything get flagged" },
+    { "type": "should_trigger", "prompt": "pytest can't find my tests since we moved to src layout" },
+    { "type": "should_trigger", "prompt": "move the pytest config from setup.cfg into pyproject.toml" },
+    { "type": "should_trigger", "prompt": "coverage comes back empty when I run pytest -n auto" },
+    { "type": "should_trigger", "prompt": "our coverage number is high but regressions keep slipping through, what should we add?" },
+    { "type": "should_trigger", "prompt": "pytest + coverage + tox setup pls" },
+    { "type": "should_not_trigger", "prompt": "write unit tests for src/mypkg/utils.py" },
+    { "type": "should_not_trigger", "prompt": "test_parse_headers is failing after my change, fix it" },
+    { "type": "should_not_trigger", "prompt": "add a GitHub Actions workflow that runs pytest across a python version matrix" },
+    { "type": "should_not_trigger", "prompt": "combine the coverage files from the CI matrix legs and upload them to Codecov in the workflow" },
+    { "type": "should_not_trigger", "prompt": "set up pre-commit so the tests and linters run before every commit" },
+    { "type": "should_not_trigger", "prompt": "switch the repo to src layout and fill in the pyproject.toml metadata so we can build a wheel" },
+    { "type": "should_not_trigger", "prompt": "set up mypy in strict mode for this package" },
+    { "type": "should_not_trigger", "prompt": "ruff is failing on the tests folder, fix the lint errors" },
+    { "type": "should_not_trigger", "prompt": "delete the flaky test that keeps breaking the suite" },
+    { "type": "should_not_trigger", "prompt": "bump the version and publish the package to PyPI" },
+    {
+      "type": "quality",
+      "prompt": "set up pytest with coverage for my python package",
+      "expected_behavior": [
+        "checks the installed pytest version before choosing between [tool.pytest.ini_options] and the newer [tool.pytest] table",
+        "writes pytest config into pyproject.toml with testpaths and strict marker/config flags",
+        "enables branch coverage and sets a fail_under threshold in the 80-90 range, not 100",
+        "proves the coverage gate works by running pytest with an unreachable threshold and checking for a non-zero exit code",
+        "runs the test suite afterwards and reports the result"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "we support python 3.11 through 3.14, make the tests run on all of them",
+      "expected_behavior": [
+        "assesses project complexity before picking a runner instead of defaulting to tox",
+        "presents a plain uv run -p loop, tox, and nox as options with trade-offs",
+        "recommends a uv-backed environment backend when tox or nox is chosen",
+        "does not write GitHub Actions workflow YAML",
+        "verifies the suite runs on at least one non-default Python version locally"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "add hypothesis property-based tests for our config parser",
+      "expected_behavior": [
+        "targets properties like round-trip, idempotence, or invariants rather than re-asserting example outputs",
+        "uses bounded strategies instead of filtering generated inputs with assume()",
+        "registers separate dev and CI Hypothesis settings profiles",
+        "addresses persistence of the .hypothesis example database so discovered bugs stay found",
+        "runs the new property tests and reports failures honestly"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "coverage is at 90% but bugs still keep shipping to users",
+      "expected_behavior": [
+        "explains that coverage proves execution, not assertion quality",
+        "checks whether branch coverage is enabled and enables it if not",
+        "proposes mutation testing with a pinned tool and at least one alternative with trade-offs",
+        "suggests property-based tests for algorithmic or parsing code paths",
+        "does not respond by simply raising the coverage threshold"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "an AI coding agent keeps making our tests pass by weakening assertions, harden the testing setup",
+      "expected_behavior": [
+        "recommends mutation testing as the check on assertion quality",
+        "advises reviewing test-file diffs before production-code diffs in agent changes",
+        "warns that a green suite after the agent edited tests or conftest.py proves nothing by itself",
+        "hardens config so weakened gates fail loudly, for example a verified fail_under plus strict pytest flags"
+      ]
+    }
+  ]
+}

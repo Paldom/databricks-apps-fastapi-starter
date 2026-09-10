@@ -1,9 +1,14 @@
 ---
 name: databricks-vector-search
-description: "Patterns for Databricks Vector Search: create endpoints and indexes, query with filters, manage embeddings. Use when building RAG applications, semantic search, or similarity matching. Covers both storage-optimized and standard endpoints."
+description: "Databricks Vector Search endpoints and indexes for RAG and semantic search; covers index types, search modes, end-to-end RAG patterns"
+metadata:
+  version: "0.1.0"
+parent: databricks-core
 ---
 
 # Databricks Vector Search
+
+**FIRST**: Use the parent `databricks-core` skill for CLI basics, authentication, and profile selection.
 
 Patterns for creating, managing, and querying vector search indexes for RAG and semantic search applications.
 
@@ -31,8 +36,8 @@ Databricks Vector Search provides managed vector similarity search with automati
 
 | Type | Latency | Capacity | Cost | Best For |
 |------|---------|----------|------|----------|
-| **Standard** | ~50-100ms | 320M vectors (768 dim) | Higher | Real-time, low-latency |
-| **Storage-Optimized** | ~250ms | 1B+ vectors (768 dim) | 7x lower | Large-scale, cost-sensitive |
+| **Standard** | 20-50ms | 320M vectors (768 dim) | Higher | Real-time, low-latency |
+| **Storage-Optimized** | 300-500ms | 1B+ vectors (768 dim) | 7x lower | Large-scale, cost-sensitive |
 
 ## Index Types
 
@@ -184,13 +189,15 @@ results = w.vector_search_indexes.query_index(
 
 ### Hybrid Search (Semantic + Keyword)
 
+Hybrid search combines vector similarity (ANN) with BM25 keyword scoring. Use it when queries contain exact terms that must match — SKUs, error codes, proper nouns, or technical terminology — where pure semantic search might miss keyword-specific results. See [references/search-modes.md](references/search-modes.md) for detailed guidance on choosing between ANN and hybrid search.
+
 ```python
 # Combines vector similarity with keyword matching
 results = w.vector_search_indexes.query_index(
     index_name="catalog.schema.my_index",
     columns=["id", "content"],
-    query_text="machine learning algorithms",
-    query_type="hybrid",  # Enable hybrid search
+    query_text="SPARK-12345 executor memory error",
+    query_type="HYBRID",
     num_results=10
 )
 ```
@@ -212,20 +219,26 @@ results = w.vector_search_indexes.query_index(
 
 ### Storage-Optimized Filters (SQL-like)
 
+Storage-Optimized endpoints use SQL-like filter syntax via the `databricks-vectorsearch` package's `filters` parameter (accepts a string):
+
 ```python
-# filter_string uses SQL-like syntax
-results = w.vector_search_indexes.query_index(
-    index_name="catalog.schema.my_index",
-    columns=["id", "content"],
+from databricks.vector_search.client import VectorSearchClient
+
+vsc = VectorSearchClient()
+index = vsc.get_index(endpoint_name="my-storage-endpoint", index_name="catalog.schema.my_index")
+
+# SQL-like filter syntax for storage-optimized endpoints
+results = index.similarity_search(
     query_text="machine learning",
+    columns=["id", "content"],
     num_results=10,
-    filter_string="category = 'ai' AND status IN ('active', 'pending')"
+    filters="category = 'ai' AND status IN ('active', 'pending')"
 )
 
 # More filter examples
-filter_string="price > 100 AND price < 500"
-filter_string="department LIKE 'eng%'"
-filter_string="created_at >= '2024-01-01'"
+# filters="price > 100 AND price < 500"
+# filters="department LIKE 'eng%'"
+# filters="created_at >= '2024-01-01'"
 ```
 
 ### Trigger Index Sync
@@ -251,35 +264,31 @@ scan_result = w.vector_search_indexes.scan_index(
 
 | Topic | File | Description |
 |-------|------|-------------|
-| Index Types | [index-types.md](index-types.md) | Detailed comparison of Delta Sync (managed/self-managed) vs Direct Access |
-| End-to-End RAG | [end-to-end-rag.md](end-to-end-rag.md) | Complete walkthrough: source table → endpoint → index → query → agent integration |
+| Index Types | [references/index-types.md](references/index-types.md) | Detailed comparison of Delta Sync (managed/self-managed) vs Direct Access |
+| End-to-End RAG | [references/end-to-end-rag.md](references/end-to-end-rag.md) | Complete walkthrough: source table → endpoint → index → query → agent integration |
+| Search Modes | [references/search-modes.md](references/search-modes.md) | When to use semantic (ANN) vs hybrid search, decision guide |
+| Operations | [references/troubleshooting-and-operations.md](references/troubleshooting-and-operations.md) | Monitoring, cost optimization, capacity planning, migration |
 
 ## CLI Quick Reference
 
 ```bash
 # List endpoints
-databricks vector-search endpoints list
+databricks vector-search-endpoints list-endpoints
 
-# Create endpoint
-databricks vector-search endpoints create \
-    --name my-endpoint \
-    --endpoint-type STANDARD
+# Create endpoint (positional args: NAME ENDPOINT_TYPE)
+databricks vector-search-endpoints create-endpoint my-endpoint STANDARD
 
-# List indexes on endpoint
-databricks vector-search indexes list-indexes \
-    --endpoint-name my-endpoint
+# List indexes on endpoint (positional arg: ENDPOINT_NAME)
+databricks vector-search-indexes list-indexes my-endpoint
 
-# Get index status
-databricks vector-search indexes get-index \
-    --index-name catalog.schema.my_index
+# Get index status (positional arg: INDEX_NAME)
+databricks vector-search-indexes get-index catalog.schema.my_index
 
-# Sync index (for TRIGGERED)
-databricks vector-search indexes sync-index \
-    --index-name catalog.schema.my_index
+# Sync index (positional arg: INDEX_NAME)
+databricks vector-search-indexes sync-index catalog.schema.my_index
 
-# Delete index
-databricks vector-search indexes delete-index \
-    --index-name catalog.schema.my_index
+# Delete index (positional arg: INDEX_NAME)
+databricks vector-search-indexes delete-index catalog.schema.my_index
 ```
 
 ## Common Issues
@@ -288,19 +297,20 @@ databricks vector-search indexes delete-index \
 |-------|----------|
 | **Index sync slow** | Use Storage-Optimized endpoints (20x faster indexing) |
 | **Query latency high** | Use Standard endpoint for <100ms latency |
-| **filters_json not working** | Storage-Optimized uses `filter_string` (SQL syntax) |
+| **filters_json not working** | Storage-Optimized uses SQL-like string filters via `databricks-vectorsearch` package's `filters` parameter |
 | **Embedding dimension mismatch** | Ensure query and index dimensions match |
 | **Index not updating** | Check pipeline_type; use sync_index() for TRIGGERED |
 | **Out of capacity** | Upgrade to Storage-Optimized (1B+ vectors) |
+| **`query_vector` truncated** | Large vectors (e.g. 1024-dim) can be truncated when serialized as JSON. Use `query_text` instead (for managed embedding indexes), or use the Databricks SDK to pass raw vectors |
 
 ## Embedding Models
 
 Databricks provides built-in embedding models:
 
-| Model | Dimensions | Use Case |
-|-------|------------|----------|
-| `databricks-gte-large-en` | 1024 | English text, high quality |
-| `databricks-bge-large-en` | 1024 | English text, general |
+| Model | Dimensions | Context Window | Use Case |
+|-------|------------|----------------|----------|
+| `databricks-gte-large-en` | 1024 | 8192 tokens | English text, high quality |
+| `databricks-bge-large-en` | 1024 | 512 tokens | English text, general purpose |
 
 ```python
 # Use with managed embeddings
@@ -312,51 +322,19 @@ embedding_source_columns=[
 ]
 ```
 
-## MCP Tools
-
-The following MCP tools are available for managing Vector Search infrastructure. For a full end-to-end walkthrough, see [end-to-end-rag.md](end-to-end-rag.md).
-
-### Endpoint Management
-
-| Tool | Description |
-|------|-------------|
-| `create_vs_endpoint` | Create endpoint (STANDARD or STORAGE_OPTIMIZED). Async — check status with `get_vs_endpoint` |
-| `get_vs_endpoint` | Get endpoint details and status by name |
-| `list_vs_endpoints` | List all Vector Search endpoints in the workspace |
-| `delete_vs_endpoint` | Delete an endpoint (indexes must be deleted first) |
-
-### Index Management
-
-| Tool | Description |
-|------|-------------|
-| `create_vs_index` | Create a Delta Sync or Direct Access index on an endpoint |
-| `get_vs_index` | Get index details, status, and configuration |
-| `list_vs_indexes` | List all indexes on an endpoint |
-| `delete_vs_index` | Delete an index |
-| `sync_vs_index` | Trigger sync for TRIGGERED pipeline indexes |
-
-### Query and Data
-
-| Tool | Description |
-|------|-------------|
-| `query_vs_index` | Query index with `query_text`, `query_vector`, or hybrid (`query_type="HYBRID"`) |
-| `upsert_vs_data` | Upsert vectors into a Direct Access index |
-| `delete_vs_data` | Delete vectors from a Direct Access index by primary key |
-| `scan_vs_index` | Retrieve all vectors from an index (for debugging/export) |
-
 ## Notes
 
 - **Storage-Optimized is newer** — better for most use cases unless you need <100ms latency
 - **Delta Sync recommended** — easier than Direct Access for most scenarios
 - **Hybrid search** — available for both Delta Sync and Direct Access indexes
 - **`columns_to_sync` matters** — only synced columns are available in query results; include all columns you need
-- **Filter syntax differs by endpoint** — Standard uses `filters_json` (dict), Storage-Optimized uses `filter_string` (SQL)
-- **Management vs runtime** — MCP tools above handle lifecycle management; for agent tool-calling at runtime, use `VectorSearchRetrieverTool` or the Databricks managed Vector Search MCP server
+- **Filter syntax differs by endpoint** — Standard uses dict-format filters, Storage-Optimized uses SQL-like string filters. Use the `databricks-vectorsearch` package's `filters` parameter which accepts both formats
+- **Management vs runtime** — CLI and SDK handle lifecycle management; for agent tool-calling at runtime, use `VectorSearchRetrieverTool`
 
 ## Related Skills
 
-- **[databricks-model-serving](../databricks-model-serving/SKILL.md)** - Deploy agents that use VectorSearchRetrieverTool
+- **databricks-model-serving** - Deploy agents that use VectorSearchRetrieverTool
 - **[databricks-agent-bricks](../databricks-agent-bricks/SKILL.md)** - Knowledge Assistants use RAG over indexed documents
 - **[databricks-unstructured-pdf-generation](../databricks-unstructured-pdf-generation/SKILL.md)** - Generate documents to index in Vector Search
 - **[databricks-unity-catalog](../databricks-unity-catalog/SKILL.md)** - Manage the catalogs and tables that back Delta Sync indexes
-- **[databricks-spark-declarative-pipelines](../databricks-spark-declarative-pipelines/SKILL.md)** - Build Delta tables used as Vector Search sources
+- **databricks-pipelines** - Build Delta tables used as Vector Search sources

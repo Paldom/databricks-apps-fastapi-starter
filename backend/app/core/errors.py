@@ -8,6 +8,7 @@ from fastapi import HTTPException
 # Application-level exception hierarchy
 # ---------------------------------------------------------------------------
 
+
 class AppError(Exception):
     """Base application exception carrying an HTTP-mappable status code."""
 

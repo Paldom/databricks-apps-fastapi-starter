@@ -15,7 +15,9 @@ class VectorSearchAdapter:
         self._index = index
         self._logger = logger
 
-    async def upsert(self, documents: list[dict], *, timeout: float | None = None) -> None:
+    async def upsert(
+        self, documents: list[dict], *, timeout: float | None = None
+    ) -> None:
         """Upsert documents into the vector search index."""
         with _tracer.start_as_current_span(
             "dependency.vector.upsert",
@@ -57,9 +59,7 @@ class VectorSearchAdapter:
                 "vector.num_results": num_results,
             },
         ) as span:
-            self._logger.debug(
-                "Searching vector index with %d results", num_results
-            )
+            self._logger.debug("Searching vector index with %d results", num_results)
             try:
                 result = await run_sync(
                     self._index.similarity_search,

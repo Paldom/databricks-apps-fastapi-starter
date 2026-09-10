@@ -45,7 +45,9 @@ def ensure_workspace_client(runtime: AppRuntime, settings: Settings) -> Workspac
         return runtime.workspace_client
     except Exception as exc:
         if not settings.has_explicit_databricks_auth():
-            raise ConfigurationError(workspace_not_configured_message(str(exc))) from exc
+            raise ConfigurationError(
+                workspace_not_configured_message(str(exc))
+            ) from exc
         raise ServiceUnavailableError(
             f"Databricks workspace client is unavailable: {exc}"
         ) from exc
@@ -77,9 +79,7 @@ def ensure_ai_client(runtime: AppRuntime, settings: Settings) -> AsyncOpenAI:
         )
         return runtime.ai_client
     except Exception as exc:
-        raise ServiceUnavailableError(
-            f"AI client is unavailable: {exc}"
-        ) from exc
+        raise ServiceUnavailableError(f"AI client is unavailable: {exc}") from exc
 
 
 def ensure_vector_index(runtime: AppRuntime, settings: Settings):
@@ -97,9 +97,7 @@ def ensure_vector_index(runtime: AppRuntime, settings: Settings):
         return runtime.vector_index
     except Exception as exc:
         if not settings.has_explicit_databricks_auth():
-            raise ConfigurationError(
-                f"Vector Search is not configured: {exc}"
-            ) from exc
+            raise ConfigurationError(f"Vector Search is not configured: {exc}") from exc
         raise ServiceUnavailableError(
             f"Vector Search index is unavailable: {exc}"
         ) from exc

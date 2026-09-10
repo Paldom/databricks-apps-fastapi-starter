@@ -37,23 +37,25 @@ def text_to_response(
     custom_outputs: dict[str, Any] | None = None,
 ) -> ResponsesAgentResponse:
     """Wrap plain text into a canonical ``ResponsesAgentResponse``."""
-    return ResponsesAgentResponse(
-        output=[
-            {
-                "type": "message",
-                "id": f"msg_{uuid4().hex}",
-                "role": "assistant",
-                "status": "completed",
-                "content": [
-                    {
-                        "type": "output_text",
-                        "text": text,
-                        "annotations": [],
-                    }
-                ],
-            }
-        ],
-        custom_outputs=custom_outputs or {},
+    return ResponsesAgentResponse.model_validate(
+        {
+            "output": [
+                {
+                    "type": "message",
+                    "id": f"msg_{uuid4().hex}",
+                    "role": "assistant",
+                    "status": "completed",
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": text,
+                            "annotations": [],
+                        }
+                    ],
+                }
+            ],
+            "custom_outputs": custom_outputs or {},
+        }
     )
 
 
