@@ -25,8 +25,8 @@ backend/app/
   services/       business logic                            (may import repositories)
   repositories/   SQLAlchemy persistence, flush-only        (may import models)
   models/         ORM models and DTOs
-  core/           config, bootstrap, runtime, deps, db, databricks clients, mlflow, observability
-  chat/           LangGraph supervisor, tools, registry, title generation
+  core/           config, bootstrap, runtime, deps, db, databricks clients, mlflow, observability, pagination
+  chat/           LangGraph supervisor, tools, registry, parts (stream reduction), title generation
   agents/         AgentAdapter contract + app/serving/genie adapters
   middlewares/    auth headers, OBO, security headers, request size
 backend/alembic/  migrations (run at app start)
@@ -34,6 +34,7 @@ backend/tests/    pytest
 frontend/src/     app/ (providers, router), components/, hooks/, lib/assistant/ (NDJSON chat runtime), shared/api/ (Orval client)
 notebooks/        jobs (RAG ingestion), evals (MLflow), serving (optional Model Serving agent)
 resources/        bundle resources: app, database, unity_catalog, vector_search, compute, evals, experiment, serving_agent
+scripts/          postdeploy_grants.sh (bundle hook), setup-agentic.sh
 ```
 
 Layer rules are enforced by import-linter (`backend/pyproject.toml`): `api → services → repositories → models`, and
@@ -45,7 +46,7 @@ Layer rules are enforced by import-linter (`backend/pyproject.toml`): `api → s
 make setup                 # uv sync, npm ci, pre-commit hooks, agent skills (scripts/setup-agentic.sh)
 make dev-db && make migrate-up && make dev
 make check                 # offline gate: pre-commit, ruff, mypy, bandit, pytest, frontend build (CI runs the same)
-make generate              # export OpenAPI + regenerate the frontend client (commit the result)
+make generate              # export OpenAPI, regenerate the frontend client and env.example (commit the result)
 cd backend && uv run pytest -q            # or: uv run ruff check . ; uv run mypy app
 cd frontend && npm run lint && npm run typecheck && npx vitest run
 databricks bundle validate -t dev --profile "$DATABRICKS_CONFIG_PROFILE"
@@ -91,15 +92,19 @@ machine, so changes under `.claude/`, `.agents/`, `.github/` and `resources/` ne
 
 ## Backend conventions
 
-- Settings: one `Settings` class in `core/config.py`; env vars are documented in `backend/env.example`.
+- Settings: one `Settings` class in `core/config.py`; `backend/env.example` is generated from it (`make generate`).
 - Auth: Databricks Apps forward `X-Forwarded-User`/`-Email`; `get_current_user` guards every route that reads or
   writes user data, including chat streaming and agent invocations. Local dev uses the fallback user only when
   `ENABLE_LOCAL_DEV_AUTH_FALLBACK=true`.
 - Databricks clients: use the SDK `WorkspaceClient` and `databricks-openai` / `databricks-langchain` clients that
   refresh OAuth tokens; never build an OpenAI client from a static token.
-- Chat: `/api/chat/stream` emits NDJSON events `text-delta`, `tool-call-begin`, `tool-call-delta`, `done`, `error`;
-  the schema is exported to `backend/openapi.yaml` and the frontend client is generated from it. All specialists go
-  through `agents/adapters/*` and return `AgentInvocationResult`.
+- Chat: `/api/chat/stream` needs an owned chat id; the backend loads the stored transcript, appends the new user
+  message, emits NDJSON events `text-delta`, `tool-call-begin`, `tool-call-delta`, `tool-result`, `heartbeat`,
+  `done`, `error`, and stores the assistant message (text + content parts) before `done`. The schema is exported to
+  `backend/openapi.yaml` and the frontend client is generated from it. Tools raise `ToolException` with a fixed
+  public text; per-tool and per-turn deadlines live in `Settings`. Specialists go through `agents/adapters/*`.
+- Identity in tools: never from tool arguments; read `config["configurable"]` (`ChatContext.configurable()`).
+  Retrieval always filters by the caller's `user_id`.
 - Errors: never send `str(exc)` to clients; log it with the request id and return a generic message plus the
   MLflow trace id.
 - Tests: `backend/tests` mock external I/O at the adapter boundary only; never stub hard dependencies
@@ -118,10 +123,13 @@ machine, so changes under `.claude/`, `.agents/`, `.github/` and `resources/` ne
 ## Bundle conventions
 
 - One `app_config` block; target differences are variables (`environment`, `log_level`, `enable_obo`, `enable_docs`,
-  `enable_examples`). Optional bindings (Knowledge Assistant, serving agent, Genie, remote app) are per-target and
-  omitted when their variable is empty.
-- Jobs run on serverless `environments`; Lakebase is an autoscaling project; AI Search endpoint and app telemetry
-  destinations are declared as resources; `lifecycle.started: true` so deploy also starts the app.
+  `enable_examples`). Optional bindings (Knowledge Assistant, serving agent, Genie, remote app) and their env
+  entries live in a target (lists merge by `name`); the Apps API rejects empty env values and empty bindings.
+- Jobs run on serverless `environments` (`client: "3"`); Lakebase is an autoscaling project; the AI Search endpoint
+  and app telemetry destinations are resources; experiments store traces in UC (`trace_location`, immutable once
+  set); `lifecycle.started: true` so deploy also starts the app; `experimental.scripts` holds the `prebuild`
+  (frontend) and `postdeploy` (UC grants for the app service principal) hooks.
+- The Delta Sync index is created by the ingestion job, not declared (its source table must exist first).
 - Validate every target before committing bundle changes: `databricks bundle validate -t dev|staging|prod`.
 
 ## Agent tooling

@@ -144,8 +144,6 @@ targets:
           purge_on_delete: true
 
   staging:
-    workspace:
-      root_path: /Shared/.bundle/${bundle.name}/${bundle.target}
     variables:
       resource_name_suffix: stg
       environment: staging
@@ -153,8 +151,6 @@ targets:
       otel_traces_sampler: parentbased_traceidratio
 
   prod:
-    workspace:
-      root_path: /Shared/.bundle/${bundle.name}/${bundle.target}
     variables:
       resource_name_suffix: prod
       environment: production
