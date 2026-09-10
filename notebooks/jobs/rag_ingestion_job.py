@@ -335,6 +335,41 @@ print(f"Chunks written: {len(chunk_rows)}")
 
 # COMMAND ----------
 
+# ── 6b. Remove rows of deleted files ─────────────────────────────
+# The app deletes a file from the volume and starts this job; rows whose file is gone
+# leave the raw and chunk tables here and the index on the next sync.
+
+
+def _list_files(path: str) -> list[str]:
+    out: list[str] = []
+    try:
+        entries = dbutils.fs.ls(path)
+    except Exception:
+        return out
+    for entry in entries:
+        if entry.isDir():
+            out.extend(_list_files(entry.path))
+        else:
+            out.append(entry.path)
+    return out
+
+
+present = spark.createDataFrame([(p,) for p in _list_files(SOURCE_PATH)], "path string")
+present.createOrReplaceTempView("present_files")
+removed_raw = spark.sql(
+    f"DELETE FROM {RAW_TABLE} WHERE path NOT IN (SELECT path FROM present_files)"
+)
+removed_chunks = spark.sql(
+    f"DELETE FROM {CHUNK_TABLE} WHERE source_path NOT IN (SELECT path FROM present_files)"
+)
+print(
+    "Deleted rows for missing files (raw/chunks):",
+    removed_raw.count(),
+    removed_chunks.count(),
+)
+
+# COMMAND ----------
+
 # ── 7. Sync Vector Search index ────────────────────────────────────
 # Create the index if missing (its first sync starts automatically); otherwise wait until it
 # is ready and trigger a sync. The endpoint is bundle-owned.

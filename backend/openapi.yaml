@@ -31,21 +31,6 @@ components:
       - messages
       title: AgentQuestion
       type: object
-    Body_uploadDocument:
-      properties:
-        file:
-          format: binary
-          title: File
-          type: string
-        projectId:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Projectid
-      required:
-      - file
-      title: Body_uploadDocument
-      type: object
     Body_upload_examples_uc_upload_post:
       properties:
         file:
@@ -100,6 +85,50 @@ components:
       - updatedAt
       title: Chat
       type: object
+    ChatMessage:
+      additionalProperties: false
+      example:
+        content: Budapest.
+        createdAt: '2024-01-15T10:00:00Z'
+        id: m1
+        parts:
+        - text: Budapest.
+          type: text
+        role: assistant
+        traceId: tr-abc
+      properties:
+        content:
+          title: Content
+          type: string
+        createdAt:
+          format: date-time
+          title: Createdat
+          type: string
+        id:
+          title: Id
+          type: string
+        parts:
+          items:
+            additionalProperties: true
+            type: object
+          title: Parts
+          type: array
+        role:
+          title: Role
+          type: string
+        traceId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Traceid
+      required:
+      - id
+      - role
+      - content
+      - parts
+      - createdAt
+      title: ChatMessage
+      type: object
     ChatSearchResult:
       additionalProperties: false
       example:
@@ -152,6 +181,8 @@ components:
       - $ref: '#/components/schemas/TextDeltaEvent'
       - $ref: '#/components/schemas/ToolCallBeginEvent'
       - $ref: '#/components/schemas/ToolCallDeltaEvent'
+      - $ref: '#/components/schemas/ToolResultEvent'
+      - $ref: '#/components/schemas/HeartbeatEvent'
       - $ref: '#/components/schemas/DoneEvent'
       - $ref: '#/components/schemas/ErrorEvent'
     ChatStreamMessage:
@@ -176,6 +207,7 @@ components:
         messages:
         - content: Hello, how are you?
           role: user
+        thread_id: 3f9c2a70-1c2e-4d0b-9a6e-1b2c3d4e5f60
       properties:
         messages:
           items:
@@ -183,24 +215,22 @@ components:
           title: Messages
           type: array
         thread_id:
-          anyOf:
-          - type: string
-          - type: 'null'
           title: Thread Id
+          type: string
       required:
+      - thread_id
       - messages
       title: ChatStreamRequest
       type: object
     CreateChatRequest:
       additionalProperties: false
       example:
-        title: New chat
+        title: ''
       properties:
         title:
+          default: ''
           title: Title
           type: string
-      required:
-      - title
       title: CreateChatRequest
       type: object
     CreateProjectRequest:
@@ -376,11 +406,12 @@ components:
     ErrorEvent:
       properties:
         code:
-          anyOf:
-          - type: string
-          - type: 'null'
-          default: null
+          enum:
+          - internal_error
+          - timeout
+          - busy
           title: Code
+          type: string
         message:
           title: Message
           type: string
@@ -397,18 +428,8 @@ components:
       required:
       - type
       - message
+      - code
       title: ErrorEvent
-      type: object
-    ExampleMessage:
-      properties:
-        text:
-          maxLength: 4096
-          minLength: 1
-          title: Text
-          type: string
-      required:
-      - text
-      title: ExampleMessage
       type: object
     ExampleRow:
       properties:
@@ -453,6 +474,16 @@ components:
       - fail
       title: HealthStatus
       type: string
+    HeartbeatEvent:
+      properties:
+        type:
+          const: heartbeat
+          title: Type
+          type: string
+      required:
+      - type
+      title: HeartbeatEvent
+      type: object
     KnowledgeFileUploadResponse:
       properties:
         document_id:
@@ -468,7 +499,7 @@ components:
           title: Size Bytes
           type: integer
         status:
-          default: uploaded
+          default: pending
           title: Status
           type: string
       required:
@@ -485,6 +516,27 @@ components:
           title: Ok
           type: boolean
       title: LiveResponse
+      type: object
+    PaginatedChatMessages:
+      additionalProperties: false
+      properties:
+        hasMore:
+          default: false
+          title: Hasmore
+          type: boolean
+        items:
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+          title: Items
+          type: array
+        nextCursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Nextcursor
+      required:
+      - items
+      title: PaginatedChatMessages
       type: object
     PaginatedChatSearchResults:
       additionalProperties: false
@@ -660,6 +712,28 @@ components:
       - tool_call_id
       - args_delta
       title: ToolCallDeltaEvent
+      type: object
+    ToolResultEvent:
+      properties:
+        is_error:
+          default: false
+          title: Is Error
+          type: boolean
+        result:
+          title: Result
+          type: string
+        tool_call_id:
+          title: Tool Call Id
+          type: string
+        type:
+          const: tool-result
+          title: Type
+          type: string
+      required:
+      - type
+      - tool_call_id
+      - result
+      title: ToolResultEvent
       type: object
     UpdateChatRequest:
       additionalProperties: false
@@ -884,6 +958,74 @@ paths:
       summary: Update Chat
       tags:
       - chats
+  /chats/{chatId}/genie/{messageId}:
+    get:
+      description: 202 while Genie is still working, 200 with text/SQL/rows once it
+        finished.
+      operationId: getGenieMessage
+      parameters:
+      - in: path
+        name: chatId
+        required: true
+        schema:
+          title: Chatid
+          type: string
+      - in: path
+        name: messageId
+        required: true
+        schema:
+          title: Messageid
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Getgeniemessage
+                type: object
+          description: Successful Response
+      summary: Get Genie Message
+      tags:
+      - genie
+  /chats/{chatId}/messages:
+    get:
+      description: Messages of an owned chat, oldest first.
+      operationId: listChatMessages
+      parameters:
+      - in: path
+        name: chatId
+        required: true
+        schema:
+          title: Chatid
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cursor
+      - in: query
+        name: limit
+        required: false
+        schema:
+          default: 200
+          maximum: 200
+          minimum: 1
+          title: Limit
+          type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedChatMessages'
+          description: Successful Response
+      summary: List Chat Messages
+      tags:
+      - chats
   /documents:
     get:
       operationId: listDocuments
@@ -931,26 +1073,10 @@ paths:
       summary: List Documents
       tags:
       - documents
-    post:
-      operationId: uploadDocument
-      requestBody:
-        content:
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/Body_uploadDocument'
-        required: true
-      responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Document'
-          description: Successful Response
-      summary: Upload Document
-      tags:
-      - documents
   /documents/{documentId}:
     delete:
+      description: Remove the file; the ingestion job then drops its chunks and index
+        rows.
       operationId: deleteDocument
       parameters:
       - in: path
@@ -967,6 +1093,8 @@ paths:
       - documents
   /documents/{documentId}/status:
     get:
+      description: A pending document becomes ``ingested`` once its chunks are in
+        the index.
       operationId: getDocumentStatus
       parameters:
       - in: path
@@ -1069,6 +1197,8 @@ paths:
       - examples
   /examples/job:
     post:
+      description: Start the bound job; poll GET /job/{run_id} (the ingress cuts long
+        requests).
       operationId: run_job_examples_job_post
       requestBody:
         content:
@@ -1080,7 +1210,7 @@ paths:
               - type: 'null'
               title: Params
       responses:
-        '200':
+        '202':
           content:
             application/json:
               schema: {}
@@ -1088,22 +1218,23 @@ paths:
       summary: Run Job
       tags:
       - examples
-  /examples/pg:
-    post:
-      operationId: pg_demo_examples_pg_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ExampleMessage'
+  /examples/job/{run_id}:
+    get:
+      operationId: get_job_run_examples_job__run_id__get
+      parameters:
+      - in: path
+        name: run_id
         required: true
+        schema:
+          title: Run Id
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema: {}
           description: Successful Response
-      summary: Pg Demo
+      summary: Get Job Run
       tags:
       - examples
   /examples/serving:
@@ -1187,24 +1318,6 @@ paths:
               schema: {}
           description: Successful Response
       summary: Vector Query
-      tags:
-      - examples
-  /examples/vector/store:
-    post:
-      operationId: vector_store_examples_vector_store_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ExampleTitle'
-        required: true
-      responses:
-        '200':
-          content:
-            application/json:
-              schema: {}
-          description: Successful Response
-      summary: Vector Store
       tags:
       - examples
   /health:

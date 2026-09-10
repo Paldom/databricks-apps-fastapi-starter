@@ -18,6 +18,7 @@ def _settings(**overrides):
     s.genie_space_id = overrides.get("genie_space_id", None)
     s.ai_gateway_embedding_model = overrides.get("ai_gateway_embedding_model", None)
     s.knowledge_assistant_endpoint = overrides.get("knowledge_assistant_endpoint", None)
+    s.vector_search_index_name = overrides.get("vector_search_index_name", None)
     s.serving_agent_endpoint = overrides.get("serving_agent_endpoint", None)
     return s
 
@@ -32,7 +33,7 @@ class TestGetEnabledSpecs:
             _settings(
                 app_agent_name="my-app",
                 genie_space_id="genie-123",
-                ai_gateway_embedding_model="bge-large",
+                vector_search_index_name="main.sch.idx",
                 serving_agent_endpoint="my-endpoint",
             )
         )

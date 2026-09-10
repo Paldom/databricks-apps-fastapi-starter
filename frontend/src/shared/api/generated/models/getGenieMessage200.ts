@@ -5,7 +5,4 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface BodyUploadDocument {
-  file: Blob;
-  projectId?: string | null;
-}
+export type GetGenieMessage200 = { [key: string]: unknown };

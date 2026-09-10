@@ -5,10 +5,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface ExampleMessage {
-  /**
-   * @minLength 1
-   * @maxLength 4096
-   */
-  text: string;
-}
+export const HeartbeatEventValue = {
+  type: 'heartbeat',
+} as const;
+export type HeartbeatEvent = typeof HeartbeatEventValue;

@@ -13,7 +13,7 @@ import { server } from '@/mocks/server'
 import { http, HttpResponse } from 'msw'
 
 function RuntimeWrapper({ children }: Readonly<{ children: React.ReactNode }>) {
-  const runtime = useChatRuntime()
+  const runtime = useChatRuntime('test-chat')
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       {children}
@@ -370,19 +370,28 @@ describe('AppSidebar', () => {
       expect(screen.getByText('Project X')).toBeInTheDocument()
     })
 
-    // Hover over the project group to show the new chat button
-    // The button is hidden via CSS opacity, but still in the DOM
-    const newChatButtons = document.querySelectorAll(
-      '[data-slot="sidebar-group-label"] button'
+    let posted: unknown
+    server.use(
+      http.post('*/api/projects/p1/chats', async ({ request }) => {
+        posted = await request.json()
+        return HttpResponse.json(
+          {
+            id: 'created-chat',
+            projectId: 'p1',
+            title: '',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          { status: 201 }
+        )
+      })
     )
-    // Last button in the project label row is the new chat button
-    const newChatButton = newChatButtons[newChatButtons.length - 1]
-    if (newChatButton) {
-      await user.click(newChatButton as HTMLElement)
-    }
-
-    // Verify the button interaction doesn't throw
-    expect(screen.getByText('Project X')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'New chat' }))
+    await waitFor(() =>
+      expect(useUIStore.getState().activeChatId).toBe('created-chat')
+    )
+    expect(useUIStore.getState().activeProjectId).toBe('p1')
+    expect(posted).toEqual({ title: '' })
   })
 
   it('edits a project name via context menu', async () => {

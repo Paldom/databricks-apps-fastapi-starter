@@ -19,6 +19,7 @@ import type {
 
 import type {
   Chat,
+  PaginatedChatMessages,
   PaginatedChatSearchResults,
   PaginatedChats
 } from '.././models';
@@ -29,6 +30,8 @@ export const getGetRecentChatsResponseMock = (overrideResponse: Partial< Paginat
 export const getSearchChatsResponseMock = (overrideResponse: Partial< PaginatedChatSearchResults > = {}): PaginatedChatSearchResults => ({hasMore: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({createdAt: faker.date.past().toISOString().slice(0, 19) + 'Z', id: faker.string.alpha({length: {min: 10, max: 20}}), projectId: faker.string.alpha({length: {min: 10, max: 20}}), projectName: faker.string.alpha({length: {min: 10, max: 20}}), title: faker.string.alpha({length: {min: 10, max: 20}}), updatedAt: faker.date.past().toISOString().slice(0, 19) + 'Z'})), nextCursor: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), ...overrideResponse})
 
 export const getUpdateChatResponseMock = (): Chat => ({"createdAt":"2024-01-15T10:00:00Z","id":"c4","projectId":"work","title":"Q1 metrics summary","updatedAt":"2024-01-15T10:00:00Z"})
+
+export const getListChatMessagesResponseMock = (overrideResponse: Partial< PaginatedChatMessages > = {}): PaginatedChatMessages => ({hasMore: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({content: faker.string.alpha({length: {min: 10, max: 20}}), createdAt: faker.date.past().toISOString().slice(0, 19) + 'Z', id: faker.string.alpha({length: {min: 10, max: 20}}), parts: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({})), role: faker.string.alpha({length: {min: 10, max: 20}}), traceId: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined])})), nextCursor: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), ...overrideResponse})
 
 export const getListProjectChatsResponseMock = (overrideResponse: Partial< PaginatedChats > = {}): PaginatedChats => ({hasMore: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({createdAt: faker.date.past().toISOString().slice(0, 19) + 'Z', id: faker.string.alpha({length: {min: 10, max: 20}}), projectId: faker.string.alpha({length: {min: 10, max: 20}}), title: faker.string.alpha({length: {min: 10, max: 20}}), updatedAt: faker.date.past().toISOString().slice(0, 19) + 'Z'})), nextCursor: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), ...overrideResponse})
 
@@ -81,6 +84,18 @@ export const getUpdateChatMockHandler = (overrideResponse?: Chat | ((info: Param
   }, options)
 }
 
+export const getListChatMessagesMockHandler = (overrideResponse?: PaginatedChatMessages | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<PaginatedChatMessages> | PaginatedChatMessages), options?: RequestHandlerOptions) => {
+  return http.get('*/chats/:chatId/messages', async (info) => {await delay(100);
+  
+    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getListChatMessagesResponseMock()),
+      { status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+  }, options)
+}
+
 export const getListProjectChatsMockHandler = (overrideResponse?: PaginatedChats | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<PaginatedChats> | PaginatedChats), options?: RequestHandlerOptions) => {
   return http.get('*/projects/:projectId/chats', async (info) => {await delay(100);
   
@@ -109,6 +124,7 @@ export const getChatsMock = () => [
   getSearchChatsMockHandler(),
   getDeleteChatMockHandler(),
   getUpdateChatMockHandler(),
+  getListChatMessagesMockHandler(),
   getListProjectChatsMockHandler(),
   getCreateProjectChatMockHandler()
 ]

@@ -66,10 +66,10 @@ async def _invoke_supervisor(
     custom_inputs = agent_request.custom_inputs or {}
     public_thread_id = str(custom_inputs.get("thread_id") or uuid4())
     orchestrator = await get_chat_orchestrator(request)
+    # Stateless by design (evals, curl): the transcript is the request, nothing is stored.
     text, trace_id = await orchestrator.invoke(
         messages,
-        f"{user.id}:{public_thread_id}",  # checkpoints are namespaced per user
-        ChatContext(user_id=user.id, user_email=user.email),
+        ChatContext(user_id=user.id, user_email=user.email, chat_id=public_thread_id),
     )
     response = text_to_response(text, custom_outputs={"thread_id": public_thread_id})
     payload = response.model_dump()

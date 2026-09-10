@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import ConfigDict
@@ -63,9 +64,35 @@ class PaginatedChatSearchResults(CursorPage[ChatSearchResult]):
 
 
 class CreateChatRequest(ApiModel):
-    model_config = ConfigDict(json_schema_extra={"example": {"title": "New chat"}})
+    model_config = ConfigDict(json_schema_extra={"example": {"title": ""}})
 
-    title: str
+    title: str = ""  # empty: the first turn generates the title
+
+
+class ChatMessage(ApiModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "id": "m1",
+                "role": "assistant",
+                "content": "Budapest.",
+                "parts": [{"type": "text", "text": "Budapest."}],
+                "traceId": "tr-abc",
+                "createdAt": "2024-01-15T10:00:00Z",
+            }
+        }
+    )
+
+    id: str
+    role: str
+    content: str
+    parts: list[dict[str, Any]]
+    trace_id: str | None = None
+    created_at: datetime
+
+
+class PaginatedChatMessages(CursorPage[ChatMessage]):
+    pass
 
 
 class UpdateChatRequest(ApiModel):
@@ -160,6 +187,28 @@ async def delete_chat(
     if not deleted:
         raise HTTPException(status_code=404, detail="Chat not found")
     return Response(status_code=204)
+
+
+@router.get(
+    "/chats/{chatId}/messages",
+    operation_id="listChatMessages",
+    response_model=PaginatedChatMessages,
+)
+async def list_chat_messages(
+    chatId: str,
+    cursor: str | None = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=200),
+    service: ChatService = Depends(get_chat_service),
+) -> PaginatedChatMessages:
+    """Messages of an owned chat, oldest first."""
+    if await service.get_owned_chat(chatId) is None:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    result = await service.list_messages(chatId, cursor=cursor, limit=limit)
+    return PaginatedChatMessages(
+        items=[ChatMessage(**i) for i in result["items"]],
+        next_cursor=result["next_cursor"],
+        has_more=result["has_more"],
+    )
 
 
 @router.get(

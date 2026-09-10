@@ -4,10 +4,11 @@
  * Databricks Apps FastAPI Starter API
  * OpenAPI spec version: 0.1.0
  */
+import type { ErrorEventCode } from './errorEventCode';
 import type { ErrorEventType } from './errorEventType';
 
 export interface ErrorEvent {
-  code?: string | null;
+  code: ErrorEventCode;
   message: string;
   trace_id?: string | null;
   type: ErrorEventType;

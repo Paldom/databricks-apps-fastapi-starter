@@ -47,7 +47,7 @@ SPECIALISTS: list[SpecialistSpec] = [
             "volume-backed knowledge via Vector Search."
         ),
         kind="knowledge",
-        config_key=("knowledge_assistant_endpoint", "ai_gateway_embedding_model"),
+        config_key=("knowledge_assistant_endpoint", "vector_search_index_name"),
     ),
     SpecialistSpec(
         key="serving_endpoint",

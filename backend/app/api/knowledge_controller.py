@@ -23,6 +23,7 @@ from app.core.config import Settings
 from app.core.databricks.uc_files import UcFilesAdapter
 from app.core.deps import (
     get_current_user,
+    get_document_service,
     get_logger,
     get_settings,
     get_user_workspace_client,
@@ -30,6 +31,7 @@ from app.core.deps import (
 from app.core.errors import ConfigurationError, RequestTooLargeError
 from app.core.integrations import databricks_integrations_disabled_message
 from app.models.user_dto import CurrentUser
+from app.services.document_service import DocumentService
 
 router = APIRouter(prefix="/knowledge", tags=["knowledge"])
 
@@ -74,7 +76,7 @@ class KnowledgeFileUploadResponse(BaseModel):
     relative_path: str
     full_path: str
     size_bytes: int
-    status: str = "uploaded"
+    status: str = "pending"  # the ingestion job makes it searchable
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +91,7 @@ async def upload_knowledge_file(
     settings: Annotated[Settings, Depends(get_settings)] = None,  # type: ignore[assignment]
     logger: Annotated[Logger, Depends(get_logger)] = None,  # type: ignore[assignment]
     current_user: Annotated[CurrentUser, Depends(get_current_user)] = None,  # type: ignore[assignment]
+    documents: Annotated[DocumentService, Depends(get_document_service)] = None,  # type: ignore[assignment]
 ) -> KnowledgeFileUploadResponse:
     _require_databricks(settings)
 
@@ -116,7 +119,7 @@ async def upload_knowledge_file(
         chunks.append(chunk)
     payload = b"".join(chunks)
 
-    document_id = str(uuid.uuid4())
+    document_id = uuid.uuid4()
     encoded_uid = _encode_user_id(current_user.id)
     relative_path = f"{UPLOAD_SUBDIR}/{encoded_uid}/{document_id}__{filename}"
 
@@ -130,9 +133,16 @@ async def upload_knowledge_file(
 
     full_path = f"{settings.volume_root.rstrip('/')}/{relative_path}"
     logger.info("Knowledge file uploaded: %s (%d bytes)", full_path, uploaded)
+    await documents.create_pending(
+        document_id,
+        filename=filename,
+        content_type=file.content_type or "application/octet-stream",
+        size_bytes=uploaded,
+        storage_path=full_path,
+    )
 
     return KnowledgeFileUploadResponse(
-        document_id=document_id,
+        document_id=str(document_id),
         relative_path=relative_path,
         full_path=full_path,
         size_bytes=uploaded,

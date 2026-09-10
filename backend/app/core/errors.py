@@ -25,6 +25,11 @@ class AppError(Exception):
         super().__init__(detail)
 
 
+class BadRequestError(AppError):
+    def __init__(self, detail: str = "Bad request", **kw):
+        super().__init__(status_code=400, detail=detail, **kw)
+
+
 class NotFoundError(AppError):
     def __init__(self, detail: str = "Not found", **kw):
         super().__init__(404, detail, **kw)

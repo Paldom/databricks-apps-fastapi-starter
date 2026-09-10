@@ -23,10 +23,10 @@ export const documentHandlers = [
     return HttpResponse.json(result)
   }),
 
-  http.post('*/api/documents', async ({ request }) => {
+  http.post('*/api/knowledge/files', async ({ request }) => {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
-    const projectId = (formData.get('projectId') as string) || null
+    const projectId = null
 
     if (!file) {
       return HttpResponse.json({ message: 'file is required' }, { status: 400 })
@@ -55,7 +55,16 @@ export const documentHandlers = [
       2000 + Math.random() * 3000
     )
 
-    return HttpResponse.json(newDoc, { status: 201 })
+    return HttpResponse.json(
+      {
+        document_id: newDoc.id,
+        relative_path: file.name,
+        full_path: `/Volumes/mock/knowledge/${file.name}`,
+        size_bytes: file.size,
+        status: 'pending',
+      },
+      { status: 201 }
+    )
   }),
 
   http.delete('*/api/documents/:documentId', ({ params }) => {

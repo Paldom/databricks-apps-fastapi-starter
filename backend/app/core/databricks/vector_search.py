@@ -27,14 +27,19 @@ class VectorSearchAdapter:
 
     async def similarity_search(
         self,
-        query_vector: list[float],
         columns: list[str],
+        *,
+        query_text: str | None = None,
+        query_vector: list[float] | None = None,
         filters: dict[str, Any] | None = None,
         num_results: int = 3,
-        *,
         timeout: float | None = None,
     ) -> list[dict[str, Any]]:
-        """Return the nearest rows as dicts keyed by column name (plus ``score``)."""
+        """Nearest rows as dicts keyed by column name (plus ``score``).
+
+        ``query_text`` uses the index's own embedding model (hybrid search); a
+        ``query_vector`` is for indexes without managed embeddings.
+        """
         with _tracer.start_as_current_span(
             "dependency.vector.search",
             attributes={
@@ -48,6 +53,8 @@ class VectorSearchAdapter:
                     self._workspace.vector_search_indexes.query_index,
                     index_name=self._index_name,
                     columns=columns,
+                    query_text=query_text,
+                    query_type="HYBRID" if query_text else None,
                     query_vector=query_vector,
                     filters_json=json.dumps(filters) if filters else None,
                     num_results=num_results,

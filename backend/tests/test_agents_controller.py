@@ -74,9 +74,9 @@ class TestSupervisorInvocation:
             "source": "supervisor",
             "downstream_trace_id": "tr-123",
         }
-        messages, thread_key, context = orchestrator.invoke.call_args.args
+        messages, context = orchestrator.invoke.call_args.args
         assert messages == [{"role": "user", "content": "Say hello"}]
-        assert thread_key == "test-user:t-1"  # namespaced by the caller
+        assert context.chat_id == "t-1"
         assert context.user_id == "test-user"
 
     def test_accepts_text_parts(self, test_client: TestClient):

@@ -128,20 +128,28 @@ async def serving(
     )
 
 
-@router.post("/job")
+@router.post("/job", status_code=202)
 async def run_job(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
     logger: Annotated[Logger, Depends(get_logger)],
     params: dict[str, Any] | None = Body(default=None),
 ):
+    """Start the bound job; poll GET /job/{run_id} (the ingress cuts long requests)."""
     job_id = _require_job_id(settings)
     adapter = JobsAdapter(get_user_workspace_client(request), logger)
-    return await adapter.run_and_get_output(
-        job_id=job_id,
-        notebook_params=params,
-        timeout=float(settings.job_timeout_seconds),
-    )
+    run_id = await adapter.run_now(job_id=job_id, notebook_params=params)
+    return {"run_id": run_id, "state": "PENDING"}
+
+
+@router.get("/job/{run_id}")
+async def get_job_run(
+    run_id: int,
+    request: Request,
+    logger: Annotated[Logger, Depends(get_logger)],
+):
+    adapter = JobsAdapter(get_user_workspace_client(request), logger)
+    return await adapter.run_state(run_id)
 
 
 @router.post("/embed")
@@ -173,8 +181,8 @@ async def vector_query(
 
     vector = await ai_adapter.embed(model, body.title)
     return await vector_adapter.similarity_search(
+        ["chunk_text", "doc_uri"],
         query_vector=vector,
-        columns=["chunk_text", "doc_uri"],
         filters={"user_id": user.user_id},
         num_results=3,
         timeout=float(settings.vector_timeout_seconds),

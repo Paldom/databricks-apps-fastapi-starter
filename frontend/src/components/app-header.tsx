@@ -32,13 +32,11 @@ import {
   getListProjectChatsQueryKey,
 } from '@/shared/api/generated/chats/chats'
 import { useQueryClient } from '@tanstack/react-query'
-import { useAui } from '@assistant-ui/react'
 import * as React from 'react'
 
 export function AppHeader() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const aui = useAui()
   const {
     activeProjectId,
     activeChatId,
@@ -90,7 +88,6 @@ export function AppHeader() {
     mutation: {
       onSuccess: (response) => {
         setActiveChatId(response.data.id)
-        aui.threads().switchToNewThread()
         if (activeProjectId) {
           void queryClient.invalidateQueries({
             queryKey: getListProjectChatsQueryKey(activeProjectId),
@@ -107,7 +104,6 @@ export function AppHeader() {
     mutation: {
       onSuccess: () => {
         setActiveChatId(null)
-        aui.threads().switchToNewThread()
         if (activeProjectId) {
           void queryClient.invalidateQueries({
             queryKey: getListProjectChatsQueryKey(activeProjectId),

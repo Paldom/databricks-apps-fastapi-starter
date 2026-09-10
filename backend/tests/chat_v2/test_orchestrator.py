@@ -13,7 +13,7 @@ class TestTranslateEvent:
             "data": {"chunk": chunk},
             "metadata": {"langgraph_node": "agent"},
         }
-        result = _translate_event(event, set())
+        result = _translate_event(event, {})
         assert result == [{"type": "text-delta", "delta": "hello"}]
 
     def test_empty_content_ignored(self):
@@ -23,7 +23,7 @@ class TestTranslateEvent:
             "data": {"chunk": chunk},
             "metadata": {"langgraph_node": "agent"},
         }
-        assert _translate_event(event, set()) == []
+        assert _translate_event(event, {}) == []
 
     def test_tool_call_begin(self):
         tc = {"id": "tc1", "name": "genie", "args": None}
@@ -33,7 +33,7 @@ class TestTranslateEvent:
             "data": {"chunk": chunk},
             "metadata": {"langgraph_node": "agent"},
         }
-        result = _translate_event(event, set())
+        result = _translate_event(event, {})
         assert len(result) == 1
         assert result[0]["type"] == "tool-call-begin"
         assert result[0]["tool_name"] == "genie"
@@ -46,7 +46,7 @@ class TestTranslateEvent:
             "data": {"chunk": chunk},
             "metadata": {"langgraph_node": "agent"},
         }
-        seen: set[str] = set()
+        seen: dict = {}
         _translate_event(event, seen)
         result = _translate_event(event, seen)
         assert result == []  # no duplicate begin
@@ -59,7 +59,7 @@ class TestTranslateEvent:
             "data": {"chunk": chunk},
             "metadata": {"langgraph_node": "agent"},
         }
-        result = _translate_event(event, set())
+        result = _translate_event(event, {})
         assert len(result) == 1
         assert result[0]["type"] == "tool-call-delta"
 
@@ -70,11 +70,11 @@ class TestTranslateEvent:
             "data": {"chunk": chunk},
             "metadata": {"langgraph_node": "tool_node"},
         }
-        assert _translate_event(event, set()) == []
+        assert _translate_event(event, {}) == []
 
     def test_unknown_event_type_ignored(self):
         event = {"event": "on_chain_start", "data": {}, "metadata": {}}
-        assert _translate_event(event, set()) == []
+        assert _translate_event(event, {}) == []
 
     def test_missing_chunk_handled(self):
         event = {
@@ -82,4 +82,4 @@ class TestTranslateEvent:
             "data": {},
             "metadata": {"langgraph_node": "agent"},
         }
-        assert _translate_event(event, set()) == []
+        assert _translate_event(event, {}) == []

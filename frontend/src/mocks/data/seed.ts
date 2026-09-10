@@ -1,6 +1,7 @@
 import { faker } from '@faker-js/faker'
 import type {
   Project,
+  ChatMessage,
   Chat,
   CurrentUser,
   Document,
@@ -86,6 +87,7 @@ class MockDb {
   projects: Project[] = []
   chats: Map<string, Chat[]> = new Map()
   allChats: Chat[] = []
+  messages = new Map<string, ChatMessage[]>()
   documents: Document[] = []
   currentUser: CurrentUser = {
     id: 'john-doe',
@@ -107,6 +109,7 @@ class MockDb {
     this.projects = []
     this.chats = new Map()
     this.allChats = []
+    this.messages = new Map()
     this.documents = []
     this.currentUser = {
       id: 'john-doe',

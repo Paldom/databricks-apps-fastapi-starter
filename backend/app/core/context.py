@@ -11,6 +11,9 @@ from __future__ import annotations
 from contextvars import ContextVar
 from typing import Any
 
+genie_conversation_started: ContextVar[str | None] = ContextVar(
+    "genie_conversation_started", default=None
+)  # set by the Genie tool when it opens a conversation; persisted by the controller
 obo_workspace_client: ContextVar[Any | None] = ContextVar(
     "obo_workspace_client", default=None
 )

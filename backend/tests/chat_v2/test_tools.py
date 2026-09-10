@@ -87,6 +87,7 @@ class TestServingTool:
         )
         settings = MagicMock()
         settings.serving_agent_endpoint = "my-endpoint"
+        settings.tool_timeout_seconds = 5.0
 
         tool = _build_serving_tool(spec, settings, ai_client=ai_client)
         if hasattr(tool, "ainvoke"):

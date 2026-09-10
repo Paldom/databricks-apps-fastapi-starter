@@ -39,6 +39,12 @@ class UcFilesAdapter:
         )
         return len(data)
 
+    async def delete(self, full_path: str) -> None:
+        """Delete one file by its /Volumes path."""
+        await run_sync(
+            self._ws.files.delete, file_path=full_path, error_cls=UcFilesError
+        )
+
     async def download(self, volume_root: str, relative_path: str) -> bytes:
         """Download file contents from a UC volume."""
         uri = self._vol_uri(volume_root, relative_path)

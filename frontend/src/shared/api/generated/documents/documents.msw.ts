@@ -21,15 +21,12 @@ import {
   DocumentStatus
 } from '.././models';
 import type {
-  Document,
   DocumentStatusResponse,
   PaginatedDocuments
 } from '.././models';
 
 
 export const getListDocumentsResponseMock = (overrideResponse: Partial< PaginatedDocuments > = {}): PaginatedDocuments => ({hasMore: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({addedAt: faker.date.past().toISOString().slice(0, 19) + 'Z', id: faker.string.alpha({length: {min: 10, max: 20}}), name: faker.string.alpha({length: {min: 10, max: 20}}), projectId: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), size: faker.number.int({min: undefined, max: undefined}), status: faker.helpers.arrayElement(Object.values(DocumentStatus)), type: faker.string.alpha({length: {min: 10, max: 20}})})), nextCursor: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), ...overrideResponse})
-
-export const getUploadDocumentResponseMock = (): Document => ({"addedAt":"2024-01-15T10:00:00Z","id":"doc-1","name":"Q1 Financial Report.pdf","size":2457600,"status":"ingested","type":"application/pdf"})
 
 export const getGetDocumentStatusResponseMock = (): DocumentStatusResponse => ({"id":"doc-1","status":"ingested"})
 
@@ -41,18 +38,6 @@ export const getListDocumentsMockHandler = (overrideResponse?: PaginatedDocument
     ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
     : getListDocumentsResponseMock()),
       { status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-  }, options)
-}
-
-export const getUploadDocumentMockHandler = (overrideResponse?: Document | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<Document> | Document), options?: RequestHandlerOptions) => {
-  return http.post('*/documents', async (info) => {await delay(100);
-  
-    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
-    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getUploadDocumentResponseMock()),
-      { status: 201,
         headers: { 'Content-Type': 'application/json' }
       })
   }, options)
@@ -81,7 +66,6 @@ export const getGetDocumentStatusMockHandler = (overrideResponse?: DocumentStatu
 }
 export const getDocumentsMock = () => [
   getListDocumentsMockHandler(),
-  getUploadDocumentMockHandler(),
   getDeleteDocumentMockHandler(),
   getGetDocumentStatusMockHandler()
 ]

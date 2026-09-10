@@ -6,5 +6,5 @@
  */
 
 export interface CreateChatRequest {
-  title: string;
+  title?: string;
 }

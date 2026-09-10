@@ -27,7 +27,6 @@ import type {
   AgentQuestion,
   BodyUploadExamplesUcUploadPost,
   DownloadExamplesUcDownloadGetParams,
-  ExampleMessage,
   ExampleRow,
   ExampleTitle,
   GenieQuestion,
@@ -375,14 +374,15 @@ export const useGenieAskExamplesGenieSpaceIdAskPost = <TError = unknown,
       return useMutation(getGenieAskExamplesGenieSpaceIdAskPostMutationOptions(options), queryClient);
     }
     /**
+ * Start the bound job; poll GET /job/{run_id} (the ingress cuts long requests).
  * @summary Run Job
  */
-export type runJobExamplesJobPostResponse200 = {
+export type runJobExamplesJobPostResponse202 = {
   data: unknown
-  status: 200
+  status: 202
 }
     
-export type runJobExamplesJobPostResponseSuccess = (runJobExamplesJobPostResponse200) & {
+export type runJobExamplesJobPostResponseSuccess = (runJobExamplesJobPostResponse202) & {
   headers: Headers;
 };
 ;
@@ -457,88 +457,116 @@ export const useRunJobExamplesJobPost = <TError = unknown,
       return useMutation(getRunJobExamplesJobPostMutationOptions(options), queryClient);
     }
     /**
- * @summary Pg Demo
+ * @summary Get Job Run
  */
-export type pgDemoExamplesPgPostResponse200 = {
+export type getJobRunExamplesJobRunIdGetResponse200 = {
   data: unknown
   status: 200
 }
     
-export type pgDemoExamplesPgPostResponseSuccess = (pgDemoExamplesPgPostResponse200) & {
+export type getJobRunExamplesJobRunIdGetResponseSuccess = (getJobRunExamplesJobRunIdGetResponse200) & {
   headers: Headers;
 };
 ;
 
-export type pgDemoExamplesPgPostResponse = (pgDemoExamplesPgPostResponseSuccess)
+export type getJobRunExamplesJobRunIdGetResponse = (getJobRunExamplesJobRunIdGetResponseSuccess)
 
-export const getPgDemoExamplesPgPostUrl = () => {
+export const getGetJobRunExamplesJobRunIdGetUrl = (runId: number,) => {
 
 
   
 
-  return `/examples/pg`
+  return `/examples/job/${runId}`
 }
 
-export const pgDemoExamplesPgPost = async (exampleMessage: ExampleMessage, options?: RequestInit): Promise<pgDemoExamplesPgPostResponse> => {
+export const getJobRunExamplesJobRunIdGet = async (runId: number, options?: RequestInit): Promise<getJobRunExamplesJobRunIdGetResponse> => {
   
-  return customInstance<pgDemoExamplesPgPostResponse>(getPgDemoExamplesPgPostUrl(),
+  return customInstance<getJobRunExamplesJobRunIdGetResponse>(getGetJobRunExamplesJobRunIdGetUrl(runId),
   {      
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      exampleMessage,)
+    method: 'GET'
+    
+    
   }
 );}
 
 
 
 
-export const getPgDemoExamplesPgPostMutationOptions = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pgDemoExamplesPgPost>>, TError,{data: ExampleMessage}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof pgDemoExamplesPgPost>>, TError,{data: ExampleMessage}, TContext> => {
 
-const mutationKey = ['pgDemoExamplesPgPost'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
+export const getGetJobRunExamplesJobRunIdGetQueryKey = (runId: number,) => {
+    return [
+    `/examples/job/${runId}`
+    ] as const;
+    }
+
+    
+export const getGetJobRunExamplesJobRunIdGetQueryOptions = <TData = Awaited<ReturnType<typeof getJobRunExamplesJobRunIdGet>>, TError = unknown>(runId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getJobRunExamplesJobRunIdGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetJobRunExamplesJobRunIdGetQueryKey(runId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getJobRunExamplesJobRunIdGet>>> = ({ signal }) => getJobRunExamplesJobRunIdGet(runId, { signal, ...requestOptions });
 
       
 
+      
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof pgDemoExamplesPgPost>>, {data: ExampleMessage}> = (props) => {
-          const {data} = props ?? {};
+   return  { queryKey, queryFn, enabled: !!(runId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getJobRunExamplesJobRunIdGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
 
-          return  pgDemoExamplesPgPost(data,requestOptions)
-        }
-
-
-
-        
+export type GetJobRunExamplesJobRunIdGetQueryResult = NonNullable<Awaited<ReturnType<typeof getJobRunExamplesJobRunIdGet>>>
+export type GetJobRunExamplesJobRunIdGetQueryError = unknown
 
 
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PgDemoExamplesPgPostMutationResult = NonNullable<Awaited<ReturnType<typeof pgDemoExamplesPgPost>>>
-    export type PgDemoExamplesPgPostMutationBody = ExampleMessage
-    export type PgDemoExamplesPgPostMutationError = unknown
-
-    /**
- * @summary Pg Demo
+export function useGetJobRunExamplesJobRunIdGet<TData = Awaited<ReturnType<typeof getJobRunExamplesJobRunIdGet>>, TError = unknown>(
+ runId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getJobRunExamplesJobRunIdGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getJobRunExamplesJobRunIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getJobRunExamplesJobRunIdGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetJobRunExamplesJobRunIdGet<TData = Awaited<ReturnType<typeof getJobRunExamplesJobRunIdGet>>, TError = unknown>(
+ runId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getJobRunExamplesJobRunIdGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getJobRunExamplesJobRunIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getJobRunExamplesJobRunIdGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetJobRunExamplesJobRunIdGet<TData = Awaited<ReturnType<typeof getJobRunExamplesJobRunIdGet>>, TError = unknown>(
+ runId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getJobRunExamplesJobRunIdGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Job Run
  */
-export const usePgDemoExamplesPgPost = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pgDemoExamplesPgPost>>, TError,{data: ExampleMessage}, TContext>, request?: SecondParameter<typeof customInstance>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof pgDemoExamplesPgPost>>,
-        TError,
-        {data: ExampleMessage},
-        TContext
-      > => {
-      return useMutation(getPgDemoExamplesPgPostMutationOptions(options), queryClient);
-    }
-    /**
+
+export function useGetJobRunExamplesJobRunIdGet<TData = Awaited<ReturnType<typeof getJobRunExamplesJobRunIdGet>>, TError = unknown>(
+ runId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getJobRunExamplesJobRunIdGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetJobRunExamplesJobRunIdGetQueryOptions(runId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+/**
  * @summary Serving
  */
 export type servingExamplesServingPostResponse200 = {
@@ -910,87 +938,5 @@ export const useVectorQueryExamplesVectorQueryPost = <TError = unknown,
         TContext
       > => {
       return useMutation(getVectorQueryExamplesVectorQueryPostMutationOptions(options), queryClient);
-    }
-    /**
- * @summary Vector Store
- */
-export type vectorStoreExamplesVectorStorePostResponse200 = {
-  data: unknown
-  status: 200
-}
-    
-export type vectorStoreExamplesVectorStorePostResponseSuccess = (vectorStoreExamplesVectorStorePostResponse200) & {
-  headers: Headers;
-};
-;
-
-export type vectorStoreExamplesVectorStorePostResponse = (vectorStoreExamplesVectorStorePostResponseSuccess)
-
-export const getVectorStoreExamplesVectorStorePostUrl = () => {
-
-
-  
-
-  return `/examples/vector/store`
-}
-
-export const vectorStoreExamplesVectorStorePost = async (exampleTitle: ExampleTitle, options?: RequestInit): Promise<vectorStoreExamplesVectorStorePostResponse> => {
-  
-  return customInstance<vectorStoreExamplesVectorStorePostResponse>(getVectorStoreExamplesVectorStorePostUrl(),
-  {      
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      exampleTitle,)
-  }
-);}
-
-
-
-
-export const getVectorStoreExamplesVectorStorePostMutationOptions = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof vectorStoreExamplesVectorStorePost>>, TError,{data: ExampleTitle}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof vectorStoreExamplesVectorStorePost>>, TError,{data: ExampleTitle}, TContext> => {
-
-const mutationKey = ['vectorStoreExamplesVectorStorePost'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof vectorStoreExamplesVectorStorePost>>, {data: ExampleTitle}> = (props) => {
-          const {data} = props ?? {};
-
-          return  vectorStoreExamplesVectorStorePost(data,requestOptions)
-        }
-
-
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type VectorStoreExamplesVectorStorePostMutationResult = NonNullable<Awaited<ReturnType<typeof vectorStoreExamplesVectorStorePost>>>
-    export type VectorStoreExamplesVectorStorePostMutationBody = ExampleTitle
-    export type VectorStoreExamplesVectorStorePostMutationError = unknown
-
-    /**
- * @summary Vector Store
- */
-export const useVectorStoreExamplesVectorStorePost = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof vectorStoreExamplesVectorStorePost>>, TError,{data: ExampleTitle}, TContext>, request?: SecondParameter<typeof customInstance>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof vectorStoreExamplesVectorStorePost>>,
-        TError,
-        {data: ExampleTitle},
-        TContext
-      > => {
-      return useMutation(getVectorStoreExamplesVectorStorePostMutationOptions(options), queryClient);
     }
     

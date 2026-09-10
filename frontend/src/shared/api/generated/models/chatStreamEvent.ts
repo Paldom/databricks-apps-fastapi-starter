@@ -6,8 +6,10 @@
  */
 import type { DoneEvent } from './doneEvent';
 import type { ErrorEvent } from './errorEvent';
+import type { HeartbeatEvent } from './heartbeatEvent';
 import type { TextDeltaEvent } from './textDeltaEvent';
 import type { ToolCallBeginEvent } from './toolCallBeginEvent';
 import type { ToolCallDeltaEvent } from './toolCallDeltaEvent';
+import type { ToolResultEvent } from './toolResultEvent';
 
-export type ChatStreamEvent = TextDeltaEvent | ToolCallBeginEvent | ToolCallDeltaEvent | DoneEvent | ErrorEvent;
+export type ChatStreamEvent = TextDeltaEvent | ToolCallBeginEvent | ToolCallDeltaEvent | ToolResultEvent | HeartbeatEvent | DoneEvent | ErrorEvent;

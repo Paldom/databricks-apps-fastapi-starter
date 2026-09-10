@@ -29,8 +29,6 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
-  BodyUploadDocument,
-  Document,
   DocumentStatusResponse,
   ListDocumentsParams,
   PaginatedDocuments
@@ -232,93 +230,7 @@ export function useListDocuments<TData = Awaited<ReturnType<typeof listDocuments
 
 
 /**
- * @summary Upload Document
- */
-export type uploadDocumentResponse201 = {
-  data: Document
-  status: 201
-}
-    
-export type uploadDocumentResponseSuccess = (uploadDocumentResponse201) & {
-  headers: Headers;
-};
-;
-
-export type uploadDocumentResponse = (uploadDocumentResponseSuccess)
-
-export const getUploadDocumentUrl = () => {
-
-
-  
-
-  return `/documents`
-}
-
-export const uploadDocument = async (bodyUploadDocument: BodyUploadDocument, options?: RequestInit): Promise<uploadDocumentResponse> => {
-    const formData = new FormData();
-formData.append(`file`, bodyUploadDocument.file);
-if(bodyUploadDocument.projectId !== undefined && bodyUploadDocument.projectId !== null) {
- formData.append(`projectId`, bodyUploadDocument.projectId);
- }
-
-  return customInstance<uploadDocumentResponse>(getUploadDocumentUrl(),
-  {      
-    ...options,
-    method: 'POST'
-    ,
-    body: 
-      formData,
-  }
-);}
-
-
-
-
-export const getUploadDocumentMutationOptions = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadDocument>>, TError,{data: BodyUploadDocument}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof uploadDocument>>, TError,{data: BodyUploadDocument}, TContext> => {
-
-const mutationKey = ['uploadDocument'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadDocument>>, {data: BodyUploadDocument}> = (props) => {
-          const {data} = props ?? {};
-
-          return  uploadDocument(data,requestOptions)
-        }
-
-
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type UploadDocumentMutationResult = NonNullable<Awaited<ReturnType<typeof uploadDocument>>>
-    export type UploadDocumentMutationBody = BodyUploadDocument
-    export type UploadDocumentMutationError = unknown
-
-    /**
- * @summary Upload Document
- */
-export const useUploadDocument = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadDocument>>, TError,{data: BodyUploadDocument}, TContext>, request?: SecondParameter<typeof customInstance>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof uploadDocument>>,
-        TError,
-        {data: BodyUploadDocument},
-        TContext
-      > => {
-      return useMutation(getUploadDocumentMutationOptions(options), queryClient);
-    }
-    /**
+ * Remove the file; the ingestion job then drops its chunks and index rows.
  * @summary Delete Document
  */
 export type deleteDocumentResponse204 = {
@@ -400,6 +312,7 @@ export const useDeleteDocument = <TError = unknown,
       return useMutation(getDeleteDocumentMutationOptions(options), queryClient);
     }
     /**
+ * A pending document becomes ``ingested`` once its chunks are in the index.
  * @summary Get Document Status
  */
 export type getDocumentStatusResponse200 = {

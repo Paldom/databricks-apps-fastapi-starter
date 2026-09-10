@@ -13,7 +13,7 @@ import { server } from '@/mocks/server'
 import { http, HttpResponse } from 'msw'
 
 function RuntimeWrapper({ children }: Readonly<{ children: React.ReactNode }>) {
-  const runtime = useChatRuntime()
+  const runtime = useChatRuntime('test-chat')
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       {children}

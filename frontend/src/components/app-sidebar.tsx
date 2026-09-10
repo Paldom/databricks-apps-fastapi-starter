@@ -60,7 +60,6 @@ import {
 } from '@/shared/api/generated/chats/chats'
 import { useGetMe } from '@/shared/api/generated/me/me'
 import { useQueryClient } from '@tanstack/react-query'
-import { useAui } from '@assistant-ui/react'
 
 function getInitials(name: string) {
   return name
@@ -86,7 +85,8 @@ function getUserLabels(
 }
 
 function ProjectChatList({ projectId }: Readonly<{ projectId: string }>) {
-  const { activeChatId, setActiveChatId } = useUIStore()
+  const { t } = useTranslation()
+  const { activeChatId, setActiveChatId, setActiveProjectId } = useUIStore()
   const queryClient = useQueryClient()
   const { data, isLoading } = useListProjectChats(projectId)
 
@@ -147,6 +147,7 @@ function ProjectChatList({ projectId }: Readonly<{ projectId: string }>) {
           {editingChatId === chat.id ? (
             <div className="flex h-8 items-center gap-1 pl-8 pr-0">
               <Input
+                aria-label={t('chat.rename')}
                 value={editingTitle}
                 onChange={(e) => setEditingTitle(e.target.value)}
                 onKeyDown={(e) => {
@@ -160,6 +161,7 @@ function ProjectChatList({ projectId }: Readonly<{ projectId: string }>) {
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5 shrink-0"
+                aria-label={t('common.save')}
                 onClick={handleSaveEdit}
               >
                 <Check className="h-3 w-3" />
@@ -168,6 +170,7 @@ function ProjectChatList({ projectId }: Readonly<{ projectId: string }>) {
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5 shrink-0"
+                aria-label={t('common.cancel')}
                 onClick={handleCancelEdit}
               >
                 <X className="h-3 w-3" />
@@ -176,11 +179,16 @@ function ProjectChatList({ projectId }: Readonly<{ projectId: string }>) {
           ) : (
             <SidebarMenuButton
               isActive={chat.id === activeChatId}
-              onClick={() => setActiveChatId(chat.id)}
+              onClick={() => {
+                setActiveProjectId(projectId)
+                setActiveChatId(chat.id)
+              }}
               onDoubleClick={() => handleStartEdit(chat.id, chat.title)}
             >
               <MessageSquare className="h-4 w-4" />
-              <span className="truncate">{chat.title}</span>
+              <span className="truncate">
+                {chat.title || t('chat.newChat')}
+              </span>
             </SidebarMenuButton>
           )}
         </SidebarMenuItem>
@@ -192,7 +200,6 @@ function ProjectChatList({ projectId }: Readonly<{ projectId: string }>) {
 export function AppSidebar() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const aui = useAui()
   const {
     setActiveChatId,
     setActiveProjectId,
@@ -264,7 +271,6 @@ export function AppSidebar() {
           queryKey: getListProjectsInfiniteQueryKey(),
         })
         setActiveChatId(response.data.id)
-        aui.threads().switchToNewThread()
       },
     },
   })
@@ -297,7 +303,7 @@ export function AppSidebar() {
   }
 
   const handleCreateProject = () => {
-    createProjectMutation.mutate({ data: { name: 'New project' } })
+    createProjectMutation.mutate({ data: { name: t('project.newProject') } })
   }
 
   const handleDeleteProject = (projectId: string) => {
@@ -381,7 +387,10 @@ export function AppSidebar() {
               <SidebarGroupLabel className="h-8 pr-0">
                 <div className="flex w-full items-center gap-1">
                   {/* Chevron trigger */}
-                  <CollapsibleTrigger className="flex items-center">
+                  <CollapsibleTrigger
+                    aria-label={t('project.toggle', { name: project.name })}
+                    className="flex items-center"
+                  >
                     <ChevronDown className="h-3 w-3 shrink-0 transition-transform group-data-[state=open]/collapsible:rotate-180" />
                   </CollapsibleTrigger>
 
@@ -389,6 +398,7 @@ export function AppSidebar() {
                     /* Edit mode */
                     <div className="flex flex-1 items-center gap-1">
                       <Input
+                        aria-label={t('project.editName')}
                         value={editingName}
                         onChange={(e) => setEditingName(e.target.value)}
                         onKeyDown={(e) => {
@@ -402,6 +412,7 @@ export function AppSidebar() {
                         variant="ghost"
                         size="icon"
                         className="h-5 w-5 shrink-0"
+                        aria-label={t('common.save')}
                         onClick={handleSaveEdit}
                       >
                         <Check className="h-3 w-3" />
@@ -410,6 +421,7 @@ export function AppSidebar() {
                         variant="ghost"
                         size="icon"
                         className="h-5 w-5 shrink-0"
+                        aria-label={t('common.cancel')}
                         onClick={handleCancelEdit}
                       >
                         <X className="h-3 w-3" />
@@ -425,6 +437,7 @@ export function AppSidebar() {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
+                            aria-label={t('common.openMenu')}
                             variant="ghost"
                             size="icon"
                             className="h-5 w-5 shrink-0 opacity-0 group-hover/collapsible:opacity-100"
@@ -456,12 +469,13 @@ export function AppSidebar() {
                         variant="ghost"
                         size="icon"
                         className="h-5 w-5 shrink-0 opacity-0 group-hover/collapsible:opacity-100"
+                        aria-label={t('chat.newChat')}
                         disabled={createChatMutation.isPending}
                         onClick={() => {
                           setActiveProjectId(project.id)
                           createChatMutation.mutate({
                             projectId: project.id,
-                            data: { title: 'New chat' },
+                            data: { title: '' },
                           })
                         }}
                       >

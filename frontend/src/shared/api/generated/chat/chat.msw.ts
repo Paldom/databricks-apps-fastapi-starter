@@ -20,9 +20,11 @@ import type {
 import type {
   DoneEvent,
   ErrorEvent,
+  HeartbeatEvent,
   TextDeltaEvent,
   ToolCallBeginEvent,
-  ToolCallDeltaEvent
+  ToolCallDeltaEvent,
+  ToolResultEvent
 } from '.././models';
 
 
@@ -32,11 +34,15 @@ export const getChatStreamResponseToolCallBeginEventMock = (overrideResponse: Pa
 
 export const getChatStreamResponseToolCallDeltaEventMock = (overrideResponse: Partial<ToolCallDeltaEvent> = {}): ToolCallDeltaEvent => ({...{args_delta: faker.string.alpha({length: {min: 10, max: 20}}), tool_call_id: faker.string.alpha({length: {min: 10, max: 20}}), type: faker.helpers.arrayElement(['tool-call-delta'] as const)}, ...overrideResponse});
 
+export const getChatStreamResponseToolResultEventMock = (overrideResponse: Partial<ToolResultEvent> = {}): ToolResultEvent => ({...{is_error: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), result: faker.string.alpha({length: {min: 10, max: 20}}), tool_call_id: faker.string.alpha({length: {min: 10, max: 20}}), type: "tool-result"}, ...overrideResponse});
+
+export const getChatStreamResponseHeartbeatEventMock = (overrideResponse: Partial<HeartbeatEvent> = {}): HeartbeatEvent => ({...{type: "heartbeat"}, ...overrideResponse});
+
 export const getChatStreamResponseDoneEventMock = (overrideResponse: Partial<DoneEvent> = {}): DoneEvent => ({...{finish_reason: faker.helpers.arrayElement(['stop','length','error'] as const), thread_id: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), trace_id: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), type: faker.helpers.arrayElement(['done'] as const)}, ...overrideResponse});
 
-export const getChatStreamResponseErrorEventMock = (overrideResponse: Partial<ErrorEvent> = {}): ErrorEvent => ({...{code: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), message: faker.string.alpha({length: {min: 10, max: 20}}), trace_id: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), type: faker.helpers.arrayElement(['error'] as const)}, ...overrideResponse});
+export const getChatStreamResponseErrorEventMock = (overrideResponse: Partial<ErrorEvent> = {}): ErrorEvent => ({...{code: faker.helpers.arrayElement(['internal_error','timeout','busy'] as const), message: faker.string.alpha({length: {min: 10, max: 20}}), trace_id: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), type: faker.helpers.arrayElement(['error'] as const)}, ...overrideResponse});
 
-export const getChatStreamResponseMock = (): Blob => (faker.helpers.arrayElement([{...getChatStreamResponseTextDeltaEventMock()},{...getChatStreamResponseToolCallBeginEventMock()},{...getChatStreamResponseToolCallDeltaEventMock()},{...getChatStreamResponseDoneEventMock()},{...getChatStreamResponseErrorEventMock()},]))
+export const getChatStreamResponseMock = (): Blob => (faker.helpers.arrayElement([{...getChatStreamResponseTextDeltaEventMock()},{...getChatStreamResponseToolCallBeginEventMock()},{...getChatStreamResponseToolCallDeltaEventMock()},{...getChatStreamResponseToolResultEventMock()},{...getChatStreamResponseHeartbeatEventMock()},{...getChatStreamResponseDoneEventMock()},{...getChatStreamResponseErrorEventMock()},]))
 
 
 export const getChatStreamMockHandler = (overrideResponse?: Blob | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<Blob> | Blob), options?: RequestHandlerOptions) => {

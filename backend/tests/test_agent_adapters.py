@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 # ---------------------------------------------------------------------------
@@ -96,49 +96,74 @@ class TestServingEndpointAdapter:
 
 
 class TestGenieAdapter:
-    def test_invoke_preserves_structured_outputs(self):
-        from app.agents.adapters.genie_adapter import GenieAdapter
-        from app.agents.contracts import ResponsesAgentRequest
-
-        # Mock Genie SDK response
+    @staticmethod
+    def _message(status: str):
         text_obj = MagicMock()
         text_obj.content = "Revenue is $1M"
         query_obj = MagicMock()
         query_obj.query = "SELECT SUM(revenue) FROM sales"
-
         attachment = MagicMock()
         attachment.text = text_obj
         attachment.query = query_obj
+        attachment.attachment_id = "att-1"
+        message = MagicMock()
+        message.attachments = [attachment]
+        message.conversation_id = "conv-123"
+        message.message_id = "msg-1"
+        message.status = MagicMock(value=status)
+        return message
 
-        genie_resp = MagicMock()
-        genie_resp.attachments = [attachment]
-        genie_resp.conversation_id = "conv-123"
+    def test_invoke_polls_until_complete_and_keeps_structured_outputs(self):
+        from app.agents.adapters.genie_adapter import GenieAdapter
+        from app.agents.contracts import ResponsesAgentRequest
 
         mock_ws = MagicMock()
-        mock_ws.genie.start_conversation_and_wait.return_value = genie_resp
-
-        adapter = GenieAdapter(mock_ws, "space-xyz")
-        req = ResponsesAgentRequest(
-            input=[{"role": "user", "content": "What is revenue?"}]
+        mock_ws.genie.start_conversation.return_value = MagicMock(
+            response=self._message("EXECUTING_QUERY")
         )
-
-        result = _run(adapter.invoke(req))
+        mock_ws.genie.get_message.return_value = self._message("COMPLETED")
+        mock_ws.genie.get_message_attachment_query_result.return_value = MagicMock(
+            statement_response=MagicMock(result=MagicMock(data_array=[["1000000"]]))
+        )
+        with patch("app.agents.adapters.genie_adapter.POLL_SECONDS", 0):
+            result = _run(
+                GenieAdapter(mock_ws, "space-xyz").invoke(
+                    ResponsesAgentRequest(
+                        input=[{"role": "user", "content": "What is revenue?"}]
+                    )
+                )
+            )
 
         assert result.source == "genie"
         assert "Revenue is $1M" in result.text
-        assert result.downstream_trace_id is None  # Genie doesn't provide trace IDs
+        outputs = result.response.custom_outputs
+        assert outputs["sql"] == "SELECT SUM(revenue) FROM sales"
+        assert outputs["conversation_id"] == "conv-123"
+        assert outputs["message_id"] == "msg-1"
+        assert outputs["status"] == "COMPLETED"
+        assert outputs["rows"] == [["1000000"]]
+        mock_ws.genie.get_message.assert_called_with("space-xyz", "conv-123", "msg-1")
 
-        # Structured outputs preserved in custom_outputs
-        resp_dict = (
-            result.response.model_dump()
-            if hasattr(result.response, "model_dump")
-            else dict(result.response)
+    def test_follow_up_reuses_the_conversation_and_reports_pending(self):
+        from app.agents.adapters.genie_adapter import GenieAdapter
+
+        mock_ws = MagicMock()
+        mock_ws.genie.create_message.return_value = MagicMock(
+            response=self._message("EXECUTING_QUERY")
         )
-        custom = resp_dict.get("custom_outputs", {})
-        assert custom["backend"] == "genie"
-        assert custom["sql"] == "SELECT SUM(revenue) FROM sales"
-        assert custom["conversation_id"] == "conv-123"
-        assert len(custom["attachments"]) == 1
+        mock_ws.genie.get_message.return_value = self._message("EXECUTING_QUERY")
+        with patch("app.agents.adapters.genie_adapter.POLL_SECONDS", 0):
+            result = _run(
+                GenieAdapter(mock_ws, "space-xyz").ask(
+                    "and by region?", "conv-123", timeout=0.01
+                )
+            )
+        mock_ws.genie.create_message.assert_called_once_with(
+            "space-xyz", "conv-123", "and by region?"
+        )
+        mock_ws.genie.start_conversation.assert_not_called()
+        assert result["status"] == "pending"
+        assert result["conversation_id"] == "conv-123"
 
 
 class TestParseGenieResponse:

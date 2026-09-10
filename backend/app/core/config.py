@@ -66,9 +66,11 @@ class Settings(BaseSettings):
     knowledge_assistant_endpoint: Optional[str] = None
     knowledge_assistant_timeout_seconds: int = 60
 
-    # Chat orchestrator
-    langgraph_memory_backend: str = "inmemory"  # "inmemory" | "lakebase"
+    # Chat orchestrator (the Apps ingress cuts requests at about two minutes)
     supervisor_model: str = "databricks-claude-sonnet-4-6"
+    turn_timeout_seconds: float = 90
+    tool_timeout_seconds: float = 45
+    max_concurrent_turns: int = 3
 
     # Specialists
     app_agent_name: Optional[str] = None

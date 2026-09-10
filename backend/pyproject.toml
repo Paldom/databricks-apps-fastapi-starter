@@ -73,6 +73,11 @@ exclude_dirs = [".venv", "notebooks"]
 requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
+[dependency-groups]
+dev = [
+    "aiosqlite>=0.22.1",
+]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = [

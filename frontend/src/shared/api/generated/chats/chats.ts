@@ -32,7 +32,9 @@ import type {
   Chat,
   CreateChatRequest,
   GetRecentChatsParams,
+  ListChatMessagesParams,
   ListProjectChatsParams,
+  PaginatedChatMessages,
   PaginatedChatSearchResults,
   PaginatedChats,
   SearchChatsParams,
@@ -516,6 +518,132 @@ export const useUpdateChat = <TError = unknown,
       return useMutation(getUpdateChatMutationOptions(options), queryClient);
     }
     /**
+ * Messages of an owned chat, oldest first.
+ * @summary List Chat Messages
+ */
+export type listChatMessagesResponse200 = {
+  data: PaginatedChatMessages
+  status: 200
+}
+    
+export type listChatMessagesResponseSuccess = (listChatMessagesResponse200) & {
+  headers: Headers;
+};
+;
+
+export type listChatMessagesResponse = (listChatMessagesResponseSuccess)
+
+export const getListChatMessagesUrl = (chatId: string,
+    params?: ListChatMessagesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/chats/${chatId}/messages?${stringifiedParams}` : `/chats/${chatId}/messages`
+}
+
+export const listChatMessages = async (chatId: string,
+    params?: ListChatMessagesParams, options?: RequestInit): Promise<listChatMessagesResponse> => {
+  
+  return customInstance<listChatMessagesResponse>(getListChatMessagesUrl(chatId,params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+);}
+
+
+
+
+
+export const getListChatMessagesQueryKey = (chatId: string,
+    params?: ListChatMessagesParams,) => {
+    return [
+    `/chats/${chatId}/messages`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+    
+export const getListChatMessagesQueryOptions = <TData = Awaited<ReturnType<typeof listChatMessages>>, TError = unknown>(chatId: string,
+    params?: ListChatMessagesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listChatMessages>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListChatMessagesQueryKey(chatId,params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listChatMessages>>> = ({ signal }) => listChatMessages(chatId,params, { signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(chatId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listChatMessages>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListChatMessagesQueryResult = NonNullable<Awaited<ReturnType<typeof listChatMessages>>>
+export type ListChatMessagesQueryError = unknown
+
+
+export function useListChatMessages<TData = Awaited<ReturnType<typeof listChatMessages>>, TError = unknown>(
+ chatId: string,
+    params: undefined |  ListChatMessagesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listChatMessages>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listChatMessages>>,
+          TError,
+          Awaited<ReturnType<typeof listChatMessages>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListChatMessages<TData = Awaited<ReturnType<typeof listChatMessages>>, TError = unknown>(
+ chatId: string,
+    params?: ListChatMessagesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listChatMessages>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listChatMessages>>,
+          TError,
+          Awaited<ReturnType<typeof listChatMessages>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListChatMessages<TData = Awaited<ReturnType<typeof listChatMessages>>, TError = unknown>(
+ chatId: string,
+    params?: ListChatMessagesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listChatMessages>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Chat Messages
+ */
+
+export function useListChatMessages<TData = Awaited<ReturnType<typeof listChatMessages>>, TError = unknown>(
+ chatId: string,
+    params?: ListChatMessagesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listChatMessages>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListChatMessagesQueryOptions(chatId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+/**
  * @summary List Project Chats
  */
 export type listProjectChatsResponse200 = {

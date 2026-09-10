@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import delete, func, select
+from app.core.pagination import decode_cursor, encode_cursor
+from sqlalchemy import tuple_, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chat_session_model import ChatSession
@@ -39,11 +40,14 @@ class ProjectRepository:
             )
             .outerjoin(chat_count_sq, Project.id == chat_count_sq.c.project_id)
             .where(Project.owner_user_id == owner_user_id)
-            .order_by(Project.created_at.desc())
+            .order_by(Project.created_at.desc(), Project.id.desc())
         )
 
         if cursor:
-            query = query.where(Project.id < cursor)
+            stamp, row_id = decode_cursor(cursor)
+            query = query.where(
+                tuple_(Project.created_at, Project.id) < (stamp, row_id)
+            )
 
         query = query.limit(limit + 1)
         result = await self._session.execute(query)
@@ -52,7 +56,11 @@ class ProjectRepository:
         has_more = len(rows) > limit
         items = rows[:limit]
 
-        next_cursor = items[-1].id if has_more and items else None
+        next_cursor = (
+            encode_cursor(items[-1].created_at, items[-1].id)
+            if has_more and items
+            else None
+        )
 
         return (
             [

@@ -13,7 +13,6 @@ from typing import Any
 
 from fastapi import Request
 
-from app.chat.memory import create_checkpointer
 from app.chat.orchestrator import ChatOrchestrator
 from app.core.config import Settings
 from app.core.deps import (
@@ -65,11 +64,8 @@ async def _build_orchestrator(request: Request) -> ChatOrchestrator:
         logger=log,
     )
     prompt = build_supervisor_prompt(enabled_specs)
-    checkpointer = create_checkpointer(settings)
-    agent = build_agent(
-        _build_supervisor_llm(ai_client, settings), tools, prompt, checkpointer
-    )
-    return ChatOrchestrator(agent, checkpointer, log)
+    agent = build_agent(_build_supervisor_llm(ai_client, settings), tools, prompt)
+    return ChatOrchestrator(agent, log)
 
 
 async def get_chat_orchestrator(request: Request) -> ChatOrchestrator:

@@ -13,3 +13,12 @@ class ChatContext:
     user_email: str | None = None
     chat_id: str | None = None
     project_id: str | None = None
+    genie_conversation_id: str | None = None
+
+    def configurable(self) -> dict[str, str | None]:
+        """What tools may read from the LangGraph run config (never secrets)."""
+        return {
+            "user_id": self.user_id,
+            "chat_id": self.chat_id,
+            "genie_conversation_id": self.genie_conversation_id,
+        }

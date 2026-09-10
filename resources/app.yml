@@ -55,8 +55,6 @@ resources:
             value: "true"
           - name: AI_GATEWAY_EMBEDDING_MODEL
             value_from: embedding-model
-          - name: LANGGRAPH_MEMORY_BACKEND
-            value: ${var.langgraph_memory_backend}
           - name: VECTOR_SEARCH_ENDPOINT_NAME
             value: ${resources.vector_search_endpoints.rag_endpoint.name}
           - name: VECTOR_SEARCH_INDEX_NAME

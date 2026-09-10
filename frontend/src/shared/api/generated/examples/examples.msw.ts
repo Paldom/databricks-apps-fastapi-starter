@@ -59,14 +59,14 @@ export const getRunJobExamplesJobPostMockHandler = (overrideResponse?: unknown |
   return http.post('*/examples/job', async (info) => {await delay(100);
   if (typeof overrideResponse === 'function') {await overrideResponse(info); }
     return new HttpResponse(null,
-      { status: 200,
+      { status: 202,
         
       })
   }, options)
 }
 
-export const getPgDemoExamplesPgPostMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
-  return http.post('*/examples/pg', async (info) => {await delay(100);
+export const getGetJobRunExamplesJobRunIdGetMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.get('*/examples/job/:runId', async (info) => {await delay(100);
   if (typeof overrideResponse === 'function') {await overrideResponse(info); }
     return new HttpResponse(null,
       { status: 200,
@@ -114,26 +114,15 @@ export const getVectorQueryExamplesVectorQueryPostMockHandler = (overrideRespons
       })
   }, options)
 }
-
-export const getVectorStoreExamplesVectorStorePostMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
-  return http.post('*/examples/vector/store', async (info) => {await delay(100);
-  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
-    return new HttpResponse(null,
-      { status: 200,
-        
-      })
-  }, options)
-}
 export const getExamplesMock = () => [
   getAgentAskExamplesAgentAskPostMockHandler(),
   getAgentAskStreamExamplesAgentAskStreamPostMockHandler(),
   getEmbedExamplesEmbedPostMockHandler(),
   getGenieAskExamplesGenieSpaceIdAskPostMockHandler(),
   getRunJobExamplesJobPostMockHandler(),
-  getPgDemoExamplesPgPostMockHandler(),
+  getGetJobRunExamplesJobRunIdGetMockHandler(),
   getServingExamplesServingPostMockHandler(),
   getDownloadExamplesUcDownloadGetMockHandler(),
   getUploadExamplesUcUploadPostMockHandler(),
-  getVectorQueryExamplesVectorQueryPostMockHandler(),
-  getVectorStoreExamplesVectorStorePostMockHandler()
+  getVectorQueryExamplesVectorQueryPostMockHandler()
 ]

@@ -83,9 +83,6 @@ variables:
   serving_agent_chat_model:
     description: Model the serving agent calls
     default: databricks-claude-sonnet-4-6
-  langgraph_memory_backend:
-    description: LangGraph checkpointer (inmemory or lakebase)
-    default: inmemory
   rag_catalog_name:
     description: Catalog that owns the schema, volume, tables and telemetry
     default: main

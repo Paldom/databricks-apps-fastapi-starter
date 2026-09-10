@@ -8,5 +8,5 @@ import type { ChatStreamMessage } from './chatStreamMessage';
 
 export interface ChatStreamRequest {
   messages: ChatStreamMessage[];
-  thread_id?: string | null;
+  thread_id: string;
 }
