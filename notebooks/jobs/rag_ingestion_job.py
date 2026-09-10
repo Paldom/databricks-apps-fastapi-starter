@@ -14,6 +14,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+from datetime import timedelta
 from typing import Any
 
 from databricks.sdk.runtime import dbutils, spark
@@ -31,6 +32,7 @@ dbutils.widgets.text("vector_search_endpoint_name", "")
 dbutils.widgets.text("vector_search_index_name", "")
 dbutils.widgets.text("embedding_model_name", "databricks-gte-large-en")
 dbutils.widgets.text("knowledge_assistant_name", "")
+dbutils.widgets.text("app_name", "")
 
 SOURCE_PATH = dbutils.widgets.get("source_path").rstrip("/")
 CHECKPOINT_PATH = dbutils.widgets.get("checkpoint_path").rstrip("/")
@@ -42,6 +44,7 @@ EMBEDDING_MODEL = (
     dbutils.widgets.get("embedding_model_name") or "databricks-gte-large-en"
 )
 KA_NAME = dbutils.widgets.get("knowledge_assistant_name").strip()
+APP_NAME = dbutils.widgets.get("app_name").strip()
 
 print(f"Source: {SOURCE_PATH}")
 print(f"Checkpoint: {CHECKPOINT_PATH}")
@@ -195,7 +198,7 @@ parsed_df = (
         "document_title",
         F.coalesce(
             F.expr("""
-                element_at(
+                try_element_at(
                     transform(
                         filter(
                             try_cast(parsed:document:elements AS ARRAY<VARIANT>),
@@ -333,16 +336,21 @@ print(f"Chunks written: {len(chunk_rows)}")
 # COMMAND ----------
 
 # ── 7. Sync Vector Search index ────────────────────────────────────
-# Create the index if missing; the endpoint is bundle-owned.
+# Create the index if missing (its first sync starts automatically); otherwise wait until it
+# is ready and trigger a sync. The endpoint is bundle-owned.
 
 vsc = VectorSearchClient(disable_notice=True)
 
 try:
-    vsc.get_index(index_name=VS_INDEX)
+    index = vsc.get_index(index_name=VS_INDEX)
     print(f"Index exists: {VS_INDEX}")
-except Exception:
+    created = False
+except Exception as exc:
+    if "not found" not in str(exc).lower() and "does not exist" not in str(exc).lower():
+        raise  # auth, quota or a transient failure: do not try to create over it
     print(f"Creating Delta Sync index: {VS_INDEX}")
-    vsc.create_delta_sync_index(
+    created = True
+    index = vsc.create_delta_sync_index(
         endpoint_name=VS_ENDPOINT,
         source_table_name=CHUNK_TABLE,
         index_name=VS_INDEX,
@@ -368,10 +376,29 @@ except Exception:
         ],
     )
 
-# Trigger sync on the (now-existing) index
-index = vsc.get_index(index_name=VS_INDEX)
-index.sync()
-print("Vector Search index sync triggered")
+# The app's service principal reads the index; the job (index owner) grants it.
+if APP_NAME:
+    from databricks.sdk import WorkspaceClient
+
+    app_sp = WorkspaceClient().apps.get(APP_NAME).service_principal_client_id
+    if not app_sp:
+        raise RuntimeError(f"App {APP_NAME} has no service principal client id")
+    catalog, schema, table = VS_INDEX.split(".")
+    spark.sql(f"GRANT SELECT ON TABLE `{catalog}`.`{schema}`.`{table}` TO `{app_sp}`")
+    print(f"SELECT on the index granted to the service principal of app {APP_NAME}")
+
+# Creation starts the first sync; an existing index needs a sync for this run's chunks.
+index.wait_until_ready(timeout=timedelta(minutes=10), wait_for_updates=created)
+if created:
+    print("Index created and ready; the initial sync covered this run's chunks")
+else:
+    try:
+        index.sync()
+        print("Vector Search index sync triggered")
+    except Exception as exc:
+        if "not ready to sync" not in str(exc):
+            raise  # quota, permission or pipeline failure must fail the run
+        print(f"Sync not triggered, a sync is already running: {exc}")
 
 # COMMAND ----------
 

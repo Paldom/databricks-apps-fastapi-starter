@@ -32,7 +32,9 @@ jobs:
 
       # Failing gate — exits non-zero on high/critical vulnerabilities
       - name: Snyk open-source test
-        run: snyk test --file=backend/requirements.txt --severity-threshold=high
+        run: |
+          uv export --frozen --no-hashes --no-emit-project --directory backend -o /tmp/requirements.txt
+          snyk test --file=/tmp/requirements.txt --package-manager=pip --severity-threshold=high
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
@@ -48,6 +50,8 @@ jobs:
 
       - name: Snyk monitor (main only)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: snyk monitor --file=backend/requirements.txt
+        run: |
+          uv export --frozen --no-hashes --no-emit-project --directory backend -o /tmp/requirements.txt
+          snyk monitor --file=/tmp/requirements.txt --package-manager=pip
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}

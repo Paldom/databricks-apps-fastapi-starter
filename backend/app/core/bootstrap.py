@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.core.config import settings
+from app.core.config import injected_pg_var_names, settings
 from app.core.db import create_async_engine_from_settings, create_session_factory
 from app.core.logging import get_logger, setup_logging
 from app.core.mlflow_runtime import configure_mlflow
@@ -33,6 +33,7 @@ async def lifespan(application: FastAPI):
         logger.info("Starting application")
 
         with tracer.start_as_current_span("startup.db.pool.init") as span:
+            logger.info("Database env: %s", " ".join(injected_pg_var_names()))
             if settings.has_database_config():
                 try:
                     runtime.engine = create_async_engine_from_settings(settings)

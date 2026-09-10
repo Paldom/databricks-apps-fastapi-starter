@@ -163,3 +163,10 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def injected_pg_var_names() -> list[str]:
+    """Names (never values) of the PG* variables present, e.g. those Databricks Apps inject."""
+    import os
+
+    return sorted(name for name in os.environ if name.startswith("PG"))

@@ -29,3 +29,5 @@ resources:
               vector_search_index_name: ${var.rag_catalog_name}.${resources.schemas.rag_schema.name}.rag_chunks_index
               embedding_model_name: ${var.ai_gateway_embedding_model}
               knowledge_assistant_name: ${var.knowledge_assistant_name}
+              # the app queries the index the job creates; the job grants its service principal SELECT
+              app_name: ${var.app_name}

@@ -17,7 +17,7 @@ MIGRATION_MESSAGE ?= new migration
 	install install-backend install-frontend \
 	dev-db dev-db-down migrate-up migrate-new \
 	dev-api dev-frontend dev \
-	requirements-export openapi-export frontend-api-gen generate \
+	openapi-export frontend-api-gen generate \
 	format lint typecheck security test frontend-build check load-test \
 	bundle-validate bundle-deploy bundle-run bundle-summary
 
@@ -69,8 +69,6 @@ migrate-new:
 
 # ── Generate ───────────────────────────────────────────────────────
 
-requirements-export:
-	cd $(BACKEND_DIR) && $(UV) export --no-hashes --no-editable --no-emit-project --format=requirements.txt > requirements.txt
 
 openapi-export:
 	cd $(BACKEND_DIR) && $(UV) run python scripts/export_openapi.py
@@ -78,7 +76,7 @@ openapi-export:
 frontend-api-gen:
 	cd $(FRONTEND_DIR) && $(NPM) run api:gen
 
-generate: openapi-export frontend-api-gen requirements-export
+generate: openapi-export frontend-api-gen
 
 # ── Checks ─────────────────────────────────────────────────────────
 
