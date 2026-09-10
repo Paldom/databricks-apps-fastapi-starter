@@ -25,7 +25,7 @@ from app.core.deps import (
     get_current_user,
     get_logger,
     get_settings,
-    get_workspace_client,
+    get_user_workspace_client,
 )
 from app.core.errors import ConfigurationError, RequestTooLargeError
 from app.core.integrations import databricks_integrations_disabled_message
@@ -120,7 +120,7 @@ async def upload_knowledge_file(
     encoded_uid = _encode_user_id(current_user.id)
     relative_path = f"{UPLOAD_SUBDIR}/{encoded_uid}/{document_id}__{filename}"
 
-    adapter = UcFilesAdapter(get_workspace_client(request), logger)
+    adapter = UcFilesAdapter(get_user_workspace_client(request), logger)
     uploaded = await adapter.upload(
         settings.volume_root,
         relative_path,

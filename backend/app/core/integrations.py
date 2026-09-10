@@ -23,7 +23,7 @@ def workspace_not_configured_message(detail: str | None = None) -> str:
 
 
 def ai_not_configured_message() -> str:
-    return "AI integration is not configured; set SERVING_ENDPOINT_NAME"
+    return "AI integration is not configured; set ENABLE_DATABRICKS_INTEGRATIONS=true"
 
 
 def vector_not_configured_message() -> str:
@@ -71,12 +71,19 @@ def ensure_ai_client(runtime: AppRuntime, settings: Settings) -> AsyncOpenAI:
         ) from exc
 
     try:
-        cfg = workspace.config
-        runtime.ai_client = AsyncOpenAI(
-            api_key=cfg.token,
-            base_url=f"{cfg.host}/serving-endpoints",
+        # Token-refreshing clients bound to the app's OAuth identity; the async client
+        # carries a sync twin for libraries that need one (LangChain).
+        from databricks_openai import AsyncDatabricksOpenAI, DatabricksOpenAI
+
+        client = AsyncDatabricksOpenAI(
+            workspace_client=workspace,
             timeout=float(settings.openai_timeout_seconds),
         )
+        client.sync_client = DatabricksOpenAI(  # type: ignore[attr-defined]
+            workspace_client=workspace,
+            timeout=float(settings.openai_timeout_seconds),
+        )
+        runtime.ai_client = client
         return runtime.ai_client
     except Exception as exc:
         raise ServiceUnavailableError(f"AI client is unavailable: {exc}") from exc

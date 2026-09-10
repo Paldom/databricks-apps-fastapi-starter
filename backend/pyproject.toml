@@ -15,6 +15,7 @@ dependencies = [
     "sqlalchemy==2.0.48",
     "secure==1.0.1",
     "openai==2.28.0",
+    "databricks-openai>=0.17,<1",
     "databricks-vectorsearch==0.66",
     "python-multipart==0.0.22",
     "opentelemetry-distro",
@@ -89,3 +90,9 @@ root_package = "app"
 name = "Layered architecture: api -> services -> repositories -> models"
 type = "layers"
 layers = ["app.api", "app.services", "app.repositories", "app.models"]
+
+[[tool.importlinter.contracts]]
+name = "core must not depend on chat or agents"
+type = "forbidden"
+source_modules = ["app.core"]
+forbidden_modules = ["app.chat", "app.agents"]

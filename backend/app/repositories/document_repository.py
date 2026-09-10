@@ -5,7 +5,9 @@ import uuid
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import NotFoundError
 from app.models.file_record_model import FileRecord
+from app.models.project_model import Project
 
 
 class DocumentRepository:
@@ -53,6 +55,14 @@ class DocumentRepository:
         project_id: str | None = None,
         status: str = "pending",
     ) -> FileRecord:
+        if project_id:
+            owned = await self._session.execute(
+                select(Project.id).where(
+                    Project.id == project_id, Project.owner_user_id == owner_user_id
+                )
+            )
+            if owned.scalar_one_or_none() is None:
+                raise NotFoundError("Project not found")
         doc = FileRecord(
             user_id=owner_user_id,
             project_id=project_id,

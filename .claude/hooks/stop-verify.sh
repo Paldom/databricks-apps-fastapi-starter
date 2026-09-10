@@ -51,10 +51,14 @@ fi
 
 # One overall deadline for both stages; perl alarm is a portable `timeout`.
 run_gate() {
-  perl -e 'alarm shift; exec @ARGV' "$1" -- bash -c '
+  perl -e 'alarm shift; exec @ARGV or exit 2' -- "$1" bash -c '
     set -o pipefail
     PC=$1; shift
-    $PC run --hook-stage pre-commit "$@" >/dev/null 2>&1 || $PC run --hook-stage pre-commit "$@" || exit 1
+    if ! $PC run --hook-stage pre-commit "$@" >/dev/null 2>&1; then
+      # detect-secrets rewrites its baseline (line numbers) and then insists it is staged.
+      if ! git diff --quiet -- .secrets.baseline; then git add .secrets.baseline; fi
+      $PC run --hook-stage pre-commit "$@" || exit 1
+    fi
     $PC run --hook-stage pre-push "$@" || exit 1
   ' _ "${PC[*]}" "${SCOPE[@]}"
 }

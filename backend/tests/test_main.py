@@ -44,38 +44,42 @@ def _build_app(**kwargs):
     return app_main.build_root_app(Settings(**kwargs))
 
 
-def test_dev_cors_allows_any_origin():
-    app = _build_app(environment="development")
-    origin = "https://example.test"
+def test_cors_allows_only_configured_origins():
+    app = _build_app(cors_allow_origins=["http://localhost:5173"])
 
     with TestClient(app) as client:
-        response = client.get(
-            "/api/health/live",
-            headers={"Origin": origin},
+        allowed = client.get(
+            "/api/health/live", headers={"Origin": "http://localhost:5173"}
+        )
+        other = client.get(
+            "/api/health/live", headers={"Origin": "https://example.test"}
         )
 
-    assert response.status_code == 200
-    assert response.headers["access-control-allow-origin"] == "*"
-    assert response.headers["access-control-allow-credentials"] == "true"
+    assert allowed.headers["access-control-allow-origin"] == "http://localhost:5173"
+    assert allowed.headers["access-control-allow-credentials"] == "true"
+    assert "access-control-allow-origin" not in other.headers
 
 
-def test_dev_cors_handles_preflight():
-    app = _build_app(environment="development")
-    origin = "https://example.test"
+def test_cors_preflight_for_configured_origin():
+    app = _build_app(cors_allow_origins=["http://localhost:5173"])
 
     with TestClient(app) as client:
         response = client.options(
             "/api/health/live",
             headers={
-                "Origin": origin,
+                "Origin": "http://localhost:5173",
                 "Access-Control-Request-Method": "GET",
             },
         )
 
     assert response.status_code == 200
-    assert response.headers["access-control-allow-origin"] == origin
-    assert response.headers["access-control-allow-credentials"] == "true"
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
     assert "GET" in response.headers["access-control-allow-methods"]
+
+
+def test_cors_wildcard_is_rejected():
+    with pytest.raises(ValueError):
+        Settings(cors_allow_origins=["*"], _env_file=None)
 
 
 def test_non_dev_app_does_not_enable_cors():

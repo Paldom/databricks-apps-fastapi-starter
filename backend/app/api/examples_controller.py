@@ -4,13 +4,11 @@ import uuid
 from collections.abc import AsyncGenerator
 from logging import Logger
 from typing import Annotated, Any, Literal
+from urllib.parse import quote
 
 from fastapi import APIRouter, Body, Depends, File, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.agents.adapters.genie_adapter import GenieAdapter
 from app.agents.contracts import ResponsesAgentRequest
 from app.core.config import Settings
@@ -19,21 +17,33 @@ from app.core.databricks.jobs import JobsAdapter
 from app.core.databricks.serving import ServingAdapter
 from app.core.databricks.uc_files import UcFilesAdapter
 from app.core.databricks.vector_search import VectorSearchAdapter
-from app.core.db.deps import get_async_session
 from app.core.deps import (
     get_ai_client,
+    get_current_user,
     get_logger,
     get_settings,
+    get_user_ai_client,
     get_user_info,
+    get_user_workspace_client,
     get_vector_index,
-    get_workspace_client,
 )
-from app.core.errors import ConfigurationError, RequestTooLargeError
+from app.core.errors import ConfigurationError, NotFoundError, RequestTooLargeError
 from app.core.integrations import databricks_integrations_disabled_message
-from app.models.user_dto import UserInfo
+from app.models.user_dto import CurrentUser, UserInfo
 
 
-router = APIRouter(prefix="/examples", tags=["examples"])
+def _examples_enabled(settings: Annotated[Settings, Depends(get_settings)]) -> None:
+    """Showcase routes exist only when ENABLE_EXAMPLES=true (dev target by default)."""
+    if not settings.enable_examples:
+        raise NotFoundError("Examples are disabled; set ENABLE_EXAMPLES=true")
+
+
+# Every example route requires an authenticated user and the feature flag.
+router = APIRouter(
+    prefix="/examples",
+    tags=["examples"],
+    dependencies=[Depends(get_current_user), Depends(_examples_enabled)],
+)
 
 
 class ExampleMessage(BaseModel):
@@ -82,26 +92,20 @@ def _require_job_id(settings: Settings) -> int:
     return int(settings.job_id)
 
 
+def _require_embedding_model(settings: Settings) -> str:
+    _require_databricks_integrations(settings)
+    model = settings.ai_gateway_embedding_model
+    if not model:
+        raise ConfigurationError("AI_GATEWAY_EMBEDDING_MODEL not configured")
+    return model
+
+
 def _require_knowledge_assistant_endpoint(settings: Settings) -> str:
     _require_databricks_integrations(settings)
     endpoint = settings.knowledge_assistant_endpoint
     if not endpoint:
         raise ConfigurationError("KNOWLEDGE_ASSISTANT_ENDPOINT not configured")
     return endpoint
-
-
-@router.post("/pg")
-async def pg_demo(
-    msg: ExampleMessage,
-    session: Annotated[AsyncSession, Depends(get_async_session)],
-    logger: Annotated[Logger, Depends(get_logger)],
-):
-    logger.debug("Inserting demo row")
-    result = await session.execute(
-        text("INSERT INTO demo(text) VALUES (:text) RETURNING id, text"),
-        {"text": msg.text},
-    )
-    return dict(result.mappings().one())
 
 
 @router.post("/serving")
@@ -112,7 +116,7 @@ async def serving(
     logger: Annotated[Logger, Depends(get_logger)],
 ):
     endpoint = _require_serving_endpoint(settings)
-    adapter = ServingAdapter(get_workspace_client(request), logger)
+    adapter = ServingAdapter(get_user_workspace_client(request), logger)
     records = [row.model_dump() for row in rows]
     dataframe_split = {
         "columns": list(records[0].keys()) if records else [],
@@ -133,7 +137,7 @@ async def run_job(
     params: dict[str, Any] | None = Body(default=None),
 ):
     job_id = _require_job_id(settings)
-    adapter = JobsAdapter(get_workspace_client(request), logger)
+    adapter = JobsAdapter(get_user_workspace_client(request), logger)
     return await adapter.run_and_get_output(
         job_id=job_id,
         notebook_params=params,
@@ -148,9 +152,9 @@ async def embed(
     settings: Annotated[Settings, Depends(get_settings)],
     logger: Annotated[Logger, Depends(get_logger)],
 ):
-    endpoint = _require_serving_endpoint(settings)
+    model = _require_embedding_model(settings)
     adapter = AiGatewayAdapter(get_ai_client(request), logger)
-    vector = await adapter.embed(endpoint, body.title)
+    vector = await adapter.embed(model, body.title)
     return {"vector": vector}
 
 
@@ -162,11 +166,11 @@ async def vector_store(
     logger: Annotated[Logger, Depends(get_logger)],
     user: Annotated[UserInfo, Depends(get_user_info)],
 ):
-    endpoint = _require_serving_endpoint(settings)
+    model = _require_embedding_model(settings)
     ai_adapter = AiGatewayAdapter(get_ai_client(request), logger)
     vector_adapter = VectorSearchAdapter(get_vector_index(request), logger)
 
-    vector = await ai_adapter.embed(endpoint, body.title)
+    vector = await ai_adapter.embed(model, body.title)
     doc = {
         "id": str(uuid.uuid4()),
         "values": vector,
@@ -188,11 +192,11 @@ async def vector_query(
     logger: Annotated[Logger, Depends(get_logger)],
     user: Annotated[UserInfo, Depends(get_user_info)],
 ):
-    endpoint = _require_serving_endpoint(settings)
+    model = _require_embedding_model(settings)
     ai_adapter = AiGatewayAdapter(get_ai_client(request), logger)
     vector_adapter = VectorSearchAdapter(get_vector_index(request), logger)
 
-    vector = await ai_adapter.embed(endpoint, body.title)
+    vector = await ai_adapter.embed(model, body.title)
     return await vector_adapter.similarity_search(
         query_vector=vector,
         columns=["text"],
@@ -211,7 +215,7 @@ async def genie_ask(
 ):
     """Ask a Genie Agent one question through the unified Genie adapter."""
     _require_databricks_integrations(settings)
-    adapter = GenieAdapter(get_workspace_client(request), space_id)
+    adapter = GenieAdapter(get_user_workspace_client(request), space_id)
     result = await adapter.invoke(
         ResponsesAgentRequest.model_validate(
             {"input": [{"role": "user", "content": body.content}]}
@@ -226,6 +230,7 @@ async def upload(
     relative_path: str,
     settings: Annotated[Settings, Depends(get_settings)],
     logger: Annotated[Logger, Depends(get_logger)],
+    user: Annotated[CurrentUser, Depends(get_current_user)],
     file: UploadFile = File(...),
 ):
     max_bytes = settings.max_upload_bytes
@@ -242,10 +247,12 @@ async def upload(
             )
         chunks.append(chunk)
 
-    adapter = UcFilesAdapter(get_workspace_client(request), logger)
+    adapter = UcFilesAdapter(get_user_workspace_client(request), logger)
     data = b"".join(chunks)
-    uploaded_bytes = await adapter.upload(settings.volume_root, relative_path, data)
-    return {"uploaded": relative_path, "bytes": uploaded_bytes}
+    # Each user writes under their own subtree so uploads cannot overwrite others' files.
+    user_path = f"{user.id}/{relative_path}"
+    uploaded_bytes = await adapter.upload(settings.volume_root, user_path, data)
+    return {"uploaded": user_path, "bytes": uploaded_bytes}
 
 
 @router.get("/uc/download")
@@ -254,17 +261,15 @@ async def download(
     relative_path: str,
     logger: Annotated[Logger, Depends(get_logger)],
     settings: Annotated[Settings, Depends(get_settings)],
+    user: Annotated[CurrentUser, Depends(get_current_user)],
 ):
-    adapter = UcFilesAdapter(get_workspace_client(request), logger)
-    content = await adapter.download(settings.volume_root, relative_path)
+    adapter = UcFilesAdapter(get_user_workspace_client(request), logger)
+    content = await adapter.download(settings.volume_root, f"{user.id}/{relative_path}")
+    filename = quote(os.path.basename(relative_path))
     return StreamingResponse(
         io.BytesIO(content),
         media_type="application/octet-stream",
-        headers={
-            "Content-Disposition": (
-                f'attachment; filename="{os.path.basename(relative_path)}"'
-            )
-        },
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"},
     )
 
 
@@ -276,7 +281,7 @@ async def agent_ask(
 ):
     """Ask the Knowledge Assistant endpoint through the Responses API."""
     endpoint = _require_knowledge_assistant_endpoint(settings)
-    ai_client = get_ai_client(request)
+    ai_client = get_user_ai_client(request)
     messages: list[Any] = [m.model_dump() for m in body.messages]
     resp = await ai_client.responses.create(model=endpoint, input=messages)
     return resp.model_dump()
@@ -290,7 +295,7 @@ async def agent_ask_stream(
 ):
     """Stream Knowledge Assistant Responses events as server-sent events."""
     endpoint = _require_knowledge_assistant_endpoint(settings)
-    ai_client = get_ai_client(request)
+    ai_client = get_user_ai_client(request)
 
     messages: list[Any] = [m.model_dump() for m in body.messages]
 

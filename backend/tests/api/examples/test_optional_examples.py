@@ -4,6 +4,8 @@ import app.main as app_main
 from app.core.config import Settings
 from app.core.deps import get_settings
 
+_AUTH = {"X-Forwarded-User": "test-user", "X-Forwarded-Email": "user@example.com"}
+
 
 def _api_app():
     for route in app_main.app.routes:
@@ -15,10 +17,10 @@ def _api_app():
 def test_embed_returns_503_when_integrations_are_disabled():
     api_app = _api_app()
     api_app.dependency_overrides[get_settings] = lambda: Settings(
-        serving_endpoint_name="starter-endpoint"
+        enable_examples=True, serving_endpoint_name="starter-endpoint"
     )
     try:
-        with TestClient(app_main.app) as client:
+        with TestClient(app_main.app, headers=_AUTH) as client:
             response = client.post("/api/examples/embed", json={"title": "hello"})
     finally:
         api_app.dependency_overrides.clear()
@@ -30,10 +32,10 @@ def test_embed_returns_503_when_integrations_are_disabled():
 def test_serving_returns_503_when_integrations_are_disabled():
     api_app = _api_app()
     api_app.dependency_overrides[get_settings] = lambda: Settings(
-        serving_endpoint_name="starter-endpoint"
+        enable_examples=True, serving_endpoint_name="starter-endpoint"
     )
     try:
-        with TestClient(app_main.app) as client:
+        with TestClient(app_main.app, headers=_AUTH) as client:
             response = client.post(
                 "/api/examples/serving",
                 json=[{"id": "1", "data": "hello"}],
@@ -48,10 +50,10 @@ def test_serving_returns_503_when_integrations_are_disabled():
 def test_job_returns_503_when_job_id_is_not_configured():
     api_app = _api_app()
     api_app.dependency_overrides[get_settings] = lambda: Settings(
-        enable_databricks_integrations=True
+        enable_examples=True, enable_databricks_integrations=True
     )
     try:
-        with TestClient(app_main.app) as client:
+        with TestClient(app_main.app, headers=_AUTH) as client:
             response = client.post("/api/examples/job")
     finally:
         api_app.dependency_overrides.clear()
@@ -63,12 +65,13 @@ def test_job_returns_503_when_job_id_is_not_configured():
 def test_vector_query_returns_503_when_integrations_are_disabled():
     api_app = _api_app()
     api_app.dependency_overrides[get_settings] = lambda: Settings(
+        enable_examples=True,
         serving_endpoint_name="starter-endpoint",
         vector_search_endpoint_name="starter-vs",
         vector_search_index_name="main.default.starter_index",
     )
     try:
-        with TestClient(app_main.app) as client:
+        with TestClient(app_main.app, headers=_AUTH) as client:
             response = client.post(
                 "/api/examples/vector/query", json={"title": "hello"}
             )
@@ -82,10 +85,10 @@ def test_vector_query_returns_503_when_integrations_are_disabled():
 def test_agent_ask_returns_503_when_integrations_are_disabled():
     api_app = _api_app()
     api_app.dependency_overrides[get_settings] = lambda: Settings(
-        knowledge_assistant_endpoint="starter-agent"
+        enable_examples=True, knowledge_assistant_endpoint="starter-agent"
     )
     try:
-        with TestClient(app_main.app) as client:
+        with TestClient(app_main.app, headers=_AUTH) as client:
             response = client.post(
                 "/api/examples/agent/ask",
                 json={"messages": [{"role": "user", "content": "hello"}]},
@@ -100,12 +103,13 @@ def test_agent_ask_returns_503_when_integrations_are_disabled():
 def test_vector_store_returns_503_when_integrations_are_disabled():
     api_app = _api_app()
     api_app.dependency_overrides[get_settings] = lambda: Settings(
+        enable_examples=True,
         serving_endpoint_name="starter-endpoint",
         vector_search_endpoint_name="starter-vs",
         vector_search_index_name="main.default.starter_index",
     )
     try:
-        with TestClient(app_main.app) as client:
+        with TestClient(app_main.app, headers=_AUTH) as client:
             response = client.post(
                 "/api/examples/vector/store", json={"title": "hello"}
             )

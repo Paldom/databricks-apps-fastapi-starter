@@ -125,6 +125,8 @@ variables:
           value: "true"
         - name: ENABLE_DOCS
           value: "false"
+        - name: ENABLE_EXAMPLES
+          value: "false"
         - name: ENVIRONMENT
           value: development
         - name: LOG_LEVEL
@@ -202,6 +204,8 @@ targets:
           - name: SERVE_STATIC
             value: "true"
           - name: ENABLE_DOCS
+            value: "true"
+          - name: ENABLE_EXAMPLES
             value: "true"
           - name: ENVIRONMENT
             value: development
@@ -290,6 +294,8 @@ targets:
           - name: SERVE_STATIC
             value: "true"
           - name: ENABLE_DOCS
+            value: "false"
+          - name: ENABLE_EXAMPLES
             value: "false"
           - name: ENVIRONMENT
             value: production

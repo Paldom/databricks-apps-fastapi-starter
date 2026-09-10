@@ -14,6 +14,7 @@ from openai import AsyncOpenAI
 
 from app.chat.registry import SpecialistSpec
 from app.core.config import Settings
+from app.core.context import obo_workspace_client
 from app.core.observability import get_tracer, safe_attr, tag_exception
 
 _tracer = get_tracer()
@@ -120,6 +121,7 @@ def _build_genie_tool(
     from app.agents.contracts import ResponsesAgentRequest
 
     space_id = settings.genie_space_id or ""
+    require_obo = settings.enable_obo is True
 
     @tool
     async def genie(question: str) -> str:  # noqa: D401
@@ -129,9 +131,15 @@ def _build_genie_tool(
             attributes={"tool": "genie", "genie.space_id": safe_attr(space_id)},
         ) as span:
             try:
-                if workspace_client is None:
+                client = obo_workspace_client.get()
+                if client is None and require_obo:
+                    return (
+                        "Genie unavailable: this request carries no user authorization"
+                    )
+                client = client or workspace_client
+                if client is None:
                     return "Genie unavailable: workspace client not configured"
-                adapter = GenieAdapter(workspace_client, space_id)
+                adapter = GenieAdapter(client, space_id)
                 request = ResponsesAgentRequest.model_validate(
                     {"input": [{"role": "user", "content": question}]}
                 )

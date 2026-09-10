@@ -11,7 +11,9 @@ from pydantic import BaseModel, ConfigDict
 
 from app.chat.context import ChatContext
 from app.core.config import settings
-from app.core.deps import get_chat_orchestrator
+from app.chat.deps import get_chat_orchestrator
+from app.core.deps import get_current_user
+from app.models.user_dto import CurrentUser
 from app.core.logging import get_logger
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -100,24 +102,24 @@ STREAMING_EVENT_MODELS: list[type[BaseModel]] = [
 async def chat_stream(
     body: ChatStreamRequest,
     request: Request,
+    user: CurrentUser = Depends(get_current_user),
     orchestrator=Depends(get_chat_orchestrator),
 ) -> StreamingResponse:
-    user = getattr(request.state, "user", None)
-    context = ChatContext(
-        user_id=getattr(user, "id", None) if user else None,
-        user_email=getattr(user, "email", None) if user else None,
-    )
+    context = ChatContext(user_id=user.id, user_email=user.email)
 
-    # Resolve thread_id once at the controller boundary
+    # Resolve thread_id once at the controller boundary. Checkpoints are namespaced by
+    # the authenticated user, so knowing another user's thread id grants nothing.
     resolved_thread_id = body.thread_id or str(_uuid.uuid4())
+    thread_key = f"{user.id}:{resolved_thread_id}"
 
     async def event_source():
         messages = [{"role": m.role, "content": m.content} for m in body.messages]
         stream_ok = False
         async for event in orchestrator.stream(
             messages=messages,
-            thread_id=resolved_thread_id,
+            thread_id=thread_key,
             context=context,
+            public_thread_id=resolved_thread_id,
         ):
             if event.get("type") == "done":
                 stream_ok = True
@@ -156,12 +158,7 @@ def _schedule_title_generation(
     if not user_id:
         return
 
-    model = (
-        app_settings.title_model
-        or app_settings.supervisor_model
-        or app_settings.serving_endpoint_name
-        or "databricks-meta-llama-3-1-70b-instruct"
-    )
+    model = app_settings.title_model or app_settings.supervisor_model
 
     async def _run() -> None:
         try:

@@ -49,16 +49,6 @@ async def lifespan(application: FastAPI):
         except Exception as exc:
             logger.debug("MLflow tracing init failed: %s", exc)
 
-        # ── LangGraph checkpointer ───────────────────────────────
-        try:
-            from app.chat.memory import create_checkpointer
-
-            runtime.langgraph_checkpointer = create_checkpointer(settings)
-        except ImportError:
-            logger.warning("LangGraph not installed; skipping checkpointer init")
-        except Exception as exc:
-            logger.warning("LangGraph checkpointer init failed: %s", exc)
-
         startup_span.set_attribute("duration_s", time.monotonic() - t0)
 
     try:

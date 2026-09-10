@@ -82,7 +82,7 @@ machine, so changes under `.claude/`, `.agents/`, `.github/` and `resources/` ne
 - Prefer deleting over adding. No abstractions with one implementation, no config for values that never change.
   Review every feature with the `ponytail-review` skill (over-engineering hunt) before calling it done.
 - Databricks CLI calls always carry `--profile "$DATABRICKS_CONFIG_PROFILE"`. From an agent session only the `dev`
-  target may be deployed, run or destroyed; staging and prod are human actions through `workflow_dispatch`.
+  target may be deployed or run; `bundle destroy` and staging/prod deployments are human actions.
 - Never print tokens, client secrets or `.env` contents. Never commit `.env`, machine-specific MCP config or a
   secrets baseline that contains a real secret.
 - Flag for human review: auth and OBO changes, new dependencies, lockfile changes, migrations, bundle resources.

@@ -2,19 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Sequence, TypedDict
+from typing import Any
 
-from langchain_core.messages import AnyMessage
-from langgraph.graph.message import add_messages
 from langgraph.prebuilt import create_react_agent
-
-
-class ChatState(TypedDict, total=False):
-    """Minimal state for the supervisor agent."""
-
-    messages: Annotated[Sequence[AnyMessage], add_messages]
-    custom_inputs: dict[str, Any]
-    custom_outputs: dict[str, Any]
 
 
 def build_agent(
@@ -23,11 +13,14 @@ def build_agent(
     prompt: str,
     checkpointer: Any,
 ) -> Any:
-    """Build a compiled LangGraph agent with tools and checkpointing."""
+    """Build a compiled LangGraph agent with tools and checkpointing.
+
+    The prebuilt agent state (``messages`` + ``remaining_steps``) is used as is;
+    a custom state schema is only worth it once a node writes extra keys.
+    """
     return create_react_agent(
         model=model,
         tools=tools,
         prompt=prompt,
         checkpointer=checkpointer,
-        state_schema=ChatState,
     )

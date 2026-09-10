@@ -11,6 +11,8 @@ from app.core.config import Settings
 
 logger = logging.getLogger(__name__)
 
+KNOWN_BACKENDS = ("app", "serving_endpoint", "genie")
+
 
 def get_agent_adapter(
     backend: str,
@@ -55,4 +57,4 @@ def list_available_backends(settings: Settings) -> list[str]:
         "serving_endpoint": bool(settings.serving_agent_endpoint),
         "genie": bool(settings.genie_space_id),
     }
-    return [name for name, ok in configured.items() if ok]
+    return [name for name in KNOWN_BACKENDS if configured[name]]

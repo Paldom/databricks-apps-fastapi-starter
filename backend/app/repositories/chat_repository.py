@@ -5,6 +5,7 @@ import uuid
 from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import NotFoundError
 from app.models.chat_session_model import ChatSession
 from app.models.project_model import Project
 
@@ -48,6 +49,7 @@ class ChatRepository:
         project_id: str,
         title: str,
     ) -> ChatSession:
+        await self._require_owned_project(owner_user_id, project_id)
         chat = ChatSession(
             user_id=owner_user_id,
             project_id=project_id,
@@ -126,7 +128,11 @@ class ChatRepository:
                 ChatSession.created_at,
                 ChatSession.updated_at,
             )
-            .outerjoin(Project, ChatSession.project_id == Project.id)
+            .outerjoin(
+                Project,
+                (ChatSession.project_id == Project.id)
+                & (Project.owner_user_id == owner_user_id),
+            )
             .where(
                 ChatSession.user_id == owner_user_id,
                 ChatSession.title.ilike(f"%{q}%"),
@@ -175,7 +181,11 @@ class ChatRepository:
                 ChatSession.created_at,
                 ChatSession.updated_at,
             )
-            .outerjoin(Project, ChatSession.project_id == Project.id)
+            .outerjoin(
+                Project,
+                (ChatSession.project_id == Project.id)
+                & (Project.owner_user_id == owner_user_id),
+            )
             .where(ChatSession.user_id == owner_user_id)
             .order_by(ChatSession.updated_at.desc())
             .limit(limit)
@@ -192,3 +202,12 @@ class ChatRepository:
             }
             for r in result.all()
         ]
+
+    async def _require_owned_project(self, owner_user_id: str, project_id: str) -> None:
+        result = await self._session.execute(
+            select(Project.id).where(
+                Project.id == project_id, Project.owner_user_id == owner_user_id
+            )
+        )
+        if result.scalar_one_or_none() is None:
+            raise NotFoundError("Project not found")

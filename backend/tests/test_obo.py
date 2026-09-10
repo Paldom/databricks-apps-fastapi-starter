@@ -8,9 +8,10 @@ def test_workspace_client_middleware_uses_header(monkeypatch):
     created = {}
 
     class DummyWC:
-        def __init__(self, *, host=None, token=None):
+        def __init__(self, *, host=None, token=None, auth_type=None):
             created["host"] = host
             created["token"] = token
+            created["auth_type"] = auth_type
 
     monkeypatch.setattr(settings, "enable_obo", True)
     monkeypatch.setattr(settings, "enable_databricks_integrations", True)
@@ -31,6 +32,7 @@ def test_workspace_client_middleware_uses_header(monkeypatch):
     assert response.status_code == 200
     assert created["token"] == "pat"
     assert created["host"] == "http://h"
+    assert created["auth_type"] == "pat"  # forwarded token, never the app OAuth env
 
 
 def test_workspace_client_middleware_ignores_header_when_disabled(monkeypatch):

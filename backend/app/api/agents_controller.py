@@ -13,32 +13,24 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app.agents.factory import get_agent_adapter, list_available_backends
+from app.agents.factory import (
+    KNOWN_BACKENDS,
+    get_agent_adapter,
+    list_available_backends,
+)
 from app.core.config import Settings
-from app.core.deps import get_settings
+from app.core.deps import (
+    get_ai_client,
+    get_current_user,
+    get_settings,
+    get_user_workspace_client,
+    get_workspace_client,
+)
 
-router = APIRouter(prefix="/agents", tags=["agents"])
+router = APIRouter(
+    prefix="/agents", tags=["agents"], dependencies=[Depends(get_current_user)]
+)
 _logger = logging.getLogger(__name__)
-
-
-def _try_get_ai_client(request: Request) -> Any:
-    try:
-        from app.core.deps import get_ai_client
-
-        return get_ai_client(request)
-    except Exception:
-        _logger.debug("AI client unavailable for agents route", exc_info=True)
-        return None
-
-
-def _try_get_workspace_client(request: Request) -> Any:
-    try:
-        from app.core.deps import get_workspace_client
-
-        return get_workspace_client(request)
-    except Exception:
-        _logger.debug("Workspace client unavailable for agents route", exc_info=True)
-        return None
 
 
 @router.get("/backends")
@@ -64,8 +56,26 @@ async def invoke_agent(
     """
     from mlflow.types.responses import ResponsesAgentRequest
 
-    ai_client = _try_get_ai_client(request)
-    workspace_client = _try_get_workspace_client(request)
+    if backend not in KNOWN_BACKENDS:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Backend '{backend}' is not configured or unavailable",
+        )
+    try:
+        agent_request = ResponsesAgentRequest(**body)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid request body: {exc}")
+
+    # Same identity rules as the chat tools: Genie runs as the user under OBO
+    # (401 without a forwarded token); model calls use the app identity.
+    ai_client = get_ai_client(request) if backend != "genie" else None
+    workspace_client = None
+    if backend == "genie":
+        workspace_client = (
+            get_user_workspace_client(request)
+            if settings.enable_obo
+            else get_workspace_client(request)
+        )
 
     adapter = get_agent_adapter(
         backend,
@@ -77,14 +87,6 @@ async def invoke_agent(
         raise HTTPException(
             status_code=404,
             detail=f"Backend '{backend}' is not configured or unavailable",
-        )
-
-    try:
-        agent_request = ResponsesAgentRequest(**body)
-    except Exception as exc:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Invalid request body: {exc}",
         )
 
     result = await adapter.invoke(agent_request)

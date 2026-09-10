@@ -14,9 +14,12 @@ async def user_info_middleware(request: Request, call_next):
     Uses its own session so the user upsert commits independently
     of the request handler's transaction.
     """
-    user_id = request.headers.get("X-Forwarded-User")
-    email = request.headers.get("X-Forwarded-Email")
-    preferred_username = request.headers.get("X-Forwarded-Preferred-Username")
+    trusted = settings.trust_forwarded_identity()
+    user_id = request.headers.get("X-Forwarded-User") if trusted else None
+    email = request.headers.get("X-Forwarded-Email") if trusted else None
+    preferred_username = (
+        request.headers.get("X-Forwarded-Preferred-Username") if trusted else None
+    )
 
     if (
         not user_id

@@ -36,6 +36,7 @@ class ChatOrchestrator:
         messages: list[dict[str, Any]],
         thread_id: str,
         context: ChatContext | None = None,
+        public_thread_id: str | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
 
         with _tracer.start_as_current_span(
@@ -66,7 +67,7 @@ class ChatOrchestrator:
                 done: dict[str, Any] = {
                     "type": "done",
                     "finish_reason": "stop",
-                    "thread_id": thread_id,
+                    "thread_id": public_thread_id or thread_id,
                 }
                 trace_id = get_active_trace_id()
                 if trace_id:

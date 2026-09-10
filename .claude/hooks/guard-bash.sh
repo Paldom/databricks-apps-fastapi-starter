@@ -31,7 +31,7 @@ DBX='databricks\b[^|;&]*'   # allows `databricks --profile x`
 # 1. Quality-gate bypass
 has "${GIT}\bcommit\b[^|;&]*(\s--no-verify\b|\s-[a-zA-Z]*n\b)" && deny "Blocked: 'git commit --no-verify' bypasses the commit gate. Fix the failing checks, then commit normally."
 has '(^|[;&|]\s*)SKIP=\S+\s+git\b' && deny "Blocked: 'SKIP=<hook> git commit' skips part of the commit gate. Fix the failing hook instead."
-has 'core\.hooksPath' && deny "Blocked: changing core.hooksPath disables the commit gate."
+has 'core\.hooksPath\s*[= ]\s*\S' && deny "Blocked: changing core.hooksPath disables the commit gate."
 has 'pre-commit\s+uninstall' && deny "Blocked: uninstalling pre-commit disables the commit gate."
 
 # 2. Force-push, or any push whose destination is main/master

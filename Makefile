@@ -13,7 +13,7 @@ TARGET ?= dev
 RESOURCE ?= fastapi_app
 MIGRATION_MESSAGE ?= new migration
 
-.PHONY: help \
+.PHONY: help \ setup precommit
 	install install-backend install-frontend \
 	dev-db dev-db-down migrate-up migrate-new \
 	dev-api dev-frontend dev \
@@ -111,7 +111,7 @@ test:
 frontend-build:
 	cd $(FRONTEND_DIR) && $(NPM) run build
 
-check: precommit lint typecheck security test frontend-build  ## Offline quality gate (CI runs the same); bundle-validate needs workspace auth
+check: precommit security test frontend-build  ## Offline quality gate = pre-commit (ruff, mypy, import-linter, prettier, eslint) + bandit + tests + frontend build; CI runs the same plus bundle validate
 
 # ── Performance ────────────────────────────────────────────────────
 

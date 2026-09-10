@@ -78,12 +78,13 @@ jobs:
         run: |
           APP_NAME=$(databricks bundle summary -t "$TARGET" -o json | jq -r '.resources.apps.fastapi_app.name')
           APP_URL=$(databricks apps get "$APP_NAME" -o json | jq -r '.url')
-          TOKEN=$(databricks auth token -o json | jq -r '.access_token')
+          # Unified auth (github-oidc) through the SDK; the CLI's `auth token` only serves cached user logins.
+          TOKEN=$(uv run --frozen --directory backend python -c 'from databricks.sdk import WorkspaceClient; print(WorkspaceClient().config.oauth_token().access_token)')
           echo "::add-mask::$TOKEN"
           for attempt in $(seq 1 36); do
             VERSION=""
-            if BODY=$(curl -sf -H "Authorization: Bearer $TOKEN" "$APP_URL/api/health"); then
-              VERSION=$(echo "$BODY" | jq -r '.version // empty')
+            if BODY=$(curl -sS --max-time 15 -H "Authorization: Bearer $TOKEN" "$APP_URL/api/health"); then
+              VERSION=$(echo "$BODY" | jq -r '.version // empty' 2>/dev/null) || VERSION=""
             fi
             if [ "$VERSION" = "$GITHUB_SHA" ]; then
               echo "App $APP_NAME serves commit $VERSION"

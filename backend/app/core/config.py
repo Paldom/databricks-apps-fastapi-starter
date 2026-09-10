@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     )
     environment: str = "development"
     app_version: Optional[str] = None  # set by the bundle from the git commit
+    databricks_app_name: Optional[str] = None  # injected by Databricks Apps at runtime
+    enable_examples: bool = False  # showcase router under /api/examples
+    cors_allow_origins: list[str] = []  # empty = no CORS middleware (Vite proxies /api)
     vector_search_endpoint_name: Optional[str] = None
     vector_search_index_name: Optional[str] = None
     databricks_http_path: Optional[str] = None
@@ -56,7 +59,7 @@ class Settings(BaseSettings):
 
     # Chat orchestrator
     langgraph_memory_backend: str = "inmemory"  # "inmemory" | "lakebase"
-    supervisor_model: Optional[str] = None
+    supervisor_model: str = "databricks-claude-sonnet-4"
 
     # Specialists
     app_agent_name: Optional[str] = None
@@ -81,11 +84,39 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    @field_validator("supervisor_model", mode="before")
+    @classmethod
+    def _blank_model_means_default(cls, value: object) -> object:
+        # The bundle exports SUPERVISOR_MODEL even when the variable is empty.
+        return (
+            value
+            if isinstance(value, str) and value.strip()
+            else "databricks-claude-sonnet-4"
+        )
+
+    @field_validator("cors_allow_origins")
+    @classmethod
+    def _no_wildcard_origin(cls, origins: list[str]) -> list[str]:
+        if "*" in origins:
+            raise ValueError("CORS_ALLOW_ORIGINS must list explicit origins, never '*'")
+        return origins
+
     def has_database_config(self) -> bool:
         return bool(self.database_url or self.has_pg_database_config())
 
     def has_ai_config(self) -> bool:
-        return bool(self.serving_endpoint_name)
+        """Model calls need only the workspace OAuth identity (Foundation Model APIs)."""
+        return self.enable_databricks_integrations
+
+    def running_in_databricks_apps(self) -> bool:
+        return bool(self.databricks_app_name)
+
+    def trust_forwarded_identity(self) -> bool:
+        """Honour X-Forwarded-* identity headers only where the Apps proxy sets them."""
+        return self.running_in_databricks_apps() or self.environment in (
+            "development",
+            "test",
+        )
 
     def has_knowledge_assistant_config(self) -> bool:
         return bool(self.knowledge_assistant_endpoint)

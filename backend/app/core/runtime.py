@@ -15,7 +15,7 @@ class AppRuntime:
     workspace_client: WorkspaceClient | None = None
     ai_client: AsyncOpenAI | None = None
     vector_index: Any | None = None
-    langgraph_checkpointer: Any | None = None
+    chat_orchestrator: Any | None = None  # built once on first chat request
 
 
 def get_app_runtime(container: Any) -> AppRuntime:

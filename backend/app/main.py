@@ -141,10 +141,10 @@ def build_root_app(s: Settings) -> FastAPI:
     application.middleware("http")(security_headers_middleware)
     application.middleware("http")(request_context_middleware)
 
-    if s.environment == "development":
+    if s.cors_allow_origins:
         application.add_middleware(
             CORSMiddleware,
-            allow_origins=["*"],
+            allow_origins=s.cors_allow_origins,
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
@@ -209,16 +209,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-
-
-if __name__ == "__main__":
-    import os
-
-    import uvicorn
-
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=int(os.environ.get("DATABRICKS_APP_PORT", "8000")),
-        log_level=os.environ.get("UVICORN_LOG_LEVEL", "info"),
-    )
