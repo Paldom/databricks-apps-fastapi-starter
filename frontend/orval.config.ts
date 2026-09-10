@@ -4,6 +4,7 @@ export default defineConfig({
   api: {
     input: '../backend/openapi.yaml',
     output: {
+      clean: true,
       mode: 'tags-split',
       target: 'src/shared/api/generated/index.ts',
       schemas: 'src/shared/api/generated/models',

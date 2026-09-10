@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Annotated, Any
 from databricks.sdk import WorkspaceClient
 from fastapi import Depends, Request
 from openai import AsyncOpenAI
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, settings
 from app.core.db.deps import get_async_session, get_engine  # noqa: F401 – re-export
@@ -194,6 +194,7 @@ def get_chat_orchestrator(
     request: Request,
 ) -> ChatOrchestrator:
     from langchain_openai import ChatOpenAI
+    from pydantic import SecretStr
 
     from app.chat.agent import build_agent
     from app.chat.memory import create_checkpointer
@@ -231,7 +232,7 @@ def get_chat_orchestrator(
     )
     supervisor_llm = ChatOpenAI(
         model=model_name,
-        api_key=ai_client.api_key,
+        api_key=SecretStr(str(ai_client.api_key)),
         base_url=str(ai_client.base_url),
         timeout=float(s.openai_timeout_seconds),
     )

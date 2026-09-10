@@ -2,91 +2,115 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
   push:
     branches: [main]
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  runtime-build:
-    name: Runtime Build (Python 3.11, Node 22)
+  gate:
+    name: Quality gate
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: .
     steps:
-      - uses: actions/checkout@v4
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-      - name: Set up Python
-        run: uv python install 3.11
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: '22.16.0'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install backend
-        run: cd backend && uv sync --extra dev
-      - name: Install frontend
-        run: cd frontend && npm ci
-      - name: Build frontend
-        run: cd frontend && npm run build
-      - name: Ruff
-        run: cd backend && uv run ruff check .
-      - name: Mypy
-        run: cd backend && uv run mypy --ignore-missing-imports .
-      - name: Bandit
-        run: cd backend && uv run bandit -r app -c pyproject.toml -q
-      - name: Pytest
-        run: cd backend && uv run pytest --cov .
+          persist-credentials: false
 
-  contract-and-frontend:
-    name: Contract & Frontend (Node 24)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
       - name: Set up Python
         run: uv python install 3.11
-      - uses: actions/setup-node@v4
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '24'
-          cache: 'npm'
+          node-version-file: .nvmrc
+          cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Install backend
-        run: cd backend && uv sync --extra dev
-      - name: Install frontend
-        run: cd frontend && npm ci
-      - name: Export backend OpenAPI
-        run: cd backend && uv run python scripts/export_openapi.py
-      - name: Regenerate frontend API client
-        run: cd frontend && npm run api:gen
-      - name: Check generated files are committed
+
+      - name: Install backend (locked)
+        run: uv sync --frozen --directory backend --extra dev
+
+      - name: Install frontend (locked)
+        run: npm ci --prefix frontend
+
+      - name: Commit gate (same config as local pre-commit and the agent Stop hook)
+        run: uv run --frozen --directory backend pre-commit run --all-files --show-diff-on-failure
+
+      - name: Backend tests with coverage
+        run: uv run --frozen --directory backend pytest -q --cov=app --cov-branch --cov-report=xml --cov-report=term
+
+      - name: Bandit
+        run: uv run --frozen --directory backend bandit -r app -c pyproject.toml -q
+
+      - name: Frontend typecheck
+        run: npm --prefix frontend run typecheck
+
+      - name: Frontend tests with coverage
+        run: npm --prefix frontend run test -- --run --coverage
+
+      - name: Frontend build
+        run: npm --prefix frontend run build
+
+      - name: Generated files are committed
         run: |
-          git diff --exit-code -- backend/requirements.txt backend/openapi.yaml frontend/src/shared/api/generated || {
+          uv run --frozen --directory backend python scripts/export_openapi.py
+          npm --prefix frontend run api:gen
+          (cd backend && uv export --no-hashes --no-editable --format=requirements.txt > requirements.txt)
+          if [ -n "$(git status --porcelain -- backend/openapi.yaml backend/requirements.txt frontend/src/shared/api/generated)" ]; then
+            git status --porcelain -- backend/openapi.yaml backend/requirements.txt frontend/src/shared/api/generated
             echo "::error::Generated files are out of sync. Run: make generate"
             exit 1
-          }
-      - name: Frontend typecheck
-        run: cd frontend && npm run typecheck
-      - name: Frontend lint
-        run: cd frontend && npm run lint
-      - name: Frontend test
-        run: cd frontend && npm run test
-      - name: Check requirements.txt is in sync
-        run: |
-          cd backend
-          uv export --no-hashes --no-editable --format=requirements.txt > /tmp/requirements-check.txt
-          diff -u requirements.txt /tmp/requirements-check.txt || {
-            echo "::error::requirements.txt is out of sync. Run: make requirements-export"
-            exit 1
-          }
+          fi
 
   bundle-validate:
-    name: Bundle Validate
+    name: Bundle validate (${{ matrix.target }})
+    # Needs a workspace: set repository variables DATABRICKS_HOST and DATABRICKS_CLIENT_ID
+    # (service principal with a GitHub OIDC federation policy). Skipped otherwise.
+    if: vars.DATABRICKS_HOST != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [dev, staging, prod]
+    env:
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_AUTH_TYPE: github-oidc
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: databricks/setup-cli@fd1d91d9d3b5f1191a2aae9206f7c68a997dc52d # v1.16.0
+        with:
+          version: 1.16.0
+
+      - name: Validate ${{ matrix.target }}
+        run: databricks bundle validate -t ${{ matrix.target }}
+
+  all-checks:
+    # Single required status check: fails if any job failed or was cancelled; skipped jobs are fine.
+    name: All checks
+    if: always()
+    needs: [gate, bundle-validate]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: databricks/setup-cli@main
-      - name: Validate bundle (dev)
-        run: databricks bundle validate -t dev
+      - name: Evaluate job results
+        run: |
+          echo "gate=${{ needs.gate.result }} bundle-validate=${{ needs.bundle-validate.result }}"
+          case "${{ needs.gate.result }} ${{ needs.bundle-validate.result }}" in
+            *failure*|*cancelled*) echo "::error::A required job failed"; exit 1 ;;
+          esac

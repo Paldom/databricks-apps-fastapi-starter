@@ -7,7 +7,7 @@ backend-specific shapes.
 
 from __future__ import annotations
 
-from typing import Any, AsyncIterator, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
@@ -45,7 +45,3 @@ class AgentAdapter(Protocol):
     source: str
 
     async def invoke(self, request: ResponsesAgentRequest) -> AgentInvocationResult: ...
-
-    async def stream(
-        self, request: ResponsesAgentRequest
-    ) -> AsyncIterator[ResponsesAgentStreamEvent]: ...

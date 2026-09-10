@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
+from unittest.mock import AsyncMock, MagicMock
 
 
 # ---------------------------------------------------------------------------
@@ -35,20 +33,6 @@ def _make_responses_result(text: str = "Hello", trace_id: str | None = None):
             }
         ],
     }
-    return resp
-
-
-def _make_completions_result(text: str = "Hello", trace_id: str | None = None):
-    """Create a mock chat completions result."""
-    choice = MagicMock()
-    choice.message.content = text
-    resp = MagicMock()
-    resp.choices = [choice]
-    resp.metadata = None
-    if trace_id:
-        resp.databricks_output = {"trace": {"trace_id": trace_id}}
-    else:
-        resp.databricks_output = None
     return resp
 
 
@@ -95,9 +79,7 @@ class TestServingEndpointAdapter:
             return_value=_make_responses_result("Serving response", "tr-svc-1")
         )
 
-        adapter = ServingEndpointAdapter(
-            mock_client, "my-endpoint", api_mode="responses"
-        )
+        adapter = ServingEndpointAdapter(mock_client, "my-endpoint")
         req = ResponsesAgentRequest(input=[{"role": "user", "content": "test"}])
 
         result = _run(adapter.invoke(req))
@@ -105,37 +87,7 @@ class TestServingEndpointAdapter:
         assert result.source == "serving_endpoint"
         assert result.text == "Serving response"
         assert result.downstream_trace_id == "tr-svc-1"
-        assert result.metadata["api_mode"] == "responses"
-
-    def test_invoke_chat_completions_mode(self):
-        from app.agents.adapters.serving_adapter import ServingEndpointAdapter
-        from app.agents.contracts import ResponsesAgentRequest
-
-        mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(
-            return_value=_make_completions_result("Legacy response", "tr-legacy-1")
-        )
-
-        adapter = ServingEndpointAdapter(
-            mock_client, "legacy-endpoint", api_mode="chat_completions"
-        )
-        req = ResponsesAgentRequest(input=[{"role": "user", "content": "test"}])
-
-        result = _run(adapter.invoke(req))
-
-        assert result.source == "serving_endpoint"
-        assert result.text == "Legacy response"
-        assert result.downstream_trace_id == "tr-legacy-1"
-        assert result.metadata["api_mode"] == "chat_completions"
-        # Should have legacy marker in custom_outputs
-        obj = (
-            result.response.model_dump()
-            if hasattr(result.response, "model_dump")
-            else dict(result.response)
-        )
-        assert (
-            obj.get("custom_outputs", {}).get("legacy_api_mode") == "chat_completions"
-        )
+        assert result.metadata["endpoint"] == "my-endpoint"
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,3 @@
-from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
-
 from fastapi.testclient import TestClient
 
 import app.main as app_main

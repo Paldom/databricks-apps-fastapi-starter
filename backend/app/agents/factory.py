@@ -35,11 +35,7 @@ def get_agent_adapter(
             return None
         from app.agents.adapters.serving_adapter import ServingEndpointAdapter
 
-        return ServingEndpointAdapter(
-            ai_client,
-            settings.serving_agent_endpoint,
-            api_mode=settings.serving_agent_api_mode,
-        )
+        return ServingEndpointAdapter(ai_client, settings.serving_agent_endpoint)
 
     if backend == "genie":
         if not settings.genie_space_id or workspace_client is None:
@@ -52,21 +48,11 @@ def get_agent_adapter(
     return None
 
 
-def list_available_backends(
-    settings: Settings,
-    *,
-    ai_client: AsyncOpenAI | None = None,
-    workspace_client: Any | None = None,
-) -> list[str]:
-    """Return backend names that are configured and available."""
-    backends: list[str] = []
-    for name in ("app", "serving_endpoint", "genie"):
-        adapter = get_agent_adapter(
-            name,
-            settings=settings,
-            ai_client=ai_client,
-            workspace_client=workspace_client,
-        )
-        if adapter is not None:
-            backends.append(name)
-    return backends
+def list_available_backends(settings: Settings) -> list[str]:
+    """Return backend names that are configured (by settings alone)."""
+    configured = {
+        "app": bool(settings.app_agent_name),
+        "serving_endpoint": bool(settings.serving_agent_endpoint),
+        "genie": bool(settings.genie_space_id),
+    }
+    return [name for name, ok in configured.items() if ok]

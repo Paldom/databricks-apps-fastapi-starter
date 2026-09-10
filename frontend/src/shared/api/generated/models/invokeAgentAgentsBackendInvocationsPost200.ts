@@ -5,7 +5,4 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface ChartDataPoint {
-  name: string;
-  value: number;
-}
+export type InvokeAgentAgentsBackendInvocationsPost200 = { [key: string]: unknown };

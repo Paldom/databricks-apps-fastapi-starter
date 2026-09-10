@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
 
-from sqlalchemy import delete, func, or_, select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chat_session_model import ChatSession
@@ -109,7 +108,7 @@ class ChatRepository:
                 ChatSession.user_id == owner_user_id,
             )
         )
-        return result.rowcount > 0
+        return getattr(result, "rowcount", 0) > 0
 
     async def search_chats(
         self,

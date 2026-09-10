@@ -60,35 +60,6 @@ class TestFormatKnowledgeResults:
 
 class TestServingTool:
     @pytest.mark.asyncio
-    async def test_chat_completions_mode(self):
-        ai_client = AsyncMock()
-        msg = MagicMock()
-        msg.content = "Answer from serving"
-        choice = MagicMock()
-        choice.message = msg
-        completion_resp = MagicMock(choices=[choice])
-        completion_resp.metadata = None
-        completion_resp.databricks_output = None
-        ai_client.chat.completions.create.return_value = completion_resp
-
-        from app.chat.tools import _build_serving_tool
-
-        spec = SpecialistSpec(
-            key="serving_endpoint", description="test", kind="serving_endpoint"
-        )
-        settings = MagicMock()
-        settings.serving_agent_endpoint = "my-endpoint"
-        settings.serving_agent_api_mode = "chat_completions"
-
-        tool = _build_serving_tool(spec, settings, ai_client=ai_client)
-        # Tool may be a StructuredTool (real langchain) or raw function (stub)
-        if hasattr(tool, "ainvoke"):
-            result = await tool.ainvoke({"question": "hello"})
-        else:
-            result = await tool("hello")
-        assert "Answer from serving" in result
-
-    @pytest.mark.asyncio
     async def test_responses_mode(self):
         ai_client = AsyncMock()
         resp = MagicMock()
@@ -121,7 +92,6 @@ class TestServingTool:
         )
         settings = MagicMock()
         settings.serving_agent_endpoint = "my-endpoint"
-        settings.serving_agent_api_mode = "responses"
 
         tool = _build_serving_tool(spec, settings, ai_client=ai_client)
         if hasattr(tool, "ainvoke"):

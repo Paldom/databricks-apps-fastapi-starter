@@ -11,5 +11,6 @@ export interface DetailedHealthResponse {
   database: DependencyCheck;
   ok: boolean;
   vector_search: DependencyCheck;
+  version?: string | null;
   workspace: DependencyCheck;
 }

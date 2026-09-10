@@ -1,8 +1,6 @@
 name: Snyk Security
 
 on:
-  pull_request:
-    branches: [main]
   push:
     branches: [main]
   schedule:
@@ -11,62 +9,42 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   snyk:
+    # Needs the SNYK_TOKEN secret; enable with the repository variable SNYK_ENABLED=true.
+    if: vars.SNYK_ENABLED == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
 
       - name: Set up Python
         run: uv python install 3.11
 
       - name: Install dependencies
-        run: cd backend && uv sync
+        run: uv sync --frozen --directory backend
 
       - name: Install Snyk CLI
         run: npm install -g snyk
 
       # Failing gate — exits non-zero on high/critical vulnerabilities
       - name: Snyk open-source test
-        run: snyk test --file=backend/requirements.txt --severity-threshold=high --sarif-file-output=snyk-oss.sarif
+        run: snyk test --file=backend/requirements.txt --severity-threshold=high
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
       - name: Snyk code test (SAST)
-        run: snyk code test --sarif-file-output=snyk-code.sarif || true
+        run: snyk code test
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
       - name: Snyk IaC test
-        run: snyk iac test databricks.yml resources/*.yml --sarif-file-output=snyk-iac.sarif || true
+        run: snyk iac test databricks.yml resources/*.yml
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-
-      - name: Upload OSS SARIF
-        uses: github/codeql-action/upload-sarif@v3
-        continue-on-error: true
-        with:
-          sarif_file: snyk-oss.sarif
-          category: snyk-oss
-
-      - name: Upload Code SARIF
-        uses: github/codeql-action/upload-sarif@v3
-        continue-on-error: true
-        with:
-          sarif_file: snyk-code.sarif
-          category: snyk-code
-
-      - name: Upload IaC SARIF
-        uses: github/codeql-action/upload-sarif@v3
-        continue-on-error: true
-        with:
-          sarif_file: snyk-iac.sarif
-          category: snyk-iac
 
       - name: Snyk monitor (main only)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'

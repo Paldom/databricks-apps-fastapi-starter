@@ -17,34 +17,14 @@ for command_name in node npx; do
   fi
 done
 
+SKILLS_CLI_VERSION="${SKILLS_CLI_VERSION:-1.5.25}"
 mkdir -p .agents/skills
 
 if [[ "${1:-}" == "--update" ]]; then
-  npx --yes skills update -y -p
+  npx --yes skills@"$SKILLS_CLI_VERSION" update -y -p
 else
-  # Capture the lock entries before the CLI can change the lockfile.
-  skill_entries="$(node <<'NODE'
-const fs = require('fs');
-const lock = JSON.parse(fs.readFileSync('skills-lock.json', 'utf8'));
-const entries = Object.entries(lock.skills);
-for (const [name, { source }] of entries) {
-  if (!name || typeof source !== 'string' || !source || /[\t\r\n]/.test(name + source)) {
-    throw new Error('Invalid skill name or source in skills-lock.json');
-  }
-}
-for (const [name, { source }] of entries) {
-  process.stdout.write(`${name}\t${source}\n`);
-}
-NODE
-  )"
-
-  if ! npx --yes skills experimental_install; then
-    printf 'Lock restore failed; installing each skill from its recorded source.\n' >&2
-    while IFS=$'\t' read -r skill_name source; do
-      [[ -n "$skill_name" ]] || continue
-      npx --yes skills add "$source" -s "$skill_name" -a '*' -y
-    done <<< "$skill_entries"
-  fi
+  # Restore the pinned skill set from skills-lock.json (fails loudly rather than fetching unpinned upstream).
+  npx --yes skills@"$SKILLS_CLI_VERSION" experimental_install
 fi
 
 printf '\nDatabricks AI Dev Kit installs Databricks skills into .agents/skills and the databricks Claude Code plugin; .ai-dev-kit/version records the expected version.\n'
@@ -70,8 +50,5 @@ for agent_dir in .claude .github .gemini .cursor .opencode; do
   ln -s -- ../.agents/skills "$mirror"
 done
 
-if ! cmp -s AGENTS.md .github/copilot-instructions.md; then
-  cp AGENTS.md .github/copilot-instructions.md
-fi
 
 printf '\nNext steps:\n  uv run --project backend pre-commit install --install-hooks\n'

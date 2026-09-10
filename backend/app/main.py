@@ -158,7 +158,9 @@ def build_root_app(s: Settings) -> FastAPI:
     )
 
     api_app = build_api_app(s)
-    api_app.dependency_overrides_provider = application
+    setattr(
+        api_app, "dependency_overrides_provider", application
+    )  # nested app shares overrides
     application.mount("/api", api_app)
 
     if s.serve_static:

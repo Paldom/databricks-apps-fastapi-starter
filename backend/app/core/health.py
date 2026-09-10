@@ -74,6 +74,7 @@ async def build_detailed_health(
     )
     return DetailedHealthResponse(
         ok=all_ok,
+        version=settings.app_version,
         database=database,
         workspace=workspace,
         ai=ai,

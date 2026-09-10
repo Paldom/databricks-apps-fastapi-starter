@@ -55,9 +55,6 @@ variables:
   serving_agent_endpoint:
     description: Name of the serving agent endpoint
     default: ""
-  serving_agent_api_mode:
-    description: Serving agent API mode (responses or chat_completions)
-    default: responses
   serving_agent_uc_model_name:
     description: Unity Catalog model name for the serving agent
     default: ""
@@ -168,8 +165,6 @@ variables:
           value: ${var.ai_gateway_embedding_model}
         - name: TITLE_MODEL
           value: ${var.title_model}
-        - name: SERVING_AGENT_API_MODE
-          value: ${var.serving_agent_api_mode}
         - name: LANGGRAPH_MEMORY_BACKEND
           value: ${var.langgraph_memory_backend}
         - name: KNOWLEDGE_VOLUME_ROOT
@@ -248,8 +243,6 @@ targets:
             value: ${var.ai_gateway_embedding_model}
           - name: TITLE_MODEL
             value: ${var.title_model}
-          - name: SERVING_AGENT_API_MODE
-            value: ${var.serving_agent_api_mode}
           - name: LANGGRAPH_MEMORY_BACKEND
             value: ${var.langgraph_memory_backend}
           - name: KNOWLEDGE_VOLUME_ROOT
@@ -338,8 +331,6 @@ targets:
             value: ${var.ai_gateway_embedding_model}
           - name: TITLE_MODEL
             value: ${var.title_model}
-          - name: SERVING_AGENT_API_MODE
-            value: ${var.serving_agent_api_mode}
           - name: LANGGRAPH_MEMORY_BACKEND
             value: ${var.langgraph_memory_backend}
           - name: KNOWLEDGE_VOLUME_ROOT

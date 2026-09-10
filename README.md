@@ -213,7 +213,7 @@ flowchart LR
 The supervisor is a `StateGraph` that routes requests to specialist tools:
 
 1. **App Specialist** (always available) -- in-process LLM for clarification, synthesis, formatting, and fallback help.
-2. **Serving Agent** (optional) -- queries a ResponsesAgent deployed on Databricks Model Serving via `SERVING_AGENT_ENDPOINT`. Defaults to the Responses API (`SERVING_AGENT_API_MODE=responses`).
+2. **Serving Agent** (optional) -- queries a ResponsesAgent deployed on Databricks Model Serving via `SERVING_AGENT_ENDPOINT`.
 3. **Genie Specialist** (optional) -- structured analytics, KPIs, trends, and SQL-like questions via the Databricks Genie Conversation API.
 4. **Knowledge Specialist** (optional) -- unstructured document retrieval using AI Gateway embeddings and Vector Search. Returns citations tied to UC Volume paths.
 
@@ -579,7 +579,6 @@ Key configuration:
 | `LANGGRAPH_MEMORY_BACKEND`                   | Memory backend (`inmemory` or `lakebase`)                                    | Yes (via variable)                      |
 | `SUPERVISOR_MODEL`                           | Model for the LangGraph supervisor                                           | Yes (via variable)                      |
 | `SERVING_AGENT_ENDPOINT`                     | Serving agent endpoint                                                       | Yes (`value_from: serving-agent`)       |
-| `SERVING_AGENT_API_MODE`                     | `responses` or `chat_completions`                                            | Yes (via variable)                      |
 | `GENIE_SPACE_ID`                             | Genie space for data specialist                                              | Yes (via variable)                      |
 | `KNOWLEDGE_VOLUME_ROOT`                      | UC Volume root for knowledge specialist                                      | Yes (via variable)                      |
 | `AI_GATEWAY_EMBEDDING_MODEL`                 | Embedding model for knowledge specialist                                     | Yes (via variable)                      |

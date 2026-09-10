@@ -5,19 +5,17 @@ from collections.abc import AsyncGenerator
 from logging import Logger
 from typing import Annotated, Any, Literal
 
-import pandas as pd
 from fastapi import APIRouter, Body, Depends, File, Request, UploadFile
 from fastapi.responses import StreamingResponse
-from httpx import AsyncClient
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.adapters.genie_adapter import GenieAdapter
+from app.agents.contracts import ResponsesAgentRequest
 from app.core.config import Settings
 from app.core.databricks.ai_gateway import AiGatewayAdapter
-from app.core.databricks.genie import GenieAdapter
 from app.core.databricks.jobs import JobsAdapter
-from app.core.databricks.knowledge_assistant import KnowledgeAssistantAdapter
 from app.core.databricks.serving import ServingAdapter
 from app.core.databricks.uc_files import UcFilesAdapter
 from app.core.databricks.vector_search import VectorSearchAdapter
@@ -92,21 +90,6 @@ def _require_knowledge_assistant_endpoint(settings: Settings) -> str:
     return endpoint
 
 
-async def _get_genie_adapter(
-    request: Request,
-    settings: Annotated[Settings, Depends(get_settings)],
-    logger: Annotated[Logger, Depends(get_logger)],
-) -> AsyncGenerator[GenieAdapter, None]:
-    _require_databricks_integrations(settings)
-    ws = get_workspace_client(request)
-    async with AsyncClient(
-        base_url=f"https://{ws.config.host}",
-        headers={"Authorization": f"Bearer {ws.config.token}"},
-        timeout=float(settings.genie_timeout_seconds),
-    ) as client:
-        yield GenieAdapter(client, logger)
-
-
 @router.post("/pg")
 async def pg_demo(
     msg: ExampleMessage,
@@ -130,10 +113,14 @@ async def serving(
 ):
     endpoint = _require_serving_endpoint(settings)
     adapter = ServingAdapter(get_workspace_client(request), logger)
-    df = pd.DataFrame([row.model_dump() for row in rows])
+    records = [row.model_dump() for row in rows]
+    dataframe_split = {
+        "columns": list(records[0].keys()) if records else [],
+        "data": [list(record.values()) for record in records],
+    }
     return await adapter.query(
         endpoint,
-        df.to_dict(orient="split"),
+        dataframe_split,
         timeout=float(settings.serving_timeout_seconds),
     )
 
@@ -216,24 +203,21 @@ async def vector_query(
 
 
 @router.post("/genie/{space_id}/ask")
-async def genie_start_conversation(
+async def genie_ask(
     request: Request,
     space_id: str,
     body: GenieQuestion,
-    adapter: Annotated[GenieAdapter, Depends(_get_genie_adapter)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ):
-    return await adapter.start_conversation(space_id, body.content)
-
-
-@router.post("/genie/{space_id}/{conversation_id}/ask")
-async def genie_follow_up(
-    request: Request,
-    space_id: str,
-    conversation_id: str,
-    body: GenieQuestion,
-    adapter: Annotated[GenieAdapter, Depends(_get_genie_adapter)],
-):
-    return await adapter.follow_up(space_id, conversation_id, body.content)
+    """Ask a Genie Agent one question through the unified Genie adapter."""
+    _require_databricks_integrations(settings)
+    adapter = GenieAdapter(get_workspace_client(request), space_id)
+    result = await adapter.invoke(
+        ResponsesAgentRequest.model_validate(
+            {"input": [{"role": "user", "content": body.content}]}
+        )
+    )
+    return result.response.model_dump()
 
 
 @router.post("/uc/upload")
@@ -284,30 +268,18 @@ async def download(
     )
 
 
-async def _get_ka_adapter(
-    request: Request,
-    settings: Annotated[Settings, Depends(get_settings)],
-    logger: Annotated[Logger, Depends(get_logger)],
-) -> AsyncGenerator[KnowledgeAssistantAdapter, None]:
-    _require_knowledge_assistant_endpoint(settings)
-    ws = get_workspace_client(request)
-    async with AsyncClient(
-        base_url=f"https://{ws.config.host}",
-        headers={"Authorization": f"Bearer {ws.config.token}"},
-        timeout=float(settings.knowledge_assistant_timeout_seconds),
-    ) as client:
-        yield KnowledgeAssistantAdapter(client, logger)
-
-
 @router.post("/agent/ask")
 async def agent_ask(
     request: Request,
     body: AgentQuestion,
     settings: Annotated[Settings, Depends(get_settings)],
-    adapter: Annotated[KnowledgeAssistantAdapter, Depends(_get_ka_adapter)],
 ):
+    """Ask the Knowledge Assistant endpoint through the Responses API."""
     endpoint = _require_knowledge_assistant_endpoint(settings)
-    return await adapter.ask(endpoint, [m.model_dump() for m in body.messages])
+    ai_client = get_ai_client(request)
+    messages: list[Any] = [m.model_dump() for m in body.messages]
+    resp = await ai_client.responses.create(model=endpoint, input=messages)
+    return resp.model_dump()
 
 
 @router.post("/agent/ask/stream")
@@ -315,10 +287,18 @@ async def agent_ask_stream(
     request: Request,
     body: AgentQuestion,
     settings: Annotated[Settings, Depends(get_settings)],
-    adapter: Annotated[KnowledgeAssistantAdapter, Depends(_get_ka_adapter)],
 ):
+    """Stream Knowledge Assistant Responses events as server-sent events."""
     endpoint = _require_knowledge_assistant_endpoint(settings)
-    return StreamingResponse(
-        adapter.ask_stream(endpoint, [m.model_dump() for m in body.messages]),
-        media_type="text/event-stream",
-    )
+    ai_client = get_ai_client(request)
+
+    messages: list[Any] = [m.model_dump() for m in body.messages]
+
+    async def events() -> AsyncGenerator[str, None]:
+        stream = await ai_client.responses.create(
+            model=endpoint, input=messages, stream=True
+        )
+        async for event in stream:
+            yield f"data: {event.model_dump_json()}\n\n"
+
+    return StreamingResponse(events(), media_type="text/event-stream")

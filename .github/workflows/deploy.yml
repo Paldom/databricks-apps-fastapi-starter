@@ -1,14 +1,18 @@
 name: Deploy
 
+# Push to main deploys the dev target after the CI gate passes on the same commit.
+# staging and prod are deployed only by hand (workflow_dispatch) and run inside a GitHub
+# environment of the same name, which is where required reviewers are configured.
+
 on:
   push:
     branches: [main]
   workflow_dispatch:
     inputs:
       target:
-        description: 'Bundle target'
+        description: Bundle target
         required: true
-        default: prod
+        default: dev
         type: choice
         options:
           - dev
@@ -19,71 +23,73 @@ permissions:
   contents: read
   id-token: write
 
-env:
-  DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-  DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
-  DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
-
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
+  checks:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit # pragma: allowlist secret
+    permissions:
+      contents: read
+      id-token: write
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+  deploy:
+    name: Deploy ${{ inputs.target || 'dev' }}
+    needs: checks
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target || 'dev' }}
+    concurrency:
+      group: deploy-${{ inputs.target || 'dev' }}
+      cancel-in-progress: false
+    env:
+      TARGET: ${{ inputs.target || 'dev' }}
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_AUTH_TYPE: github-oidc
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
 
       - name: Set up Python
         run: uv python install 3.11
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install Databricks CLI
-        uses: databricks/setup-cli@main
+      - uses: databricks/setup-cli@fd1d91d9d3b5f1191a2aae9206f7c68a997dc52d # v1.16.0
+        with:
+          version: 1.16.0
 
-      - name: Install backend deps
-        run: cd backend && uv sync --extra dev
+      - name: Validate
+        run: databricks bundle validate -t "$TARGET"
 
-      - name: Install frontend deps
-        run: cd frontend && npm ci
+      - name: Deploy (builds the frontend via the bundle prebuild script, provisions, starts the app)
+        run: databricks bundle deploy -t "$TARGET"
 
-      - name: Export backend OpenAPI
-        run: cd backend && uv run python scripts/export_openapi.py
-
-      - name: Regenerate frontend API client
-        run: cd frontend && npm run api:gen
-
-      - name: Build frontend
-        run: cd frontend && npm run build
-
-      - name: Validate bundle
-        run: databricks bundle validate -t ${{ inputs.target || 'prod' }}
-
-      - name: Deploy bundle
-        run: databricks bundle deploy -t ${{ inputs.target || 'prod' }}
-
-      - name: Deploy serving agent
-        run: databricks bundle run -t ${{ inputs.target || 'prod' }} deploy_serving_agent
-        continue-on-error: true
-
-      - name: Bootstrap RAG resources
-        if: ${{ vars.VECTOR_SEARCH_INDEX_NAME != '' }}
-        run: databricks bundle run -t ${{ inputs.target || 'prod' }} rag_bootstrap_job
-        continue-on-error: true
-
-      - name: Bootstrap Knowledge Assistant index source (fallback)
-        if: ${{ vars.KNOWLEDGE_ASSISTANT_NAME != '' }}
-        run: cd backend && uv run python scripts/upsert_knowledge_assistant_source.py
-        env:
-          KNOWLEDGE_ASSISTANT_NAME: ${{ vars.KNOWLEDGE_ASSISTANT_NAME }}
-          VECTOR_SEARCH_INDEX_NAME: ${{ vars.VECTOR_SEARCH_INDEX_NAME }}
-        continue-on-error: true
-
-      - name: Run app
-        run: databricks bundle run -t ${{ inputs.target || 'prod' }} fastapi_app
+      - name: Wait until the app serves this commit
+        run: |
+          APP_NAME=$(databricks bundle summary -t "$TARGET" -o json | jq -r '.resources.apps.fastapi_app.name')
+          APP_URL=$(databricks apps get "$APP_NAME" -o json | jq -r '.url')
+          TOKEN=$(databricks auth token -o json | jq -r '.access_token')
+          echo "::add-mask::$TOKEN"
+          for attempt in $(seq 1 36); do
+            VERSION=""
+            if BODY=$(curl -sf -H "Authorization: Bearer $TOKEN" "$APP_URL/api/health"); then
+              VERSION=$(echo "$BODY" | jq -r '.version // empty')
+            fi
+            if [ "$VERSION" = "$GITHUB_SHA" ]; then
+              echo "App $APP_NAME serves commit $VERSION"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::App $APP_NAME did not report version $GITHUB_SHA within 6 minutes"
+          exit 1

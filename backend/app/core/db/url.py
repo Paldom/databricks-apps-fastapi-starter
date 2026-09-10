@@ -6,7 +6,6 @@ so that the connection string is never duplicated or out of sync.
 
 from __future__ import annotations
 
-import os
 
 from sqlalchemy.engine import URL
 
@@ -42,7 +41,7 @@ def get_database_url(settings: Settings) -> str:
     2. Constructed from ``PG*`` settings (password is optional for
        Lakebase OAuth token flow).
     """
-    explicit = os.environ.get("DATABASE_URL")
+    explicit = getattr(settings, "database_url", None)
     if explicit:
         return explicit
 
@@ -51,7 +50,7 @@ def get_database_url(settings: Settings) -> str:
     pg_user = getattr(settings, "pg_user", None)
     pg_password = getattr(settings, "pg_password", None)
     pg_port = getattr(settings, "pg_port", None) or 5432
-    if all([pg_host, pg_database, pg_user]):
+    if pg_host and pg_database and pg_user:
         return _build_asyncpg_url(
             username=pg_user,
             password=pg_password,

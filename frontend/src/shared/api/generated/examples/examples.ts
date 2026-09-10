@@ -43,6 +43,7 @@ type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
 /**
+ * Ask the Knowledge Assistant endpoint through the Responses API.
  * @summary Agent Ask
  */
 export type agentAskExamplesAgentAskPostResponse200 = {
@@ -125,6 +126,7 @@ export const useAgentAskExamplesAgentAskPost = <TError = unknown,
       return useMutation(getAgentAskExamplesAgentAskPostMutationOptions(options), queryClient);
     }
     /**
+ * Stream Knowledge Assistant Responses events as server-sent events.
  * @summary Agent Ask Stream
  */
 export type agentAskStreamExamplesAgentAskStreamPostResponse200 = {
@@ -289,21 +291,22 @@ export const useEmbedExamplesEmbedPost = <TError = unknown,
       return useMutation(getEmbedExamplesEmbedPostMutationOptions(options), queryClient);
     }
     /**
- * @summary Genie Start Conversation
+ * Ask a Genie Agent one question through the unified Genie adapter.
+ * @summary Genie Ask
  */
-export type genieStartConversationExamplesGenieSpaceIdAskPostResponse200 = {
+export type genieAskExamplesGenieSpaceIdAskPostResponse200 = {
   data: unknown
   status: 200
 }
     
-export type genieStartConversationExamplesGenieSpaceIdAskPostResponseSuccess = (genieStartConversationExamplesGenieSpaceIdAskPostResponse200) & {
+export type genieAskExamplesGenieSpaceIdAskPostResponseSuccess = (genieAskExamplesGenieSpaceIdAskPostResponse200) & {
   headers: Headers;
 };
 ;
 
-export type genieStartConversationExamplesGenieSpaceIdAskPostResponse = (genieStartConversationExamplesGenieSpaceIdAskPostResponseSuccess)
+export type genieAskExamplesGenieSpaceIdAskPostResponse = (genieAskExamplesGenieSpaceIdAskPostResponseSuccess)
 
-export const getGenieStartConversationExamplesGenieSpaceIdAskPostUrl = (spaceId: string,) => {
+export const getGenieAskExamplesGenieSpaceIdAskPostUrl = (spaceId: string,) => {
 
 
   
@@ -311,10 +314,10 @@ export const getGenieStartConversationExamplesGenieSpaceIdAskPostUrl = (spaceId:
   return `/examples/genie/${spaceId}/ask`
 }
 
-export const genieStartConversationExamplesGenieSpaceIdAskPost = async (spaceId: string,
-    genieQuestion: GenieQuestion, options?: RequestInit): Promise<genieStartConversationExamplesGenieSpaceIdAskPostResponse> => {
+export const genieAskExamplesGenieSpaceIdAskPost = async (spaceId: string,
+    genieQuestion: GenieQuestion, options?: RequestInit): Promise<genieAskExamplesGenieSpaceIdAskPostResponse> => {
   
-  return customInstance<genieStartConversationExamplesGenieSpaceIdAskPostResponse>(getGenieStartConversationExamplesGenieSpaceIdAskPostUrl(spaceId),
+  return customInstance<genieAskExamplesGenieSpaceIdAskPostResponse>(getGenieAskExamplesGenieSpaceIdAskPostUrl(spaceId),
   {      
     ...options,
     method: 'POST',
@@ -327,11 +330,11 @@ export const genieStartConversationExamplesGenieSpaceIdAskPost = async (spaceId:
 
 
 
-export const getGenieStartConversationExamplesGenieSpaceIdAskPostMutationOptions = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof genieStartConversationExamplesGenieSpaceIdAskPost>>, TError,{spaceId: string;data: GenieQuestion}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof genieStartConversationExamplesGenieSpaceIdAskPost>>, TError,{spaceId: string;data: GenieQuestion}, TContext> => {
+export const getGenieAskExamplesGenieSpaceIdAskPostMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof genieAskExamplesGenieSpaceIdAskPost>>, TError,{spaceId: string;data: GenieQuestion}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof genieAskExamplesGenieSpaceIdAskPost>>, TError,{spaceId: string;data: GenieQuestion}, TContext> => {
 
-const mutationKey = ['genieStartConversationExamplesGenieSpaceIdAskPost'];
+const mutationKey = ['genieAskExamplesGenieSpaceIdAskPost'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -341,10 +344,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof genieStartConversationExamplesGenieSpaceIdAskPost>>, {spaceId: string;data: GenieQuestion}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof genieAskExamplesGenieSpaceIdAskPost>>, {spaceId: string;data: GenieQuestion}> = (props) => {
           const {spaceId,data} = props ?? {};
 
-          return  genieStartConversationExamplesGenieSpaceIdAskPost(spaceId,data,requestOptions)
+          return  genieAskExamplesGenieSpaceIdAskPost(spaceId,data,requestOptions)
         }
 
 
@@ -354,107 +357,22 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type GenieStartConversationExamplesGenieSpaceIdAskPostMutationResult = NonNullable<Awaited<ReturnType<typeof genieStartConversationExamplesGenieSpaceIdAskPost>>>
-    export type GenieStartConversationExamplesGenieSpaceIdAskPostMutationBody = GenieQuestion
-    export type GenieStartConversationExamplesGenieSpaceIdAskPostMutationError = unknown
+    export type GenieAskExamplesGenieSpaceIdAskPostMutationResult = NonNullable<Awaited<ReturnType<typeof genieAskExamplesGenieSpaceIdAskPost>>>
+    export type GenieAskExamplesGenieSpaceIdAskPostMutationBody = GenieQuestion
+    export type GenieAskExamplesGenieSpaceIdAskPostMutationError = unknown
 
     /**
- * @summary Genie Start Conversation
+ * @summary Genie Ask
  */
-export const useGenieStartConversationExamplesGenieSpaceIdAskPost = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof genieStartConversationExamplesGenieSpaceIdAskPost>>, TError,{spaceId: string;data: GenieQuestion}, TContext>, request?: SecondParameter<typeof customInstance>}
+export const useGenieAskExamplesGenieSpaceIdAskPost = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof genieAskExamplesGenieSpaceIdAskPost>>, TError,{spaceId: string;data: GenieQuestion}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof genieStartConversationExamplesGenieSpaceIdAskPost>>,
+        Awaited<ReturnType<typeof genieAskExamplesGenieSpaceIdAskPost>>,
         TError,
         {spaceId: string;data: GenieQuestion},
         TContext
       > => {
-      return useMutation(getGenieStartConversationExamplesGenieSpaceIdAskPostMutationOptions(options), queryClient);
-    }
-    /**
- * @summary Genie Follow Up
- */
-export type genieFollowUpExamplesGenieSpaceIdConversationIdAskPostResponse200 = {
-  data: unknown
-  status: 200
-}
-    
-export type genieFollowUpExamplesGenieSpaceIdConversationIdAskPostResponseSuccess = (genieFollowUpExamplesGenieSpaceIdConversationIdAskPostResponse200) & {
-  headers: Headers;
-};
-;
-
-export type genieFollowUpExamplesGenieSpaceIdConversationIdAskPostResponse = (genieFollowUpExamplesGenieSpaceIdConversationIdAskPostResponseSuccess)
-
-export const getGenieFollowUpExamplesGenieSpaceIdConversationIdAskPostUrl = (spaceId: string,
-    conversationId: string,) => {
-
-
-  
-
-  return `/examples/genie/${spaceId}/${conversationId}/ask`
-}
-
-export const genieFollowUpExamplesGenieSpaceIdConversationIdAskPost = async (spaceId: string,
-    conversationId: string,
-    genieQuestion: GenieQuestion, options?: RequestInit): Promise<genieFollowUpExamplesGenieSpaceIdConversationIdAskPostResponse> => {
-  
-  return customInstance<genieFollowUpExamplesGenieSpaceIdConversationIdAskPostResponse>(getGenieFollowUpExamplesGenieSpaceIdConversationIdAskPostUrl(spaceId,conversationId),
-  {      
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      genieQuestion,)
-  }
-);}
-
-
-
-
-export const getGenieFollowUpExamplesGenieSpaceIdConversationIdAskPostMutationOptions = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof genieFollowUpExamplesGenieSpaceIdConversationIdAskPost>>, TError,{spaceId: string;conversationId: string;data: GenieQuestion}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof genieFollowUpExamplesGenieSpaceIdConversationIdAskPost>>, TError,{spaceId: string;conversationId: string;data: GenieQuestion}, TContext> => {
-
-const mutationKey = ['genieFollowUpExamplesGenieSpaceIdConversationIdAskPost'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof genieFollowUpExamplesGenieSpaceIdConversationIdAskPost>>, {spaceId: string;conversationId: string;data: GenieQuestion}> = (props) => {
-          const {spaceId,conversationId,data} = props ?? {};
-
-          return  genieFollowUpExamplesGenieSpaceIdConversationIdAskPost(spaceId,conversationId,data,requestOptions)
-        }
-
-
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type GenieFollowUpExamplesGenieSpaceIdConversationIdAskPostMutationResult = NonNullable<Awaited<ReturnType<typeof genieFollowUpExamplesGenieSpaceIdConversationIdAskPost>>>
-    export type GenieFollowUpExamplesGenieSpaceIdConversationIdAskPostMutationBody = GenieQuestion
-    export type GenieFollowUpExamplesGenieSpaceIdConversationIdAskPostMutationError = unknown
-
-    /**
- * @summary Genie Follow Up
- */
-export const useGenieFollowUpExamplesGenieSpaceIdConversationIdAskPost = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof genieFollowUpExamplesGenieSpaceIdConversationIdAskPost>>, TError,{spaceId: string;conversationId: string;data: GenieQuestion}, TContext>, request?: SecondParameter<typeof customInstance>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof genieFollowUpExamplesGenieSpaceIdConversationIdAskPost>>,
-        TError,
-        {spaceId: string;conversationId: string;data: GenieQuestion},
-        TContext
-      > => {
-      return useMutation(getGenieFollowUpExamplesGenieSpaceIdConversationIdAskPostMutationOptions(options), queryClient);
+      return useMutation(getGenieAskExamplesGenieSpaceIdAskPostMutationOptions(options), queryClient);
     }
     /**
  * @summary Run Job

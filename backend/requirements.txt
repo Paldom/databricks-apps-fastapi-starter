@@ -55,8 +55,6 @@ databricks-sdk==0.100.0
     #   databricks-apps-fastapi-starter
     #   mlflow-skinny
     #   mlflow-tracing
-databricks-sql-connector==4.2.5
-    # via databricks-apps-fastapi-starter
 databricks-vectorsearch==0.66
     # via databricks-apps-fastapi-starter
 deprecation==2.1.0
@@ -65,8 +63,6 @@ distro==1.9.0
     # via openai
 docker==7.1.0
     # via mlflow
-et-xmlfile==2.0.0
-    # via openpyxl
 fastapi==0.135.1
     # via
     #   databricks-apps-fastapi-starter
@@ -158,8 +154,6 @@ langgraph-sdk==0.2.15
     # via langgraph
 langsmith==0.7.22
     # via langchain-core
-lz4==4.4.5
-    # via databricks-sql-connector
 mako==1.3.10
     # via alembic
 markupsafe==3.0.3
@@ -181,21 +175,16 @@ mlflow-tracing==3.10.1
 numpy==2.4.3
     # via
     #   contourpy
-    #   databricks-apps-fastapi-starter
     #   matplotlib
     #   mlflow
     #   pandas
     #   scikit-learn
     #   scipy
     #   skops
-oauthlib==3.3.1
-    # via databricks-sql-connector
 openai==2.28.0
     # via
     #   databricks-apps-fastapi-starter
     #   langchain-openai
-openpyxl==3.1.5
-    # via databricks-sql-connector
 opentelemetry-api==1.40.0
     # via
     #   mlflow-skinny
@@ -284,10 +273,7 @@ packaging==25.0
     #   opentelemetry-instrumentation-sqlalchemy
     #   skops
 pandas==2.3.3
-    # via
-    #   databricks-apps-fastapi-starter
-    #   databricks-sql-connector
-    #   mlflow
+    # via mlflow
 pillow==12.1.1
     # via matplotlib
 prettytable==3.17.0
@@ -301,15 +287,11 @@ protobuf==5.29.6
     #   mlflow-tracing
     #   opentelemetry-proto
 pyarrow==23.0.1
-    # via
-    #   databricks-apps-fastapi-starter
-    #   mlflow
+    # via mlflow
 pyasn1==0.6.2
     # via pyasn1-modules
 pyasn1-modules==0.4.2
     # via google-auth
-pybreaker==1.4.1
-    # via databricks-sql-connector
 pycparser==3.0 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
     # via cffi
 pydantic==2.12.5
@@ -327,13 +309,10 @@ pydantic-core==2.41.5
     # via pydantic
 pydantic-settings==2.13.1
     # via databricks-apps-fastapi-starter
-pyjwt==2.12.1
-    # via databricks-sql-connector
 pyparsing==3.3.2
     # via matplotlib
 python-dateutil==2.9.0.post0
     # via
-    #   databricks-sql-connector
     #   graphene
     #   matplotlib
     #   pandas
@@ -357,7 +336,6 @@ regex==2026.2.28
 requests==2.32.5
     # via
     #   databricks-sdk
-    #   databricks-sql-connector
     #   databricks-vectorsearch
     #   docker
     #   langsmith
@@ -378,9 +356,7 @@ scipy==1.17.1
 secure==1.0.1
     # via databricks-apps-fastapi-starter
 six==1.17.0
-    # via
-    #   python-dateutil
-    #   thrift
+    # via python-dateutil
 skops==0.13.0
     # via mlflow
 smmap==5.0.3
@@ -400,8 +376,6 @@ tenacity==9.1.4
     # via langchain-core
 threadpoolctl==3.6.0
     # via scikit-learn
-thrift==0.20.0
-    # via databricks-sql-connector
 tiktoken==0.12.0
     # via langchain-openai
 tqdm==4.67.3
@@ -433,7 +407,6 @@ tzdata==2025.3
     # via pandas
 urllib3==2.6.3
     # via
-    #   databricks-sql-connector
     #   docker
     #   requests
 uuid-utils==0.14.1

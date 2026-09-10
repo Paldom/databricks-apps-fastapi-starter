@@ -13,8 +13,6 @@ updates:
           - 'fastapi'
           - 'uvicorn'
           - 'asyncpg'
-          - 'pandas'
-          - 'numpy'
           - 'pydantic'
           - 'pydantic-settings'
           - 'python-dotenv'
@@ -22,7 +20,6 @@ updates:
           - 'sqlalchemy'
           - 'secure'
           - 'openai'
-          - 'pyarrow'
           - 'python-multipart'
           - 'opentelemetry-*'
       dev-deps:
@@ -35,6 +32,18 @@ updates:
           - 'pytest-*'
           - 'locust'
           - 'httpx'
+
+  # Frontend dependencies
+  - package-ecosystem: 'npm'
+    directory: '/frontend'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+    open-pull-requests-limit: 5
+    groups:
+      frontend-deps:
+        patterns:
+          - '*'
 
   # GitHub Actions versions
   - package-ecosystem: 'github-actions'

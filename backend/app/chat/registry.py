@@ -7,7 +7,6 @@ and the routing instruction that appears in the supervisor system prompt.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from app.core.config import Settings
 

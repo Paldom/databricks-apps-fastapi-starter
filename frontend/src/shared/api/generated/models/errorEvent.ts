@@ -9,5 +9,6 @@ import type { ErrorEventType } from './errorEventType';
 export interface ErrorEvent {
   code?: string | null;
   message: string;
+  trace_id?: string | null;
   type: ErrorEventType;
 }

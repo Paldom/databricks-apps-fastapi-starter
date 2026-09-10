@@ -47,14 +47,7 @@ async def list_backends(
     settings: Settings = Depends(get_settings),
 ) -> dict[str, list[str]]:
     """Return the list of configured agent backends."""
-    ai_client = _try_get_ai_client(request)
-    workspace_client = _try_get_workspace_client(request)
-    backends = list_available_backends(
-        settings,
-        ai_client=ai_client,
-        workspace_client=workspace_client,
-    )
-    return {"backends": backends}
+    return {"backends": list_available_backends(settings)}
 
 
 @router.post("/{backend}/invocations")

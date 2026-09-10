@@ -75,7 +75,7 @@ class DocumentRepository:
                 FileRecord.user_id == owner_user_id,
             )
         )
-        return result.rowcount > 0
+        return getattr(result, "rowcount", 0) > 0
 
     async def get_document(
         self, owner_user_id: str, document_id: str

@@ -56,6 +56,16 @@ components:
       - file
       title: Body_upload_examples_uc_upload_post
       type: object
+    Body_upload_knowledge_file_knowledge_files_post:
+      properties:
+        file:
+          contentMediaType: application/octet-stream
+          title: File
+          type: string
+      required:
+      - file
+      title: Body_upload_knowledge_file_knowledge_files_post
+      type: object
     Chat:
       additionalProperties: false
       example:
@@ -172,12 +182,6 @@ components:
             $ref: '#/components/schemas/ChatStreamMessage'
           title: Messages
           type: array
-        run_config:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Run Config
         thread_id:
           anyOf:
           - type: string
@@ -259,6 +263,11 @@ components:
           type: boolean
         vector_search:
           $ref: '#/components/schemas/DependencyCheck'
+        version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Version
         workspace:
           $ref: '#/components/schemas/DependencyCheck'
       required:
@@ -343,6 +352,18 @@ components:
           - error
           title: Finish Reason
           type: string
+        thread_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          title: Thread Id
+        trace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          title: Trace Id
         type:
           const: done
           title: Type
@@ -363,6 +384,12 @@ components:
         message:
           title: Message
           type: string
+        trace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          title: Trace Id
         type:
           const: error
           title: Type
@@ -426,6 +453,31 @@ components:
       - fail
       title: HealthStatus
       type: string
+    KnowledgeFileUploadResponse:
+      properties:
+        document_id:
+          title: Document Id
+          type: string
+        full_path:
+          title: Full Path
+          type: string
+        relative_path:
+          title: Relative Path
+          type: string
+        size_bytes:
+          title: Size Bytes
+          type: integer
+        status:
+          default: uploaded
+          title: Status
+          type: string
+      required:
+      - document_id
+      - relative_path
+      - full_path
+      - size_bytes
+      title: KnowledgeFileUploadResponse
+      type: object
     LiveResponse:
       properties:
         ok:
@@ -656,6 +708,61 @@ info:
   version: 0.1.0
 openapi: 3.1.0
 paths:
+  /agents/backends:
+    get:
+      description: Return the list of configured agent backends.
+      operationId: list_backends_agents_backends_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  items:
+                    type: string
+                  type: array
+                title: Response List Backends Agents Backends Get
+                type: object
+          description: Successful Response
+      summary: List Backends
+      tags:
+      - agents
+  /agents/{backend}/invocations:
+    post:
+      description: 'Invoke an agent backend with a Responses-compatible request body.
+
+
+        The request body should contain at minimum an ``input`` field with a list
+
+        of message objects.  Returns the full ``ResponsesAgentResponse`` as a dict.'
+      operationId: invoke_agent_agents__backend__invocations_post
+      parameters:
+      - in: path
+        name: backend
+        required: true
+        schema:
+          title: Backend
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              title: Body
+              type: object
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Invoke Agent Agents  Backend  Invocations Post
+                type: object
+          description: Successful Response
+      summary: Invoke Agent
+      tags:
+      - agents
   /chat/stream:
     post:
       operationId: chatStream
@@ -880,6 +987,7 @@ paths:
       - documents
   /examples/agent/ask:
     post:
+      description: Ask the Knowledge Assistant endpoint through the Responses API.
       operationId: agent_ask_examples_agent_ask_post
       requestBody:
         content:
@@ -898,6 +1006,7 @@ paths:
       - examples
   /examples/agent/ask/stream:
     post:
+      description: Stream Knowledge Assistant Responses events as server-sent events.
       operationId: agent_ask_stream_examples_agent_ask_stream_post
       requestBody:
         content:
@@ -934,7 +1043,8 @@ paths:
       - examples
   /examples/genie/{space_id}/ask:
     post:
-      operationId: genie_start_conversation_examples_genie__space_id__ask_post
+      description: Ask a Genie Agent one question through the unified Genie adapter.
+      operationId: genie_ask_examples_genie__space_id__ask_post
       parameters:
       - in: path
         name: space_id
@@ -954,38 +1064,7 @@ paths:
             application/json:
               schema: {}
           description: Successful Response
-      summary: Genie Start Conversation
-      tags:
-      - examples
-  /examples/genie/{space_id}/{conversation_id}/ask:
-    post:
-      operationId: genie_follow_up_examples_genie__space_id___conversation_id__ask_post
-      parameters:
-      - in: path
-        name: space_id
-        required: true
-        schema:
-          title: Space Id
-          type: string
-      - in: path
-        name: conversation_id
-        required: true
-        schema:
-          title: Conversation Id
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GenieQuestion'
-        required: true
-      responses:
-        '200':
-          content:
-            application/json:
-              schema: {}
-          description: Successful Response
-      summary: Genie Follow Up
+      summary: Genie Ask
       tags:
       - examples
   /examples/job:
@@ -1167,6 +1246,25 @@ paths:
       summary: Ready
       tags:
       - health
+  /knowledge/files:
+    post:
+      operationId: upload_knowledge_file_knowledge_files_post
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_upload_knowledge_file_knowledge_files_post'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeFileUploadResponse'
+          description: Successful Response
+      summary: Upload Knowledge File
+      tags:
+      - knowledge
   /me:
     get:
       operationId: getMe

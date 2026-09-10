@@ -55,12 +55,6 @@ class DatabricksAPIError(ExternalServiceError):
     pass
 
 
-class SqlDeltaError(ExternalServiceError):
-    def __init__(self, detail: str = "SQL execution error", **kw):
-        super().__init__(detail, **kw)
-        self.status_code = 500
-
-
 class UcFilesError(ExternalServiceError):
     pass
 

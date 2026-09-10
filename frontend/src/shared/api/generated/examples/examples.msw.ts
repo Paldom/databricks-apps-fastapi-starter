@@ -45,18 +45,8 @@ export const getEmbedExamplesEmbedPostMockHandler = (overrideResponse?: unknown 
   }, options)
 }
 
-export const getGenieStartConversationExamplesGenieSpaceIdAskPostMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+export const getGenieAskExamplesGenieSpaceIdAskPostMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
   return http.post('*/examples/genie/:spaceId/ask', async (info) => {await delay(100);
-  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
-    return new HttpResponse(null,
-      { status: 200,
-        
-      })
-  }, options)
-}
-
-export const getGenieFollowUpExamplesGenieSpaceIdConversationIdAskPostMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
-  return http.post('*/examples/genie/:spaceId/:conversationId/ask', async (info) => {await delay(100);
   if (typeof overrideResponse === 'function') {await overrideResponse(info); }
     return new HttpResponse(null,
       { status: 200,
@@ -138,8 +128,7 @@ export const getExamplesMock = () => [
   getAgentAskExamplesAgentAskPostMockHandler(),
   getAgentAskStreamExamplesAgentAskStreamPostMockHandler(),
   getEmbedExamplesEmbedPostMockHandler(),
-  getGenieStartConversationExamplesGenieSpaceIdAskPostMockHandler(),
-  getGenieFollowUpExamplesGenieSpaceIdConversationIdAskPostMockHandler(),
+  getGenieAskExamplesGenieSpaceIdAskPostMockHandler(),
   getRunJobExamplesJobPostMockHandler(),
   getPgDemoExamplesPgPostMockHandler(),
   getServingExamplesServingPostMockHandler(),

@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid as _uuid
-from typing import Any, Literal
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
@@ -37,7 +37,6 @@ class ChatStreamRequest(BaseModel):
 
     thread_id: str | None = None
     messages: list[ChatStreamMessage]
-    run_config: dict[str, Any] | None = None
 
 
 # ── Streaming event schemas (for OpenAPI documentation) ────────────
@@ -75,7 +74,7 @@ class ErrorEvent(BaseModel):
 
 
 # These are referenced by the custom OpenAPI hook in app/main.py
-STREAMING_EVENT_MODELS = [
+STREAMING_EVENT_MODELS: list[type[BaseModel]] = [
     TextDeltaEvent,
     ToolCallBeginEvent,
     ToolCallDeltaEvent,

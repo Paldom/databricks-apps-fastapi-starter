@@ -5,9 +5,4 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface DashboardStats {
-  activeUsers: number;
-  sales: number;
-  subscriptions: number;
-  totalRevenue: number;
-}
+export type InvokeAgentAgentsBackendInvocationsPostBody = { [key: string]: unknown };

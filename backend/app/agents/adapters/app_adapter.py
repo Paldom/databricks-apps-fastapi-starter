@@ -2,21 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Any, AsyncIterator
+from typing import Any
 
 from openai import AsyncOpenAI
 
-from mlflow.types.responses import (
-    ResponsesAgentRequest,
-    ResponsesAgentStreamEvent,
-)
+from mlflow.types.responses import ResponsesAgentRequest
 
 from app.agents.contracts import AgentInvocationResult
 from app.agents.response_utils import normalize_response
 from app.core.mlflow_runtime import extract_trace_id
 
 
-def _serialize_input(request: ResponsesAgentRequest) -> list[dict[str, Any]]:
+def _serialize_input(request: ResponsesAgentRequest) -> list[Any]:
     return [item.model_dump(exclude_none=True) for item in request.input]
 
 
@@ -44,16 +41,3 @@ class DatabricksAppAdapter:
             downstream_trace_id=extract_trace_id(resp),
             metadata={"model": self._model},
         )
-
-    async def stream(
-        self, request: ResponsesAgentRequest
-    ) -> AsyncIterator[ResponsesAgentStreamEvent]:
-        async for event in await self._client.responses.create(
-            model=self._model,
-            input=_serialize_input(request),
-            stream=True,
-            extra_headers={"x-mlflow-return-trace-id": "true"},
-        ):
-            yield ResponsesAgentStreamEvent(
-                **(event.to_dict() if hasattr(event, "to_dict") else dict(event))
-            )

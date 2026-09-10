@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 from app.core.databricks.uc_files import UcFilesAdapter
 from app.core.errors import ResourceNotFoundError

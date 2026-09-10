@@ -2,15 +2,16 @@
 # agent Stop hook (.claude/hooks/stop-verify.sh), so local, agent and CI results agree.
 # Hook revs are pinned; ruff/mypy revs must match backend/pyproject.toml dev pins.
 default_install_hook_types: [pre-commit, pre-push]
-exclude: ^(\.local/|\.agents/skills/|frontend/src/shared/api/generated/|backend/public/|backend/uv\.lock$|frontend/package-lock\.json$|\.secrets\.baseline$)
+exclude: ^(\.local/|\.agents/skills/|frontend/src/shared/api/generated/|backend/public/|\.secrets\.baseline$)
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
       - id: trailing-whitespace
-        exclude: \.md$
+        exclude: \.(md|lock)$|package-lock\.json$
       - id: end-of-file-fixer
+        exclude: \.lock$|package-lock\.json$
       - id: check-yaml
         args: [--allow-multiple-documents]
         exclude: ^(resources/|databricks\.yml$) # bundle YAML uses ${var} syntax; validated by `bundle validate`

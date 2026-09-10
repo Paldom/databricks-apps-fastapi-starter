@@ -311,8 +311,7 @@ def _build_serving_tool(
     from app.agents.contracts import ResponsesAgentRequest
 
     endpoint = settings.serving_agent_endpoint or ""
-    api_mode = settings.serving_agent_api_mode
-    adapter = ServingEndpointAdapter(ai_client, endpoint, api_mode=api_mode)
+    adapter = ServingEndpointAdapter(ai_client, endpoint)
 
     @tool
     async def serving_endpoint(question: str) -> str:  # noqa: D401
@@ -322,7 +321,6 @@ def _build_serving_tool(
             attributes={
                 "tool": "serving",
                 "serving.endpoint": safe_attr(endpoint),
-                "serving.api_mode": safe_attr(api_mode),
             },
         ) as span:
             try:

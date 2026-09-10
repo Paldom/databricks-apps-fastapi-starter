@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 from app.repositories.user_repository import get_or_create_user
 from app.models.user_model import AppUser

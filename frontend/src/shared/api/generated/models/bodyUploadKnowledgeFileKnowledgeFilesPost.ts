@@ -5,10 +5,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type StreamSSEParams = {
-/**
- * @minimum 1
- * @maximum 20
- */
-count?: number;
-};
+export interface BodyUploadKnowledgeFileKnowledgeFilesPost {
+  file: string;
+}

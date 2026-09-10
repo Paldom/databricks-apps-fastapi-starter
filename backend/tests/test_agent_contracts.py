@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-from unittest.mock import MagicMock
-
 
 class TestResponseUtils:
     """response_utils helper tests."""

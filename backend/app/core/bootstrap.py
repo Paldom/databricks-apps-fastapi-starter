@@ -71,7 +71,7 @@ async def lifespan(application: FastAPI):
             try:
                 if runtime.ai_client is not None:
                     with tracer.start_as_current_span("shutdown.ai.client.close"):
-                        await runtime.ai_client.aclose()
+                        await runtime.ai_client.close()
 
                 if runtime.engine is not None:
                     with tracer.start_as_current_span("shutdown.db.pool.close"):

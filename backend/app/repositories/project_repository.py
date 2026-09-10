@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chat_session_model import ChatSession
@@ -105,7 +104,7 @@ class ProjectRepository:
                 Project.owner_user_id == owner_user_id,
             )
         )
-        return result.rowcount > 0
+        return getattr(result, "rowcount", 0) > 0
 
     async def get_project(self, owner_user_id: str, project_id: str) -> Project | None:
         result = await self._session.execute(
