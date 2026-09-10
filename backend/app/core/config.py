@@ -25,9 +25,18 @@ class Settings(BaseSettings):
     pg_password: Optional[str] = Field(
         default=None, validation_alias=AliasChoices("PGPASSWORD", "PG_PASSWORD")
     )
+    pg_sslmode: Optional[str] = Field(
+        default=None, validation_alias=AliasChoices("PGSSLMODE", "PG_SSLMODE")
+    )
     database_url: Optional[str] = (
         None  # local Docker Postgres; Lakebase uses PG* + OAuth
     )
+    # Lakebase: the app's service principal may create schemas but not write to
+    # "public", so the app owns this schema (created by the migrations).
+    db_schema: str = "app"
+    db_pool_size: int = 5
+    db_max_overflow: int = 5
+    db_pool_recycle_seconds: int = 3000  # below the hourly OAuth token lifetime
     environment: str = "development"
     app_version: Optional[str] = None  # set by the bundle from the git commit
     databricks_app_name: Optional[str] = None  # injected by Databricks Apps at runtime
@@ -59,13 +68,12 @@ class Settings(BaseSettings):
 
     # Chat orchestrator
     langgraph_memory_backend: str = "inmemory"  # "inmemory" | "lakebase"
-    supervisor_model: str = "databricks-claude-sonnet-4"
+    supervisor_model: str = "databricks-claude-sonnet-4-6"
 
     # Specialists
     app_agent_name: Optional[str] = None
     serving_agent_endpoint: Optional[str] = None
     genie_space_id: Optional[str] = None
-    knowledge_volume_root: Optional[str] = None
     ai_gateway_embedding_model: Optional[str] = None
 
     # Title generation
@@ -91,7 +99,7 @@ class Settings(BaseSettings):
         return (
             value
             if isinstance(value, str) and value.strip()
-            else "databricks-claude-sonnet-4"
+            else "databricks-claude-sonnet-4-6"
         )
 
     @field_validator("cors_allow_origins")

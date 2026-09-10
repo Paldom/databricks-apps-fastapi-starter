@@ -9,30 +9,17 @@ resources:
       max_concurrent_runs: 1
       queue:
         enabled: true
-
-      job_clusters:
-        - job_cluster_key: agent_eval_cluster
-          new_cluster:
-            spark_version: 17.1.x-scala2.12
-            node_type_id: ${var.cluster_node_type}
-            num_workers: 0
-            autotermination_minutes: 20
-            spark_conf:
-              spark.databricks.cluster.profile: singleNode
-              spark.master: local[*]
-            custom_tags:
-              ResourceClass: SingleNode
-
+      environments:
+        - environment_key: serverless
+          spec:
+            client: "3"
+            dependencies:
+              - mlflow[databricks]>=3.14,<4
+              - databricks-openai
+              - databricks-sdk
       tasks:
         - task_key: eval_app_agent
-          job_cluster_key: agent_eval_cluster
-          libraries:
-            - pypi:
-                package: "mlflow[databricks]>=3.1.0"
-            - pypi:
-                package: databricks-openai
-            - pypi:
-                package: databricks-sdk
+          environment_key: serverless
           notebook_task:
             notebook_path: ../notebooks/evals/run_agent_evals.py
             base_parameters:
@@ -43,14 +30,7 @@ resources:
               dataset_name: ${var.agent_eval_dataset_name}
 
         - task_key: eval_serving_agent
-          job_cluster_key: agent_eval_cluster
-          libraries:
-            - pypi:
-                package: "mlflow[databricks]>=3.1.0"
-            - pypi:
-                package: databricks-openai
-            - pypi:
-                package: databricks-sdk
+          environment_key: serverless
           notebook_task:
             notebook_path: ../notebooks/evals/run_agent_evals.py
             base_parameters:
@@ -61,14 +41,7 @@ resources:
               dataset_name: ${var.agent_eval_dataset_name}
 
         - task_key: eval_genie_agent
-          job_cluster_key: agent_eval_cluster
-          libraries:
-            - pypi:
-                package: "mlflow[databricks]>=3.1.0"
-            - pypi:
-                package: databricks-openai
-            - pypi:
-                package: databricks-sdk
+          environment_key: serverless
           notebook_task:
             notebook_path: ../notebooks/evals/run_agent_evals.py
             base_parameters:

@@ -3,11 +3,7 @@ from __future__ import annotations
 from sqlalchemy import text
 
 from app.core.config import Settings
-from app.core.integrations import (
-    ensure_ai_client,
-    ensure_vector_index,
-    ensure_workspace_client,
-)
+from app.core.integrations import ensure_ai_client, ensure_workspace_client
 from app.core.runtime import AppRuntime
 from app.models.health_dto import (
     DependencyCheck,
@@ -55,7 +51,10 @@ def check_vector_search(runtime: AppRuntime, settings: Settings) -> DependencyCh
     if not settings.has_vector_search_config():
         return DependencyCheck(status=HealthStatus.OK, reason="Not configured")
     try:
-        ensure_vector_index(runtime, settings)
+        workspace = ensure_workspace_client(runtime, settings)
+        workspace.vector_search_indexes.get_index(
+            settings.vector_search_index_name or ""
+        )
         return DependencyCheck(status=HealthStatus.OK)
     except Exception as exc:
         return DependencyCheck(status=HealthStatus.FAIL, reason=str(exc))

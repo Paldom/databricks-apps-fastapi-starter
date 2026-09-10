@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16
+    image: postgres:17
     restart: unless-stopped
     env_file:
       - ${ENV_FILE:-.env}
@@ -11,7 +11,7 @@ services:
     ports:
       - '${PGPORT:-5432}:5432'
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres17-data:/var/lib/postgresql/data
     healthcheck:
       test:
         ['CMD-SHELL', 'pg_isready -U ${PGUSER:-myuser} -d ${PGDATABASE:-mydb}']
@@ -20,4 +20,4 @@ services:
       retries: 10
 
 volumes:
-  postgres-data:
+  postgres17-data:

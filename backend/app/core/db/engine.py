@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
@@ -19,38 +20,45 @@ logger = logging.getLogger(__name__)
 
 
 def create_async_engine_from_settings(settings: Settings) -> AsyncEngine:
-    """Create an async SQLAlchemy engine from application settings.
+    """Engine for local Postgres or Lakebase.
 
-    When Databricks integrations are enabled and no explicit password is
-    configured, the engine authenticates to Lakebase using the app's OAuth
-    token via ``WorkspaceClient``.  This follows the official Databricks
-    pattern (see ``bundle-examples/app_with_database``).
+    Lakebase: the password is the app's OAuth token, supplied on every physical
+    connect (tokens expire hourly, so ``pool_recycle`` stays below that), TLS is
+    required, and ``pool_pre_ping`` reconnects after the endpoint resumes from
+    scale-to-zero.
     """
-    url = get_database_url(settings)
-    engine = create_async_engine(url, echo=False, future=True)
-
+    connect_args: dict[str, Any] = {
+        "server_settings": {"search_path": settings.db_schema},
+    }
+    if settings.pg_sslmode == "require":
+        connect_args["ssl"] = "require"
+    engine = create_async_engine(
+        get_database_url(settings),
+        pool_pre_ping=True,
+        pool_recycle=settings.db_pool_recycle_seconds,
+        pool_size=settings.db_pool_size,
+        max_overflow=settings.db_max_overflow,
+        connect_args=connect_args,
+    )
     if settings.databricks_integrations_enabled() and not settings.pg_password:
         _register_oauth_token_provider(engine.sync_engine)
-
     return engine
 
 
-def _register_oauth_token_provider(sync_engine) -> None:  # type: ignore[no-untyped-def]
-    """Provide the app's OAuth token as the database password on each connect."""
+def _register_oauth_token_provider(sync_engine: Any) -> None:
+    """Use the app's OAuth token as the database password on each connect."""
+    from databricks.sdk import WorkspaceClient
+
+    workspace = WorkspaceClient()  # one client; the SDK caches and refreshes the token
 
     @event.listens_for(sync_engine, "do_connect")
-    def provide_token(dialect, conn_rec, cargs, cparams):  # type: ignore[no-untyped-def]
-        try:
-            from databricks.sdk import WorkspaceClient
-
-            w = WorkspaceClient()
-            cparams["password"] = w.config.oauth_token().access_token
-        except Exception:
-            logger.debug("OAuth token refresh failed", exc_info=True)
+    def provide_token(
+        dialect: Any, conn_rec: Any, cargs: Any, cparams: dict[str, Any]
+    ) -> None:
+        cparams["password"] = workspace.config.oauth_token().access_token
 
     logger.info("Lakebase OAuth token provider registered")
 
 
 def create_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
-    """Create an async session factory bound to *engine*."""
     return async_sessionmaker(engine, expire_on_commit=False)

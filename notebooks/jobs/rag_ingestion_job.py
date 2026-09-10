@@ -16,6 +16,8 @@ import hashlib
 import json
 from typing import Any
 
+from databricks.sdk.runtime import dbutils, spark
+from databricks.vector_search.client import VectorSearchClient
 from pyspark.sql import functions as F, types as T
 from delta.tables import DeltaTable
 
@@ -28,6 +30,7 @@ dbutils.widgets.text("chunk_table_name", "")
 dbutils.widgets.text("vector_search_endpoint_name", "")
 dbutils.widgets.text("vector_search_index_name", "")
 dbutils.widgets.text("embedding_model_name", "databricks-gte-large-en")
+dbutils.widgets.text("knowledge_assistant_name", "")
 
 SOURCE_PATH = dbutils.widgets.get("source_path").rstrip("/")
 CHECKPOINT_PATH = dbutils.widgets.get("checkpoint_path").rstrip("/")
@@ -35,7 +38,10 @@ RAW_TABLE = dbutils.widgets.get("raw_table_name")
 CHUNK_TABLE = dbutils.widgets.get("chunk_table_name")
 VS_ENDPOINT = dbutils.widgets.get("vector_search_endpoint_name")
 VS_INDEX = dbutils.widgets.get("vector_search_index_name")
-EMBEDDING_MODEL = dbutils.widgets.get("embedding_model_name") or "databricks-gte-large-en"
+EMBEDDING_MODEL = (
+    dbutils.widgets.get("embedding_model_name") or "databricks-gte-large-en"
+)
+KA_NAME = dbutils.widgets.get("knowledge_assistant_name").strip()
 
 print(f"Source: {SOURCE_PATH}")
 print(f"Checkpoint: {CHECKPOINT_PATH}")
@@ -43,6 +49,7 @@ print(f"Raw table: {RAW_TABLE}")
 print(f"Chunk table: {CHUNK_TABLE}")
 print(f"VS endpoint: {VS_ENDPOINT}")
 print(f"VS index: {VS_INDEX}")
+print(f"KA name: {KA_NAME or '(not configured)'}")
 
 # COMMAND ----------
 
@@ -89,6 +96,7 @@ TBLPROPERTIES (delta.enableChangeDataFeed = true)
 #
 # Path convention: .../knowledge/uploads/<base64url_user_id>/<uuid>__<filename>
 
+
 @F.udf("string")
 def decode_user_id(encoded: str) -> str:
     """Decode base64url-encoded user_id (without padding)."""
@@ -96,16 +104,21 @@ def decode_user_id(encoded: str) -> str:
         return ""
     padding = "=" * (-len(encoded) % 4)
     try:
-        return base64.urlsafe_b64decode((encoded + padding).encode("utf-8")).decode("utf-8")
+        return base64.urlsafe_b64decode((encoded + padding).encode("utf-8")).decode(
+            "utf-8"
+        )
     except Exception:
         return encoded  # fallback: use raw value
+
 
 incoming = (
     spark.readStream.format("cloudFiles")
     .option("cloudFiles.format", "binaryFile")
     .option("cloudFiles.schemaLocation", f"{CHECKPOINT_PATH}/schema")
     .load(SOURCE_PATH)
-    .withColumn("_encoded_uid", F.regexp_extract("path", r"/knowledge/uploads/([^/]+)/", 1))
+    .withColumn(
+        "_encoded_uid", F.regexp_extract("path", r"/knowledge/uploads/([^/]+)/", 1)
+    )
     .withColumn("user_id", decode_user_id("_encoded_uid"))
     .withColumn("document_id", F.regexp_extract("path", r"/([0-9a-fA-F-]{36})__", 1))
     .withColumn("file_name", F.regexp_extract("path", r"__([^/]+)$", 1))
@@ -114,14 +127,20 @@ incoming = (
     .withColumn("modification_time", F.col("modificationTime"))
     .withColumn("ingested_at", F.current_timestamp())
     .select(
-        "document_id", "user_id", "path", "file_name", "file_extension",
-        "content", "file_size", "modification_time", "ingested_at",
+        "document_id",
+        "user_id",
+        "path",
+        "file_name",
+        "file_extension",
+        "content",
+        "file_size",
+        "modification_time",
+        "ingested_at",
     )
 )
 
 (
-    incoming.writeStream
-    .option("checkpointLocation", f"{CHECKPOINT_PATH}/raw")
+    incoming.writeStream.option("checkpointLocation", f"{CHECKPOINT_PATH}/raw")
     .trigger(availableNow=True)
     .toTable(RAW_TABLE)
 ).awaitTermination()
@@ -140,21 +159,17 @@ to_process = raw_df.join(existing_doc_ids, on="document_id", how="left_anti")
 n_to_process = to_process.count()
 print(f"New documents to process: {n_to_process}")
 
-if n_to_process == 0:
-    dbutils.notebook.exit(json.dumps({
-        "status": "ok",
-        "raw_rows": raw_count,
-        "new_docs_processed": 0,
-        "chunks_written": 0,
-    }))
+# Zero new documents still runs the index sync and the optional KA registration below,
+# so a run that failed after the MERGE can be repaired by re-running the job.
 
 # COMMAND ----------
 
 # ── 4. Parse with ai_parse_document and extract metadata ──────────
 
 parsed_df = (
-    to_process
-    .withColumn("parsed", F.expr("ai_parse_document(content, map('version', '2.0'))"))
+    to_process.withColumn(
+        "parsed", F.expr("ai_parse_document(content, map('version', '2.0'))")
+    )
     .withColumn(
         "page_count",
         F.coalesce(
@@ -199,7 +214,11 @@ parsed_df = (
     .withColumn("document_summary", F.expr("ai_summarize(document_text)"))
     .withColumn(
         "extracted_entities",
-        F.to_json(F.expr("ai_extract(document_text, array('people', 'organizations', 'products', 'dates'))")),
+        F.to_json(
+            F.expr(
+                "ai_extract(document_text, array('people', 'organizations', 'products', 'dates'))"
+            )
+        ),
     )
     .filter(F.length(F.trim(F.col("document_text"))) > 0)
 )
@@ -208,7 +227,10 @@ parsed_df = (
 
 # ── 5. Chunk parsed documents ─────────────────────────────────────
 
-def split_text(text: str, chunk_size: int = 1200, overlap: int = 200) -> list[tuple[int, str]]:
+
+def split_text(
+    text: str, chunk_size: int = 1200, overlap: int = 200
+) -> list[tuple[int, str]]:
     """Split text into overlapping chunks. Returns (index, text) pairs."""
     text = (text or "").strip()
     if not text:
@@ -227,10 +249,21 @@ def split_text(text: str, chunk_size: int = 1200, overlap: int = 200) -> list[tu
         start = max(0, end - overlap)
     return parts
 
+
 rows = parsed_df.select(
-    "document_id", "user_id", "doc_uri", "file_name", "file_extension",
-    "page_count", "document_title", "path", "ingested_at", "parser_metadata",
-    "document_summary", "extracted_entities", "document_text",
+    "document_id",
+    "user_id",
+    "doc_uri",
+    "file_name",
+    "file_extension",
+    "page_count",
+    "document_title",
+    "path",
+    "ingested_at",
+    "parser_metadata",
+    "document_summary",
+    "extracted_entities",
+    "document_text",
 ).collect()
 
 chunk_rows: list[dict[str, Any]] = []
@@ -238,23 +271,25 @@ for row in rows:
     for chunk_index, chunk_text in split_text(row["document_text"]):
         raw_id = f"{row['document_id']}::{chunk_index}"
         chunk_id = hashlib.sha256(raw_id.encode("utf-8")).hexdigest()
-        chunk_rows.append({
-            "chunk_id": chunk_id,
-            "document_id": row["document_id"],
-            "user_id": row["user_id"],
-            "doc_uri": row["doc_uri"],
-            "file_name": row["file_name"],
-            "file_extension": row["file_extension"],
-            "chunk_index": chunk_index,
-            "chunk_text": chunk_text,
-            "page_count": row["page_count"],
-            "document_title": row["document_title"],
-            "source_path": row["path"],
-            "ingested_at": row["ingested_at"],
-            "parser_metadata": row["parser_metadata"],
-            "document_summary": row["document_summary"],
-            "extracted_entities": row["extracted_entities"],
-        })
+        chunk_rows.append(
+            {
+                "chunk_id": chunk_id,
+                "document_id": row["document_id"],
+                "user_id": row["user_id"],
+                "doc_uri": row["doc_uri"],
+                "file_name": row["file_name"],
+                "file_extension": row["file_extension"],
+                "chunk_index": chunk_index,
+                "chunk_text": chunk_text,
+                "page_count": row["page_count"],
+                "document_title": row["document_title"],
+                "source_path": row["path"],
+                "ingested_at": row["ingested_at"],
+                "parser_metadata": row["parser_metadata"],
+                "document_summary": row["document_summary"],
+                "extracted_entities": row["extracted_entities"],
+            }
+        )
 
 print(f"Chunks to write: {len(chunk_rows)}")
 
@@ -263,23 +298,25 @@ print(f"Chunks to write: {len(chunk_rows)}")
 # ── 6. MERGE chunks into chunk table ──────────────────────────────
 
 if chunk_rows:
-    chunk_schema = T.StructType([
-        T.StructField("chunk_id", T.StringType(), False),
-        T.StructField("document_id", T.StringType(), False),
-        T.StructField("user_id", T.StringType(), False),
-        T.StructField("doc_uri", T.StringType(), False),
-        T.StructField("file_name", T.StringType(), False),
-        T.StructField("file_extension", T.StringType(), False),
-        T.StructField("chunk_index", T.IntegerType(), False),
-        T.StructField("chunk_text", T.StringType(), False),
-        T.StructField("page_count", T.IntegerType(), True),
-        T.StructField("document_title", T.StringType(), True),
-        T.StructField("source_path", T.StringType(), False),
-        T.StructField("ingested_at", T.TimestampType(), False),
-        T.StructField("parser_metadata", T.StringType(), True),
-        T.StructField("document_summary", T.StringType(), True),
-        T.StructField("extracted_entities", T.StringType(), True),
-    ])
+    chunk_schema = T.StructType(
+        [
+            T.StructField("chunk_id", T.StringType(), False),
+            T.StructField("document_id", T.StringType(), False),
+            T.StructField("user_id", T.StringType(), False),
+            T.StructField("doc_uri", T.StringType(), False),
+            T.StructField("file_name", T.StringType(), False),
+            T.StructField("file_extension", T.StringType(), False),
+            T.StructField("chunk_index", T.IntegerType(), False),
+            T.StructField("chunk_text", T.StringType(), False),
+            T.StructField("page_count", T.IntegerType(), True),
+            T.StructField("document_title", T.StringType(), True),
+            T.StructField("source_path", T.StringType(), False),
+            T.StructField("ingested_at", T.TimestampType(), False),
+            T.StructField("parser_metadata", T.StringType(), True),
+            T.StructField("document_summary", T.StringType(), True),
+            T.StructField("extracted_entities", T.StringType(), True),
+        ]
+    )
 
     chunk_df = spark.createDataFrame(chunk_rows, schema=chunk_schema)
 
@@ -295,14 +332,8 @@ print(f"Chunks written: {len(chunk_rows)}")
 
 # COMMAND ----------
 
-# ── 7. Sync Vector Search index (fallback: create if missing) ────────
-#
-# The bootstrap job (bootstrap_rag_resources.py) is the primary
-# provisioning path for the VS endpoint and index. This block is a
-# fallback safety net — it creates resources only if they are
-# unexpectedly absent (e.g. bootstrap was skipped or failed).
-
-from databricks.vector_search.client import VectorSearchClient
+# ── 7. Sync Vector Search index ────────────────────────────────────
+# Create the index if missing; the endpoint is bundle-owned.
 
 vsc = VectorSearchClient(disable_notice=True)
 
@@ -310,13 +341,7 @@ try:
     vsc.get_index(index_name=VS_INDEX)
     print(f"Index exists: {VS_INDEX}")
 except Exception:
-    print(f"WARNING: Index {VS_INDEX} not found — running fallback provisioning.")
-    print("This should have been created by the bootstrap job.")
-    try:
-        vsc.create_endpoint(name=VS_ENDPOINT, endpoint_type="STANDARD")
-    except Exception as e:
-        print(f"Endpoint creation skipped (may already exist): {e}")
-
+    print(f"Creating Delta Sync index: {VS_INDEX}")
     vsc.create_delta_sync_index(
         endpoint_name=VS_ENDPOINT,
         source_table_name=CHUNK_TABLE,
@@ -326,10 +351,20 @@ except Exception:
         embedding_source_column="chunk_text",
         embedding_model_endpoint_name=EMBEDDING_MODEL,
         columns_to_sync=[
-            "document_id", "user_id", "doc_uri", "file_name", "file_extension",
-            "chunk_index", "chunk_text", "page_count", "document_title",
-            "source_path", "ingested_at", "parser_metadata",
-            "document_summary", "extracted_entities",
+            "document_id",
+            "user_id",
+            "doc_uri",
+            "file_name",
+            "file_extension",
+            "chunk_index",
+            "chunk_text",
+            "page_count",
+            "document_title",
+            "source_path",
+            "ingested_at",
+            "parser_metadata",
+            "document_summary",
+            "extracted_entities",
         ],
     )
 
@@ -340,7 +375,48 @@ print("Vector Search index sync triggered")
 
 # COMMAND ----------
 
-# ── 8. Summary ────────────────────────────────────────────────────
+# ── 8. Register the index as a Knowledge Assistant source (optional) ──
+
+if KA_NAME:
+    try:
+        from databricks.sdk import WorkspaceClient
+
+        w = WorkspaceClient()
+        existing = w.knowledge_assistants.list_knowledge_sources(parent=KA_NAME)
+        if any(
+            source.index and source.index.index_name == VS_INDEX for source in existing
+        ):
+            print(f"KA source already registered for index: {VS_INDEX}")
+        else:
+            from databricks.sdk.service.knowledgeassistants import (
+                IndexSpec,
+                KnowledgeSource,
+            )
+
+            created = w.knowledge_assistants.create_knowledge_source(
+                parent=KA_NAME,
+                knowledge_source=KnowledgeSource(
+                    display_name="Uploaded knowledge files",
+                    description="Uploaded-document index",
+                    source_type="index",
+                    index=IndexSpec(
+                        index_name=VS_INDEX,
+                        text_col="chunk_text",
+                        doc_uri_col="doc_uri",
+                    ),
+                ),
+            )
+            print(f"KA source created: {getattr(created, 'name', created)}")
+    except ImportError as exc:
+        print(f"WARNING: Knowledge Assistants SDK not available: {exc}")
+    except Exception as exc:
+        print(f"WARNING: KA source registration failed: {exc}")
+else:
+    print("No Knowledge Assistant configured; skipping source registration.")
+
+# COMMAND ----------
+
+# ── 9. Summary ────────────────────────────────────────────────────
 
 summary = {
     "status": "ok",
@@ -348,6 +424,7 @@ summary = {
     "new_docs_processed": n_to_process,
     "chunks_written": len(chunk_rows),
     "vector_index": VS_INDEX,
+    "knowledge_assistant": KA_NAME or None,
 }
 print(json.dumps(summary, indent=2))
 dbutils.notebook.exit(json.dumps(summary))

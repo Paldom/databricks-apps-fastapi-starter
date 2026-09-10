@@ -40,7 +40,7 @@ dbutils.widgets.text("target_name", "")  # noqa: F821
 dbutils.widgets.dropdown("eval_mode", "single_turn", ["single_turn", "multi_turn"])  # noqa: F821
 dbutils.widgets.text("eval_experiment_name", "/Shared/databricks-apps-fastapi-starter/evals")  # noqa: F821
 dbutils.widgets.text("dataset_name", "")  # noqa: F821
-dbutils.widgets.text("judge_model", "databricks-claude-sonnet-4")  # noqa: F821
+dbutils.widgets.text("judge_model", "databricks-claude-sonnet-4-6")  # noqa: F821
 dbutils.widgets.text("max_turns", "3")  # noqa: F821
 dbutils.widgets.dropdown("fail_on_missing_target", "false", ["true", "false"])  # noqa: F821
 

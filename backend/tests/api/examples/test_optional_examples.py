@@ -98,23 +98,3 @@ def test_agent_ask_returns_503_when_integrations_are_disabled():
 
     assert response.status_code == 503
     assert "ENABLE_DATABRICKS_INTEGRATIONS" in response.json()["detail"]
-
-
-def test_vector_store_returns_503_when_integrations_are_disabled():
-    api_app = _api_app()
-    api_app.dependency_overrides[get_settings] = lambda: Settings(
-        enable_examples=True,
-        serving_endpoint_name="starter-endpoint",
-        vector_search_endpoint_name="starter-vs",
-        vector_search_index_name="main.default.starter_index",
-    )
-    try:
-        with TestClient(app_main.app, headers=_AUTH) as client:
-            response = client.post(
-                "/api/examples/vector/store", json={"title": "hello"}
-            )
-    finally:
-        api_app.dependency_overrides.clear()
-
-    assert response.status_code == 503
-    assert "ENABLE_DATABRICKS_INTEGRATIONS" in response.json()["detail"]

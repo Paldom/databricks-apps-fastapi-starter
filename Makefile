@@ -70,7 +70,7 @@ migrate-new:
 # ── Generate ───────────────────────────────────────────────────────
 
 requirements-export:
-	cd $(BACKEND_DIR) && $(UV) export --no-hashes --no-editable --format=requirements.txt > requirements.txt
+	cd $(BACKEND_DIR) && $(UV) export --no-hashes --no-editable --no-emit-project --format=requirements.txt > requirements.txt
 
 openapi-export:
 	cd $(BACKEND_DIR) && $(UV) run python scripts/export_openapi.py

@@ -3,12 +3,12 @@ resources:
     rag_schema:
       catalog_name: ${var.rag_catalog_name}
       name: ${var.rag_schema_name}
-      comment: RAG starter schema for document ingestion
+      comment: Uploaded documents, chunks, AI Search index and app telemetry
 
   volumes:
     rag_upload_volume:
       catalog_name: ${var.rag_catalog_name}
-      schema_name: ${var.rag_schema_name}
+      schema_name: ${resources.schemas.rag_schema.name}
       name: ${var.rag_volume_name}
       volume_type: MANAGED
-      comment: Uploaded knowledge files for RAG ingestion
+      comment: Uploaded knowledge files for ingestion

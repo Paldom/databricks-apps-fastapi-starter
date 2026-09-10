@@ -13,7 +13,6 @@ from app.core.db.deps import get_async_session, get_engine  # noqa: F401 – re-
 from app.core.errors import AuthenticationError
 from app.core.integrations import (
     ensure_ai_client,
-    ensure_vector_index,
     ensure_workspace_client,
 )
 from app.core.logging import get_logger as _get_logger
@@ -97,11 +96,6 @@ def get_user_ai_client(request: Request) -> AsyncOpenAI:
         workspace_client=user_client,
         timeout=float(_get_request_settings(request).openai_timeout_seconds),
     )
-
-
-def get_vector_index(request: Request) -> Any:
-    runtime = get_runtime(request)
-    return ensure_vector_index(runtime, _get_request_settings(request))
 
 
 def get_current_user(request: Request) -> CurrentUser:

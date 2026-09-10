@@ -2,19 +2,100 @@ resources:
   apps:
     fastapi_app:
       name: ${var.app_name}
-      description: "FastAPI RAG starter deployed from bundle"
+      description: FastAPI + React starter with Lakebase, AI Search and a LangGraph supervisor
       source_code_path: ../backend
-      config: ${var.app_config}
-      user_api_scopes:
-        - files.files
+      compute_size: MEDIUM
+      lifecycle:
+        started: true
+      config:
+        command:
+          - opentelemetry-instrument
+          - python
+          - run_app.py
+        env:
+          - name: APP_VERSION
+            value: ${bundle.git.commit}
+          - name: ENVIRONMENT
+            value: ${var.environment}
+          - name: LOG_LEVEL
+            value: ${var.log_level}
+          - name: ENABLE_OBO
+            value: ${var.enable_obo}
+          - name: ENABLE_DOCS
+            value: ${var.enable_docs}
+          - name: ENABLE_EXAMPLES
+            value: ${var.enable_examples}
+          - name: SERVE_STATIC
+            value: "true"
+          - name: ENABLE_DATABRICKS_INTEGRATIONS
+            value: "true"
+          - name: ENABLE_LOCAL_DEV_AUTH_FALLBACK
+            value: "false"
+          - name: OTEL_TRACES_SAMPLER
+            value: ${var.otel_traces_sampler}
+          - name: OTEL_TRACES_SAMPLER_ARG
+            value: "0.1"
+          - name: OTEL_PYTHON_LOG_CORRELATION
+            value: "true"
+          - name: JOB_ID
+            value_from: app-job
+          - name: VOLUME_ROOT
+            value_from: uc-volume
+          - name: SUPERVISOR_MODEL
+            value_from: supervisor-model
+          - name: MLFLOW_EXPERIMENT_ID
+            value_from: experiment
+          - name: MLFLOW_TRACKING_URI
+            value: databricks
+          - name: MLFLOW_REGISTRY_URI
+            value: databricks-uc
+          # The platform points OTLP at the telemetry tables; MLflow would otherwise export
+          # traces only there and never to the experiment.
+          - name: MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
+            value: "true"
+          - name: AI_GATEWAY_EMBEDDING_MODEL
+            value_from: embedding-model
+          - name: LANGGRAPH_MEMORY_BACKEND
+            value: ${var.langgraph_memory_backend}
+          - name: VECTOR_SEARCH_ENDPOINT_NAME
+            value: ${resources.vector_search_endpoints.rag_endpoint.name}
+          - name: VECTOR_SEARCH_INDEX_NAME
+            value: ${var.rag_catalog_name}.${resources.schemas.rag_schema.name}.rag_chunks_index
+          - name: ENABLE_CHAT_TITLE_GENERATION
+            value: "true"
+          # Optional specialists (the platform rejects empty values): uncomment together with
+          # the matching binding below and set the variable in your target.
+          # - name: TITLE_MODEL
+          #   value: ${var.title_model}
+          # - name: KNOWLEDGE_ASSISTANT_ENDPOINT
+          #   value_from: knowledge-assistant
+          # - name: APP_AGENT_NAME
+          #   value_from: app-agent
+          # - name: GENIE_SPACE_ID
+          #   value_from: genie-space
+          # - name: SERVING_AGENT_ENDPOINT
+          #   value_from: serving-agent
+          - name: MAX_UPLOAD_BYTES
+            value: "52428800"
+      telemetry_export_destinations:
+        - unity_catalog:
+            logs_table: ${var.rag_catalog_name}.${resources.schemas.rag_schema.name}.app_logs
+            metrics_table: ${var.rag_catalog_name}.${resources.schemas.rag_schema.name}.app_metrics
+            traces_table: ${var.rag_catalog_name}.${resources.schemas.rag_schema.name}.app_traces
       permissions:
         - level: CAN_USE
           group_name: users
       resources:
-        - name: serving-endpoint
-          serving_endpoint:
-            name: ${resources.model_serving_endpoints.starter_endpoint.name}
-            permission: CAN_QUERY
+        - name: postgres
+          description: Lakebase database (schemas are created by the app's migrations)
+          postgres:
+            branch: ${resources.postgres_projects.app_db.id}/branches/production
+            database: ${resources.postgres_databases.main_database.id}
+            permission: CAN_CONNECT_AND_CREATE
+        - name: experiment
+          experiment:
+            experiment_id: ${resources.experiments.app_experiment.id}
+            permission: CAN_MANAGE
         - name: app-job
           job:
             id: ${resources.jobs.rag_ingestion_job.id}
@@ -22,22 +103,22 @@ resources:
         - name: uc-volume
           uc_securable:
             securable_type: VOLUME
-            securable_full_name: ${var.rag_catalog_name}.${var.rag_schema_name}.${var.rag_volume_name}
+            securable_full_name: ${var.rag_catalog_name}.${resources.schemas.rag_schema.name}.${resources.volumes.rag_upload_volume.name}
             permission: WRITE_VOLUME
-        - name: lakebase-db
-          database:
-            database_name: ${resources.database_catalogs.app_database.database_name}
-            instance_name: ${resources.database_catalogs.app_database.database_instance_name}
-            permission: CAN_CONNECT_AND_CREATE
-        - name: knowledge-assistant
+        - name: supervisor-model
           serving_endpoint:
-            name: ${var.knowledge_assistant_endpoint_name}
+            name: ${var.supervisor_model}
             permission: CAN_QUERY
-        - name: serving-agent
+        - name: embedding-model
           serving_endpoint:
-            name: ${var.serving_agent_endpoint}
+            name: ${var.ai_gateway_embedding_model}
             permission: CAN_QUERY
-        - name: experiment
-          experiment:
-            experiment_id: ${resources.experiments.app_experiment.id}
-            permission: CAN_MANAGE
+        # Optional specialist bindings (pair with the env entries above):
+        # - name: genie-space
+        #   genie_space: { space_id: "${var.genie_space_id}", permission: CAN_RUN }
+        # - name: knowledge-assistant
+        #   serving_endpoint: { name: "${var.knowledge_assistant_endpoint_name}", permission: CAN_QUERY }
+        # - name: serving-agent
+        #   serving_endpoint: { name: "${var.serving_agent_endpoint}", permission: CAN_QUERY }
+        # - name: app-agent
+        #   app: { name: "${var.app_agent_name}", permission: CAN_USE }

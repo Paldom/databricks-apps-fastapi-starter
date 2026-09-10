@@ -1,6 +1,5 @@
 import io
 import os
-import uuid
 from collections.abc import AsyncGenerator
 from logging import Logger
 from typing import Annotated, Any, Literal
@@ -25,7 +24,7 @@ from app.core.deps import (
     get_user_ai_client,
     get_user_info,
     get_user_workspace_client,
-    get_vector_index,
+    get_workspace_client,
 )
 from app.core.errors import ConfigurationError, NotFoundError, RequestTooLargeError
 from app.core.integrations import databricks_integrations_disabled_message
@@ -158,32 +157,6 @@ async def embed(
     return {"vector": vector}
 
 
-@router.post("/vector/store")
-async def vector_store(
-    request: Request,
-    body: ExampleTitle,
-    settings: Annotated[Settings, Depends(get_settings)],
-    logger: Annotated[Logger, Depends(get_logger)],
-    user: Annotated[UserInfo, Depends(get_user_info)],
-):
-    model = _require_embedding_model(settings)
-    ai_adapter = AiGatewayAdapter(get_ai_client(request), logger)
-    vector_adapter = VectorSearchAdapter(get_vector_index(request), logger)
-
-    vector = await ai_adapter.embed(model, body.title)
-    doc = {
-        "id": str(uuid.uuid4()),
-        "values": vector,
-        "metadata": {"user": user.user_id},
-        "text": body.title,
-    }
-    await vector_adapter.upsert(
-        [doc],
-        timeout=float(settings.vector_timeout_seconds),
-    )
-    return {"id": doc["id"], "vector": vector}
-
-
 @router.post("/vector/query")
 async def vector_query(
     request: Request,
@@ -194,13 +167,15 @@ async def vector_query(
 ):
     model = _require_embedding_model(settings)
     ai_adapter = AiGatewayAdapter(get_ai_client(request), logger)
-    vector_adapter = VectorSearchAdapter(get_vector_index(request), logger)
+    vector_adapter = VectorSearchAdapter(
+        get_workspace_client(request), settings.vector_search_index_name or "", logger
+    )
 
     vector = await ai_adapter.embed(model, body.title)
     return await vector_adapter.similarity_search(
         query_vector=vector,
-        columns=["text"],
-        filters={"user": user.user_id},
+        columns=["chunk_text", "doc_uri"],
+        filters={"user_id": user.user_id},
         num_results=3,
         timeout=float(settings.vector_timeout_seconds),
     )

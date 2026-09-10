@@ -25,7 +25,6 @@ async def test_lifespan_creates_engine_and_disposes(mocker):
         assert runtime.session_factory is not None
         assert runtime.workspace_client is None
         assert runtime.ai_client is None
-        assert runtime.vector_index is None
 
     fake_engine.dispose.assert_awaited_once()
 

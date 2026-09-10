@@ -1,12 +1,9 @@
-"""Databricks Apps entrypoint.
+"""Databricks Apps entrypoint: migrate, then serve.
 
-When deployed via ``databricks bundle``, the app source root is ``backend/``
-(set via ``source_code_path: ./backend`` in the bundle resource).  The working
-directory is therefore ``backend/``, so ``app.*`` imports resolve without any
-path manipulation.
-
-Migrations run automatically on every deploy/restart — there is no separate
-migration step.
+The bundle sets ``source_code_path`` to ``backend/``, so this runs with ``backend/`` as
+the working directory. Migrations run on every start; a failed migration stops the
+process so the platform reports the error instead of a half-migrated app that looks
+healthy.
 """
 
 from __future__ import annotations
@@ -16,39 +13,27 @@ import os
 
 import uvicorn
 
+from app.core.config import settings
+
 logger = logging.getLogger(__name__)
 
 
 def run_migrations() -> None:
-    """Run pending Alembic migrations before the server starts.
+    if not settings.has_database_config():
+        logger.warning("No database configured; skipping migrations")
+        return
+    from alembic import command as alembic_command
+    from alembic.config import Config
 
-    Uses the same engine factory as the app, which includes the OAuth
-    ``do_connect`` hook for Lakebase authentication when deployed.
-    Failures are logged but do not prevent the server from starting —
-    this allows health endpoints to respond so the platform can report
-    the real error.
-    """
-    try:
-        from alembic import command as alembic_command
-        from alembic.config import Config
-
-        alembic_cfg = Config("alembic.ini")
-        alembic_command.upgrade(alembic_cfg, "head")
-        logger.info("Database migrations completed")
-    except Exception as exc:
-        logger.warning("Database migrations failed: %s", exc)
+    alembic_command.upgrade(Config("alembic.ini"), "head")
+    logger.info("Database migrations completed")
 
 
 def run_server() -> None:
-    """Start the uvicorn server."""
     uvicorn.run(
         "app.main:app",
-        host="0.0.0.0",
-        port=int(
-            os.environ.get(
-                "DATABRICKS_APP_PORT", os.environ.get("UVICORN_PORT", "8000")
-            )
-        ),
+        host="0.0.0.0",  # nosec B104 - the Apps proxy is the only client of this port
+        port=int(os.environ.get("DATABRICKS_APP_PORT", "8000")),
         log_level=os.environ.get("UVICORN_LOG_LEVEL", "info"),
     )
 

@@ -51,10 +51,13 @@ def get_agent_adapter(
 
 
 def list_available_backends(settings: Settings) -> list[str]:
-    """Return backend names that are configured (by settings alone)."""
+    """Return backend names that are configured (by settings alone).
+
+    ``supervisor`` (this app's own LangGraph agent) is always available.
+    """
     configured = {
         "app": bool(settings.app_agent_name),
         "serving_endpoint": bool(settings.serving_agent_endpoint),
         "genie": bool(settings.genie_space_id),
     }
-    return [name for name in KNOWN_BACKENDS if configured[name]]
+    return ["supervisor"] + [name for name in KNOWN_BACKENDS if configured[name]]

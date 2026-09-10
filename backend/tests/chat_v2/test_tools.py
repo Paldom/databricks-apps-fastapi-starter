@@ -34,28 +34,23 @@ class TestParseGenieResponse:
 
 
 class TestFormatKnowledgeResults:
-    def test_formats_hits_with_columns(self):
-        results = {
-            "result": {
-                "column_names": ["text", "score"],
-                "data_array": [
-                    ["Some document text", 0.95],
-                    ["Another doc", 0.85],
-                ],
-            }
-        }
-        formatted = _format_knowledge_results(results, "/Volumes/main/default")
-        assert "[1]" in formatted
-        assert "[2]" in formatted
-        assert "Some document text" in formatted
+    def test_formats_hits_with_source_and_score(self):
+        hits = [
+            {
+                "chunk_text": "Some document text",
+                "doc_uri": "/Volumes/a.pdf",
+                "score": 0.95,
+            },
+            {"chunk_text": "Another doc", "file_name": "b.pdf"},
+        ]
+        formatted = _format_knowledge_results(hits)
+        assert formatted.startswith(
+            "[1] Some document text\n    Source: /Volumes/a.pdf (score: 0.95)"
+        )
+        assert "[2] Another doc\n    Source: b.pdf" in formatted
 
     def test_empty_results(self):
-        assert _format_knowledge_results(None, "/vol") == ""
-        assert _format_knowledge_results({}, "/vol") == ""
-
-    def test_empty_data_array(self):
-        results = {"result": {"column_names": ["text"], "data_array": []}}
-        assert _format_knowledge_results(results, "/vol") == ""
+        assert _format_knowledge_results([]) == ""
 
 
 class TestServingTool:

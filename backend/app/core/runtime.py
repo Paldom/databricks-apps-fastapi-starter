@@ -14,7 +14,6 @@ class AppRuntime:
     session_factory: async_sessionmaker[AsyncSession] | None = None
     workspace_client: WorkspaceClient | None = None
     ai_client: AsyncOpenAI | None = None
-    vector_index: Any | None = None
     chat_orchestrator: Any | None = None  # built once on first chat request
 
 

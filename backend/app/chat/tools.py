@@ -32,7 +32,6 @@ def build_tools(
     *,
     ai_client: AsyncOpenAI,
     workspace_client: Any | None = None,
-    vector_index: Any | None = None,
     logger: logging.Logger | None = None,
 ) -> list:
     """Build LangChain tools from enabled specialist specs."""
@@ -50,7 +49,6 @@ def build_tools(
             settings,
             ai_client=ai_client,
             workspace_client=workspace_client,
-            vector_index=vector_index,
         )
         tools.append(tool)
         log.info("Registered tool: %s", spec.key)
@@ -164,7 +162,7 @@ def _build_knowledge_tool(
     settings: Settings,
     *,
     ai_client: AsyncOpenAI,
-    vector_index: Any | None = None,
+    workspace_client: Any | None = None,
     **_: Any,
 ) -> Any:
     ka_endpoint = settings.knowledge_assistant_endpoint
@@ -178,7 +176,7 @@ def _build_knowledge_tool(
         spec,
         settings,
         ai_client=ai_client,
-        vector_index=vector_index,
+        workspace_client=workspace_client,
     )
 
 
@@ -218,19 +216,27 @@ def _build_ka_endpoint_tool(
     return knowledge_assistant
 
 
+KNOWLEDGE_COLUMNS = [
+    "chunk_text",
+    "doc_uri",
+    "document_title",
+    "file_name",
+    "chunk_index",
+]
+
+
 def _build_direct_vs_tool(
     spec: SpecialistSpec,
     settings: Settings,
     *,
     ai_client: AsyncOpenAI,
-    vector_index: Any | None = None,
+    workspace_client: Any | None = None,
 ) -> Any:
     """Build a knowledge tool backed by direct embed + vector search."""
     from langchain_core.tools import tool
 
     embedding_model = settings.ai_gateway_embedding_model or ""
     index_name = settings.vector_search_index_name or ""
-    volume_root = settings.knowledge_volume_root or settings.volume_root
 
     @tool
     async def knowledge_assistant(question: str) -> str:  # noqa: D401
@@ -243,22 +249,24 @@ def _build_direct_vs_tool(
                 "knowledge.index": safe_attr(index_name),
             },
         ) as span:
+            if workspace_client is None:
+                return "Knowledge base unavailable: workspace client not configured"
             try:
                 from app.core.databricks.ai_gateway import AiGatewayAdapter
                 from app.core.databricks.vector_search import VectorSearchAdapter
 
-                ai_adapter = AiGatewayAdapter(ai_client, _logger)
-                query_vector = await ai_adapter.embed(embedding_model, question)
-
-                vs_adapter = VectorSearchAdapter(vector_index, _logger)
-                results = await vs_adapter.similarity_search(
+                query_vector = await AiGatewayAdapter(ai_client, _logger).embed(
+                    embedding_model, question
+                )
+                hits = await VectorSearchAdapter(
+                    workspace_client, index_name, _logger
+                ).similarity_search(
                     query_vector=query_vector,
-                    columns=["text"],
+                    columns=KNOWLEDGE_COLUMNS,
                     num_results=5,
                     timeout=float(settings.vector_timeout_seconds),
                 )
-
-                formatted = _format_knowledge_results(results, volume_root)
+                formatted = _format_knowledge_results(hits)
                 span.set_attribute("result", "ok")
                 return formatted if formatted else "No relevant documents found."
             except Exception as exc:
@@ -269,34 +277,17 @@ def _build_direct_vs_tool(
     return knowledge_assistant
 
 
-def _format_knowledge_results(results: Any, volume_root: str) -> str:
-    """Normalize vector search results into a citation-rich string."""
-    if results is None:
-        return ""
-    hits: list[dict[str, Any]] = []
-    if isinstance(results, dict):
-        data = results.get("result", {})
-        if isinstance(data, dict):
-            rows = data.get("data_array", [])
-            columns = data.get("column_names", [])
-            for row in rows:
-                hit = dict(zip(columns, row)) if columns else {"text": str(row)}
-                hits.append(hit)
-        elif isinstance(data, list):
-            for item in data:
-                hits.append(item if isinstance(item, dict) else {"text": str(item)})
-    if not hits:
-        return ""
+def _format_knowledge_results(hits: list[dict[str, Any]]) -> str:
+    """Numbered chunks with their source, for the supervisor to cite."""
     parts: list[str] = []
     for i, hit in enumerate(hits, 1):
-        text = hit.get("text", "")
-        score = hit.get("score", "")
-        source = hit.get("source_path") or hit.get("metadata", {}).get("source", "")
+        text = hit.get("chunk_text") or hit.get("text") or ""
+        source = hit.get("doc_uri") or hit.get("source_path") or hit.get("file_name")
         entry = f"[{i}] {text}"
         if source:
             entry += f"\n    Source: {source}"
-        if score:
-            entry += f" (score: {score})"
+        if hit.get("score"):
+            entry += f" (score: {hit['score']})"
         parts.append(entry)
     return "\n\n".join(parts)
 

@@ -1,3 +1,5 @@
+# Optional serving agent. First enablement: `databricks bundle run deploy_serving_agent`, then set
+# serving_agent_endpoint (and bind it to the app) and redeploy.
 resources:
   experiments:
     serving_agent_experiment:
@@ -7,21 +9,17 @@ resources:
     deploy_serving_agent:
       name: DeployServingAgent-${var.resource_name_suffix}
       max_concurrent_runs: 1
-      job_clusters:
-        - job_cluster_key: tiny
-          new_cluster:
-            spark_version: 17.1.x-scala2.12
-            node_type_id: ${var.cluster_node_type}
-            num_workers: 0
-            autotermination_minutes: 10
-            spark_conf:
-              spark.databricks.cluster.profile: singleNode
-              spark.master: local[*]
-            custom_tags:
-              ResourceClass: SingleNode
+      environments:
+        - environment_key: serverless
+          spec:
+            client: "3"
+            dependencies:
+              - mlflow[databricks]>=3.14,<4
+              - databricks-openai
+              - databricks-sdk
       tasks:
         - task_key: deploy_serving_agent
-          job_cluster_key: tiny
+          environment_key: serverless
           notebook_task:
             notebook_path: ../notebooks/serving/deploy.py
             base_parameters:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -10,16 +10,15 @@ from fastapi.testclient import TestClient
 class TestAgentsBackendsList:
     """GET /api/agents/backends returns available backends."""
 
-    def test_returns_empty_when_nothing_configured(self, test_client: TestClient):
-        """With no backends configured, returns empty list."""
+    def test_only_the_supervisor_when_nothing_else_is_configured(
+        self, test_client: TestClient
+    ):
         resp = test_client.get(
             "/api/agents/backends",
             headers={"X-Forwarded-User": "test-user"},
         )
         assert resp.status_code == 200
-        data = resp.json()
-        assert "backends" in data
-        assert isinstance(data["backends"], list)
+        assert resp.json()["backends"] == ["supervisor"]
 
 
 class TestAgentsInvocation:
@@ -47,3 +46,65 @@ class TestAgentsInvocation:
             )
             # Should error — either 422 validation or 500 from broken input
             assert resp.status_code in (404, 422, 500)
+
+
+class TestSupervisorInvocation:
+    """POST /api/agents/supervisor/invocations runs the app's own agent."""
+
+    def test_returns_responses_output_and_thread(self, test_client: TestClient):
+        orchestrator = MagicMock()
+        orchestrator.invoke = AsyncMock(return_value=("hello there", "tr-123"))
+        with patch(
+            "app.chat.deps.get_chat_orchestrator",
+            AsyncMock(return_value=orchestrator),
+        ):
+            resp = test_client.post(
+                "/api/agents/supervisor/invocations",
+                json={
+                    "input": [{"role": "user", "content": "Say hello"}],
+                    "custom_inputs": {"thread_id": "t-1"},
+                },
+                headers={"X-Forwarded-User": "test-user"},
+            )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["output"][0]["content"][0]["text"] == "hello there"
+        assert body["custom_outputs"]["thread_id"] == "t-1"
+        assert body["_meta"] == {
+            "source": "supervisor",
+            "downstream_trace_id": "tr-123",
+        }
+        messages, thread_key, context = orchestrator.invoke.call_args.args
+        assert messages == [{"role": "user", "content": "Say hello"}]
+        assert thread_key == "test-user:t-1"  # namespaced by the caller
+        assert context.user_id == "test-user"
+
+    def test_accepts_text_parts(self, test_client: TestClient):
+        orchestrator = MagicMock()
+        orchestrator.invoke = AsyncMock(return_value=("ok", None))
+        with patch(
+            "app.chat.deps.get_chat_orchestrator",
+            AsyncMock(return_value=orchestrator),
+        ):
+            resp = test_client.post(
+                "/api/agents/supervisor/invocations",
+                json={
+                    "input": [
+                        {
+                            "role": "user",
+                            "content": [{"type": "input_text", "text": "Hi there"}],
+                        }
+                    ]
+                },
+                headers={"X-Forwarded-User": "test-user"},
+            )
+        assert resp.status_code == 200, resp.text
+        assert orchestrator.invoke.call_args.args[0] == [
+            {"role": "user", "content": "Hi there"}
+        ]
+
+    def test_backends_list_always_includes_supervisor(self, test_client: TestClient):
+        resp = test_client.get(
+            "/api/agents/backends", headers={"X-Forwarded-User": "test-user"}
+        )
+        assert resp.json()["backends"][0] == "supervisor"

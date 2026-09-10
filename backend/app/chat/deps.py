@@ -22,7 +22,7 @@ from app.core.deps import (
     get_logger,
     get_runtime,
 )
-from app.core.integrations import ensure_workspace_client, ensure_vector_index
+from app.core.integrations import ensure_workspace_client
 
 _build_lock = asyncio.Lock()
 
@@ -62,11 +62,6 @@ async def _build_orchestrator(request: Request) -> ChatOrchestrator:
         settings,
         ai_client=ai_client,
         workspace_client=ensure_workspace_client(runtime, settings),
-        vector_index=(
-            ensure_vector_index(runtime, settings)
-            if settings.has_vector_search_config()
-            else None
-        ),
         logger=log,
     )
     prompt = build_supervisor_prompt(enabled_specs)

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -75,29 +77,44 @@ def update_trace_context(
     agent_name: str | None = None,
 ) -> None:
     """Attach metadata to the current MLflow trace (best-effort)."""
+    # MLflow 3 filters sessions/users on these metadata keys; the rest are tags.
     metadata: dict[str, str] = {}
     if session_id:
         metadata["mlflow.trace.session"] = session_id
     if user_id:
-        metadata["user_id"] = user_id
+        metadata["mlflow.trace.user"] = user_id
+    tags: dict[str, str] = {}
     if chat_id:
-        metadata["chat_id"] = chat_id
+        tags["chat_id"] = chat_id
     if backend:
-        metadata["backend"] = backend
+        tags["backend"] = backend
     if agent_kind:
-        metadata["agent.kind"] = agent_kind
+        tags["agent.kind"] = agent_kind
     if agent_name:
-        metadata["agent.name"] = agent_name
-
-    if not metadata:
+        tags["agent.name"] = agent_name
+    if not metadata and not tags:
         return
-
     try:
         import mlflow
 
-        mlflow.update_current_trace(tags=metadata)
+        mlflow.update_current_trace(metadata=metadata or None, tags=tags or None)
     except Exception:
         logger.debug("update_current_trace failed", exc_info=True)
+
+
+@contextmanager
+def root_span(name: str) -> Iterator[None]:
+    """Open a root MLflow span so trace metadata has a trace to attach to.
+
+    Autologged LangChain/OpenAI spans nest under it. No-op when tracing is off.
+    """
+    if not _mlflow_enabled:
+        yield
+        return
+    import mlflow
+
+    with mlflow.start_span(name=name):
+        yield
 
 
 # ---------------------------------------------------------------------------

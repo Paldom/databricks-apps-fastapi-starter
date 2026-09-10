@@ -12,7 +12,7 @@ from typing import Any
 
 from app.chat.context import ChatContext
 from app.chat.memory import build_graph_input
-from app.core.mlflow_runtime import get_active_trace_id, update_trace_context
+from app.core.mlflow_runtime import get_active_trace_id, root_span, update_trace_context
 from app.core.observability import get_tracer, safe_attr, tag_exception
 
 _tracer = get_tracer()
@@ -38,13 +38,15 @@ class ChatOrchestrator:
         context: ChatContext | None = None,
         public_thread_id: str | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
-
-        with _tracer.start_as_current_span(
-            "chat.orchestrator.stream",
-            attributes={
-                "chat.thread_id": safe_attr(thread_id),
-            },
-        ) as span:
+        with (
+            _tracer.start_as_current_span(
+                "chat.orchestrator.stream",
+                attributes={
+                    "chat.thread_id": safe_attr(thread_id),
+                },
+            ) as span,
+            root_span("chat.turn"),
+        ):
             try:
                 _attach_trace_metadata(thread_id, context)
 
@@ -88,6 +90,47 @@ class ChatOrchestrator:
                 if trace_id:
                     error["trace_id"] = trace_id
                 yield error
+
+    async def invoke(
+        self,
+        messages: list[dict[str, Any]],
+        thread_id: str,
+        context: ChatContext | None = None,
+    ) -> tuple[str, str | None]:
+        """Run one turn without streaming; returns (answer text, MLflow trace id)."""
+        with (
+            _tracer.start_as_current_span(
+                "chat.orchestrator.invoke",
+                attributes={"chat.thread_id": safe_attr(thread_id)},
+            ),
+            root_span("chat.turn"),
+        ):
+            _attach_trace_metadata(thread_id, context)
+            input_state = await build_graph_input(
+                messages, thread_id, self._checkpointer
+            )
+            result = await self._agent.ainvoke(
+                input_state, config={"configurable": {"thread_id": thread_id}}
+            )
+            return _answer_text(result["messages"]), get_active_trace_id()
+
+
+def _answer_text(messages: list[Any]) -> str:
+    """Text of the last assistant message that has any (tool turns come between)."""
+    for message in reversed(messages):
+        if getattr(message, "type", None) != "ai":
+            continue
+        content = message.content
+        if isinstance(content, str):
+            if content:
+                return content
+            continue
+        text = "".join(
+            part.get("text", "") for part in content if isinstance(part, dict)
+        )
+        if text:
+            return text
+    return ""
 
 
 # ---------------------------------------------------------------------------

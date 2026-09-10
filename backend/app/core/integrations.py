@@ -4,7 +4,6 @@ from databricks.sdk import WorkspaceClient
 from openai import AsyncOpenAI
 
 from app.core.config import Settings
-from app.core.databricks.vector_search import init_vector_index
 from app.core.databricks.workspace import get_workspace_client_singleton
 from app.core.errors import ConfigurationError, ServiceUnavailableError
 from app.core.runtime import AppRuntime
@@ -24,13 +23,6 @@ def workspace_not_configured_message(detail: str | None = None) -> str:
 
 def ai_not_configured_message() -> str:
     return "AI integration is not configured; set ENABLE_DATABRICKS_INTEGRATIONS=true"
-
-
-def vector_not_configured_message() -> str:
-    return (
-        "Vector Search is not configured; set VECTOR_SEARCH_ENDPOINT_NAME and "
-        "VECTOR_SEARCH_INDEX_NAME"
-    )
 
 
 def ensure_workspace_client(runtime: AppRuntime, settings: Settings) -> WorkspaceClient:
@@ -87,24 +79,3 @@ def ensure_ai_client(runtime: AppRuntime, settings: Settings) -> AsyncOpenAI:
         return runtime.ai_client
     except Exception as exc:
         raise ServiceUnavailableError(f"AI client is unavailable: {exc}") from exc
-
-
-def ensure_vector_index(runtime: AppRuntime, settings: Settings):
-    if not settings.databricks_integrations_enabled():
-        raise ConfigurationError(databricks_integrations_disabled_message())
-
-    if runtime.vector_index is not None:
-        return runtime.vector_index
-
-    if not settings.has_vector_search_config():
-        raise ConfigurationError(vector_not_configured_message())
-
-    try:
-        runtime.vector_index = init_vector_index(settings)
-        return runtime.vector_index
-    except Exception as exc:
-        if not settings.has_explicit_databricks_auth():
-            raise ConfigurationError(f"Vector Search is not configured: {exc}") from exc
-        raise ServiceUnavailableError(
-            f"Vector Search index is unavailable: {exc}"
-        ) from exc

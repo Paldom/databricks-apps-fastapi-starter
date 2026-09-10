@@ -64,7 +64,7 @@ jobs:
         run: |
           uv run --frozen --directory backend python scripts/export_openapi.py
           npm --prefix frontend run api:gen
-          (cd backend && uv export --no-hashes --no-editable --format=requirements.txt > requirements.txt)
+          (cd backend && uv export --no-hashes --no-editable --no-emit-project --format=requirements.txt > requirements.txt)
           if [ -n "$(git status --porcelain -- backend/openapi.yaml backend/requirements.txt frontend/src/shared/api/generated)" ]; then
             git status --porcelain -- backend/openapi.yaml backend/requirements.txt frontend/src/shared/api/generated
             echo "::error::Generated files are out of sync. Run: make generate"

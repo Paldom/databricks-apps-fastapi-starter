@@ -97,3 +97,17 @@ async def test_checkpoint_threads_are_isolated_per_key():
     )
 
     assert not state_b.values.get("messages")
+
+
+def test_answer_text_skips_tool_messages_and_empty_ai_content():
+    from app.chat.orchestrator import _answer_text
+
+    messages = [
+        HumanMessage(content="q"),
+        AIMessage(content="", tool_calls=[{"name": "echo", "args": {}, "id": "c1"}]),
+        ToolMessage(content="tool output", tool_call_id="c1"),
+        AIMessage(content=[{"type": "text", "text": "final"}]),
+        ToolMessage(content="late tool output", tool_call_id="c2"),
+    ]
+    assert _answer_text(messages) == "final"
+    assert _answer_text([HumanMessage(content="q")]) == ""

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -20,6 +21,7 @@ from app.agents.factory import (
 )
 from app.core.config import Settings
 from app.core.deps import (
+    CurrentUser,
     get_ai_client,
     get_current_user,
     get_settings,
@@ -31,6 +33,48 @@ router = APIRouter(
     prefix="/agents", tags=["agents"], dependencies=[Depends(get_current_user)]
 )
 _logger = logging.getLogger(__name__)
+
+
+def _item_text(content: Any) -> str:
+    """Plain text of a Responses input item: a string or a list of text parts."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(
+            part["text"]
+            for part in content
+            if isinstance(part, dict) and isinstance(part.get("text"), str)
+        )
+    return ""
+
+
+async def _invoke_supervisor(
+    request: Request, agent_request: Any, user: CurrentUser
+) -> dict[str, Any]:
+    """One non-streaming turn of this app's own LangGraph supervisor."""
+    from app.agents.response_utils import text_to_response
+    from app.chat.context import ChatContext
+    from app.chat.deps import get_chat_orchestrator
+
+    messages = [
+        {"role": item.get("role", "user"), "content": text}
+        for item in agent_request.model_dump()["input"]
+        if isinstance(item, dict) and (text := _item_text(item.get("content")))
+    ]
+    if not messages:
+        raise HTTPException(status_code=422, detail="input has no text messages")
+    custom_inputs = agent_request.custom_inputs or {}
+    public_thread_id = str(custom_inputs.get("thread_id") or uuid4())
+    orchestrator = await get_chat_orchestrator(request)
+    text, trace_id = await orchestrator.invoke(
+        messages,
+        f"{user.id}:{public_thread_id}",  # checkpoints are namespaced per user
+        ChatContext(user_id=user.id, user_email=user.email),
+    )
+    response = text_to_response(text, custom_outputs={"thread_id": public_thread_id})
+    payload = response.model_dump()
+    payload["_meta"] = {"source": "supervisor", "downstream_trace_id": trace_id}
+    return payload
 
 
 @router.get("/backends")
@@ -48,6 +92,7 @@ async def invoke_agent(
     body: dict[str, Any],
     request: Request,
     settings: Settings = Depends(get_settings),
+    user: CurrentUser = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Invoke an agent backend with a Responses-compatible request body.
 
@@ -56,7 +101,7 @@ async def invoke_agent(
     """
     from mlflow.types.responses import ResponsesAgentRequest
 
-    if backend not in KNOWN_BACKENDS:
+    if backend != "supervisor" and backend not in KNOWN_BACKENDS:
         raise HTTPException(
             status_code=404,
             detail=f"Backend '{backend}' is not configured or unavailable",
@@ -65,6 +110,9 @@ async def invoke_agent(
         agent_request = ResponsesAgentRequest(**body)
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Invalid request body: {exc}")
+
+    if backend == "supervisor":
+        return await _invoke_supervisor(request, agent_request, user)
 
     # Same identity rules as the chat tools: Genie runs as the user under OBO
     # (401 without a forwarded token); model calls use the app identity.
