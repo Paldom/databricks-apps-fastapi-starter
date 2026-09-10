@@ -42,6 +42,7 @@ def _build_supervisor_llm(ai_client: Any, settings: Settings) -> Any:
         client=sync_client.chat.completions if sync_client is not None else None,
         root_async_client=ai_client,
         root_client=sync_client,
+        stream_usage=True,  # token counts on the last chunk of each model call
     )
 
 

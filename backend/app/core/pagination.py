@@ -25,3 +25,11 @@ def decode_cursor(cursor: str) -> tuple[datetime, str]:
         return datetime.fromisoformat(stamp), row_id
     except (ValueError, UnicodeDecodeError) as exc:
         raise BadRequestError("Invalid cursor") from exc
+
+
+def decode_uuid_cursor(cursor: str) -> tuple[datetime, uuid.UUID]:
+    stamp, row_id = decode_cursor(cursor)
+    try:
+        return stamp, uuid.UUID(row_id)
+    except ValueError as exc:
+        raise BadRequestError("Invalid cursor") from exc

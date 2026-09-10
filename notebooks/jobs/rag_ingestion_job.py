@@ -32,7 +32,6 @@ dbutils.widgets.text("vector_search_endpoint_name", "")
 dbutils.widgets.text("vector_search_index_name", "")
 dbutils.widgets.text("embedding_model_name", "databricks-gte-large-en")
 dbutils.widgets.text("knowledge_assistant_name", "")
-dbutils.widgets.text("app_name", "")
 
 SOURCE_PATH = dbutils.widgets.get("source_path").rstrip("/")
 CHECKPOINT_PATH = dbutils.widgets.get("checkpoint_path").rstrip("/")
@@ -44,7 +43,6 @@ EMBEDDING_MODEL = (
     dbutils.widgets.get("embedding_model_name") or "databricks-gte-large-en"
 )
 KA_NAME = dbutils.widgets.get("knowledge_assistant_name").strip()
-APP_NAME = dbutils.widgets.get("app_name").strip()
 
 print(f"Source: {SOURCE_PATH}")
 print(f"Checkpoint: {CHECKPOINT_PATH}")
@@ -341,12 +339,9 @@ print(f"Chunks written: {len(chunk_rows)}")
 
 
 def _list_files(path: str) -> list[str]:
+    """Every file under path; a listing failure raises (an empty list would delete all rows)."""
     out: list[str] = []
-    try:
-        entries = dbutils.fs.ls(path)
-    except Exception:
-        return out
-    for entry in entries:
+    for entry in dbutils.fs.ls(path):
         if entry.isDir():
             out.extend(_list_files(entry.path))
         else:
@@ -410,17 +405,6 @@ except Exception as exc:
             "extracted_entities",
         ],
     )
-
-# The app's service principal reads the index; the job (index owner) grants it.
-if APP_NAME:
-    from databricks.sdk import WorkspaceClient
-
-    app_sp = WorkspaceClient().apps.get(APP_NAME).service_principal_client_id
-    if not app_sp:
-        raise RuntimeError(f"App {APP_NAME} has no service principal client id")
-    catalog, schema, table = VS_INDEX.split(".")
-    spark.sql(f"GRANT SELECT ON TABLE `{catalog}`.`{schema}`.`{table}` TO `{app_sp}`")
-    print(f"SELECT on the index granted to the service principal of app {APP_NAME}")
 
 # Creation starts the first sync; an existing index needs a sync for this run's chunks.
 index.wait_until_ready(timeout=timedelta(minutes=10), wait_for_updates=created)

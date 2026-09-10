@@ -98,6 +98,10 @@ class ChatService:
         ]
         return {"items": items, "next_cursor": next_cursor, "has_more": has_more}
 
+    async def recent_transcript(self, chat_id: str, limit: int) -> list[dict]:
+        rows = await self._repo.list_recent_messages(self._user_id, chat_id, limit)
+        return [{"role": m.role, "content": m.content} for m in rows]
+
     async def add_message(
         self,
         chat_id: str,

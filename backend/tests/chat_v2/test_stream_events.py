@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 from langchain_core.messages import ToolMessage
 
-from app.api.chat_stream_controller import _with_heartbeat
+from app.api.chat_stream_controller import _TurnError, _with_heartbeat
 from app.chat.orchestrator import _translate_event
 from app.chat.parts import TurnAccumulator
 
@@ -126,6 +126,7 @@ async def test_deadline_raises_timeout(monkeypatch):
         await asyncio.sleep(10)
         yield {"type": "done"}
 
-    with pytest.raises(TimeoutError):
+    with pytest.raises(_TurnError) as info:
         async for _ in _with_heartbeat(never(), deadline=0.1):
             pass
+    assert info.value.code == "timeout"

@@ -10,6 +10,8 @@ include:
 experimental:
   scripts:
     prebuild: npm ci --prefix frontend && npm run build --prefix frontend
+    # UC table privileges for the app's service principal (index reads, MLflow trace writes)
+    postdeploy: bash scripts/postdeploy_grants.sh ${bundle.target}
 
 sync:
   include:
@@ -75,10 +77,7 @@ variables:
     description: Genie space for the data specialist; empty disables it
     default: ""
   serving_agent_endpoint:
-    description: Serving endpoint of the optional serving agent; empty disables it
-    default: ""
-  serving_agent_uc_model_name:
-    description: Unity Catalog model name for the serving agent
+    description: Serving endpoint created by the deploy_serving_agent job; bind it to the app once it exists
     default: ""
   serving_agent_chat_model:
     description: Model the serving agent calls
@@ -93,7 +92,19 @@ variables:
     description: Managed volume for uploaded knowledge files
     default: uploads
   agent_eval_dataset_name:
-    description: Optional UC-backed MLflow evaluation dataset
+    description: Optional UC-backed MLflow evaluation dataset (empty = the inline sample set)
+    default: ""
+  eval_targets:
+    description: JSON list of evaluation targets; kind is app, endpoint or genie
+    default: '[{"kind": "app", "name": "${var.app_name}"}]'
+  judge_model:
+    description: Foundation Model endpoint used by the evaluation scorers
+    default: databricks-claude-sonnet-4-6
+  sql_warehouse_id:
+    description: SQL warehouse id; MLflow needs it to read traces stored in Unity Catalog (evaluations)
+    default: ""
+  eval_secret_scope:
+    description: Secret scope holding client-id/client-secret of a service principal with CAN_USE on the app (the eval job calls the app with it; empty = app target fails in a job)
     default: ""
   app_experiment_name:
     description: MLflow experiment for app traces

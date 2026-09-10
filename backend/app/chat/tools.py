@@ -93,7 +93,7 @@ async def _bounded(
         except Exception as exc:
             tag_exception(span, exc)
             _logger.warning("Tool %s failed", name, exc_info=True)
-            raise ToolException(f"{name} failed: {exc}") from exc
+            raise ToolException(f"{name} failed") from exc  # details stay server-side
 
 
 def _configurable(config: RunnableConfig | None) -> dict[str, Any]:
@@ -190,6 +190,8 @@ def _build_genie_tool(
                 and result["conversation_id"] != conversation_id
             ):
                 genie_conversation_started.set(result["conversation_id"])
+            if result["status"] in ("FAILED", "CANCELLED", "QUERY_RESULT_EXPIRED"):
+                raise ToolException(f"Genie {result['status'].lower()}")
             return _genie_text(result)
 
         return await _bounded("genie", settings, call)

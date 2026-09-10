@@ -2,3 +2,9 @@ resources:
   experiments:
     app_experiment:
       name: ${var.app_experiment_name}
+      # MLflow traces as Delta tables next to the app telemetry (MLflow >= 3.14)
+      trace_location:
+        uc_trace_location:
+          catalog: ${var.rag_catalog_name}
+          schema: ${resources.schemas.rag_schema.name}
+          table_prefix: app_mlflow

@@ -12,6 +12,7 @@ import asyncio
 import json
 import uuid as _uuid
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -22,8 +23,8 @@ from app.chat.context import ChatContext
 from app.chat.deps import get_chat_orchestrator
 from app.chat.parts import TurnAccumulator
 from app.core.config import settings
-from app.core.context import genie_conversation_started
-from app.core.deps import get_chat_service, get_current_user
+from app.core.context import log_fields
+from app.core.deps import get_current_user
 from app.core.logging import get_logger
 from app.core.mlflow_runtime import get_active_trace_id
 from app.models.user_dto import CurrentUser
@@ -127,27 +128,25 @@ async def chat_stream(
     body: ChatStreamRequest,
     request: Request,
     user: CurrentUser = Depends(get_current_user),
-    chats: ChatService = Depends(get_chat_service),
     orchestrator=Depends(get_chat_orchestrator),
 ) -> StreamingResponse:
     try:
         _uuid.UUID(body.thread_id)
     except ValueError:
         raise HTTPException(status_code=422, detail="thread_id must be a chat id")
-    chat = await chats.get_owned_chat(body.thread_id)
-    if chat is None:
-        raise HTTPException(status_code=404, detail="Chat not found")
     question = next(
         (m.content for m in reversed(body.messages) if m.role == "user" and m.content),
         None,
     )
     if question is None:
         raise HTTPException(status_code=422, detail="messages has no user message")
-
-    history = await chats.list_messages(chat["id"], cursor=None, limit=HISTORY_LIMIT)
-    transcript = [
-        {"role": m["role"], "content": m["content"]} for m in history["items"]
-    ] + [{"role": "user", "content": question}]
+    # Ownership and history in one short transaction; nothing stays open while streaming.
+    async with _chats(request, user.id) as chats:
+        chat = await chats.get_owned_chat(body.thread_id)
+        if chat is None:
+            raise HTTPException(status_code=404, detail="Chat not found")
+        history = await chats.recent_transcript(chat["id"], HISTORY_LIMIT)
+    transcript = history + [{"role": "user", "content": question}]
     context = ChatContext(
         user_id=user.id,
         user_email=user.email,
@@ -157,47 +156,68 @@ async def chat_stream(
     )
 
     async def event_source() -> AsyncIterator[str]:
+        log_fields.set({"session_id": chat["id"], "user_id": user.id})
+        if chat["id"] in _active_chats:  # one turn per chat at a time
+            yield _line(_error("busy"))
+            return
         try:
             await asyncio.wait_for(_turns.acquire(), timeout=2)
         except TimeoutError:
             yield _line(_error("busy"))
             return
+        _active_chats.add(chat["id"])
         turn = TurnAccumulator()
         try:
-            await _persist(request, user.id, chat["id"], "user", question, [])
+            async with _chats(request, user.id) as chats:
+                await chats.add_message(chat["id"], "user", question, [])
             async for event in _with_heartbeat(
                 orchestrator.stream(transcript, context),
                 deadline=settings.turn_timeout_seconds,
             ):
                 turn.feed(event)
-                yield _line(event)
-                if event.get("type") == "done":
-                    await _persist(
-                        request,
-                        user.id,
+                if event.get("type") != "done":
+                    yield _line(event)
+                    continue
+                # Persist before acknowledging: a client that stops at `done` must find the answer.
+                started = event.pop("genie_conversation_id", None)
+                async with _chats(request, user.id) as chats:
+                    await chats.add_message(
                         chat["id"],
                         "assistant",
                         turn.text,
                         turn.parts,
                         event.get("trace_id"),
                     )
-                    started = genie_conversation_started.get()
                     if started and started != context.genie_conversation_id:
-                        await _persist_genie(request, user.id, chat["id"], started)
-                    if settings.enable_chat_title_generation and not chat["title"]:
-                        _schedule_title_generation(
-                            request, chat["id"], user.id, transcript, turn.text
-                        )
-        except TimeoutError:
-            _logger.warning("Chat turn timed out (chat=%s)", chat["id"])
-            yield _line(_error("timeout"))
+                        await chats.set_genie_conversation(chat["id"], started)
+                yield _line(event)
+                if settings.enable_chat_title_generation and not chat["title"]:
+                    _schedule_title_generation(
+                        request, chat["id"], user.id, transcript, turn.text
+                    )
+        except _TurnError as exc:
+            _logger.warning("Chat turn %s (chat=%s)", exc.code, chat["id"])
+            yield _line(_error(exc.code, exc.trace_id))
         except Exception:
             _logger.exception("Chat turn failed (chat=%s)", chat["id"])
             yield _line(_error("internal_error"))
         finally:
+            _active_chats.discard(chat["id"])
             _turns.release()
 
     return StreamingResponse(event_source(), media_type="application/x-ndjson")
+
+
+_active_chats: set[str] = set()
+
+
+class _TurnError(Exception):
+    """A failure inside the producer task, with the trace id captured while it was active."""
+
+    def __init__(self, code: str, trace_id: str | None) -> None:
+        super().__init__(code)
+        self.code = code
+        self.trace_id = trace_id
 
 
 async def _with_heartbeat(
@@ -212,8 +232,14 @@ async def _with_heartbeat(
             async with asyncio.timeout(deadline):
                 async for event in events:
                     await queue.put(event)
-        except BaseException as exc:  # forwarded to the consumer, re-raised there
-            await queue.put(exc)
+        except TimeoutError:
+            await queue.put(_TurnError("timeout", get_active_trace_id()))
+            return
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            _logger.exception("Chat producer failed")
+            await queue.put(_TurnError("internal_error", get_active_trace_id()))
             return
         await queue.put(stop)
 
@@ -227,7 +253,7 @@ async def _with_heartbeat(
                 continue
             if item is stop:
                 return
-            if isinstance(item, BaseException):
+            if isinstance(item, _TurnError):
                 raise item
             yield item
     finally:
@@ -238,7 +264,7 @@ def _line(event: dict[str, Any]) -> str:
     return json.dumps(event, ensure_ascii=False) + "\n"
 
 
-def _error(code: str) -> dict[str, Any]:
+def _error(code: str, trace_id: str | None = None) -> dict[str, Any]:
     messages = {
         "busy": "The assistant is busy; please retry in a moment.",
         "timeout": "The turn took too long and was stopped.",
@@ -248,52 +274,21 @@ def _error(code: str) -> dict[str, Any]:
         "type": "error",
         "message": messages[code],
         "code": code,
-        "trace_id": get_active_trace_id(),
+        "trace_id": trace_id,
     }
 
 
-async def _persist(
-    request: Request,
-    user_id: str,
-    chat_id: str,
-    role: str,
-    content: str,
-    parts: list[dict[str, Any]],
-    trace_id: str | None = None,
-) -> None:
-    """Short transaction; the request's own session is not held across the LLM turn."""
-    async with _chat_service(request, user_id) as chats:
-        await chats.add_message(chat_id, role, content, parts, trace_id)
+@asynccontextmanager
+async def _chats(request: Request, user_id: str) -> AsyncIterator[ChatService]:
+    """A ChatService on its own short transaction (never held across the LLM turn)."""
+    from app.core.runtime import get_app_runtime
+    from app.repositories.chat_repository import ChatRepository
 
-
-async def _persist_genie(
-    request: Request, user_id: str, chat_id: str, conversation_id: str
-) -> None:
-    async with _chat_service(request, user_id) as chats:
-        await chats.set_genie_conversation(chat_id, conversation_id)
-
-
-class _chat_service:
-    def __init__(self, request: Request, user_id: str) -> None:
-        from app.core.runtime import get_app_runtime
-
-        factory = get_app_runtime(request.app).session_factory
-        if factory is None:
-            raise RuntimeError("database not configured")
-        self._session = factory()
-        self._user_id = user_id
-
-    async def __aenter__(self) -> ChatService:
-        from app.repositories.chat_repository import ChatRepository
-
-        await self._session.__aenter__()
-        self._tx = self._session.begin()
-        await self._tx.__aenter__()
-        return ChatService(ChatRepository(self._session), self._user_id)
-
-    async def __aexit__(self, *exc: Any) -> None:
-        await self._tx.__aexit__(*exc)
-        await self._session.__aexit__(*exc)
+    factory = get_app_runtime(request.app).session_factory
+    if factory is None:
+        raise HTTPException(status_code=503, detail="Database not configured")
+    async with factory() as session, session.begin():
+        yield ChatService(ChatRepository(session), user_id)
 
 
 # ── Title generation (best-effort, non-blocking) ─────────────────
@@ -318,7 +313,7 @@ def _schedule_title_generation(
         try:
             from app.chat.title.service import ChatTitleService
 
-            async with _chat_service(request, user_id) as chats:
+            async with _chats(request, user_id) as chats:
                 await ChatTitleService(
                     ai_client=ai_client, model=model, chat_service=chats
                 ).maybe_generate_title(

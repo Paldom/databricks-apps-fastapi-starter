@@ -16,18 +16,21 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
 type ContentPart = TextMessagePart | ToolCallMessagePart
 
+/** The backend keeps the transcript; only the new user message travels. */
 function serializeMessages(
   messages: ChatModelRunOptions['messages']
 ): ChatStreamMessage[] {
-  return messages
-    .map((msg) => ({
-      role: msg.role,
-      content: msg.content
+  const last = [...messages].reverse().find((msg) => msg.role === 'user')
+  if (!last) return []
+  return [
+    {
+      role: 'user',
+      content: last.content
         .filter((part): part is TextMessagePart => part.type === 'text')
         .map((part) => part.text)
         .join(''),
-    }))
-    .filter((msg) => msg.role !== 'assistant' || msg.content.trim() !== '')
+    },
+  ]
 }
 
 export function createChatModelAdapter(

@@ -27,6 +27,7 @@ def upgrade() -> None:
         ),
     )
     op.add_column("messages", sa.Column("trace_id", sa.String(64), nullable=True))
+    op.drop_index("ix_messages_session_created", table_name="messages")
     op.create_index(
         "ix_messages_session_created_id", "messages", ["session_id", "created_at", "id"]
     )
@@ -39,5 +40,8 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_column("chat_sessions", "genie_conversation_id")
     op.drop_index("ix_messages_session_created_id", table_name="messages")
+    op.create_index(
+        "ix_messages_session_created", "messages", ["session_id", "created_at"]
+    )
     op.drop_column("messages", "trace_id")
     op.drop_column("messages", "parts")

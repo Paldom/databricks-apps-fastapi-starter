@@ -2,6 +2,11 @@ resources:
   experiments:
     agent_eval_experiment:
       name: ${var.agent_eval_experiment_name}
+      trace_location:
+        uc_trace_location:
+          catalog: ${var.rag_catalog_name}
+          schema: ${resources.schemas.rag_schema.name}
+          table_prefix: evals_mlflow
 
   jobs:
     agent_eval_job:
@@ -15,38 +20,26 @@ resources:
             client: "3"
             dependencies:
               - mlflow[databricks]>=3.14,<4
-              - databricks-openai
-              - databricks-sdk
+              - databricks-openai>=0.17,<1
+              - databricks-sdk>=0.100
       tasks:
-        - task_key: eval_app_agent
-          environment_key: serverless
-          notebook_task:
-            notebook_path: ../notebooks/evals/run_agent_evals.py
-            base_parameters:
-              target_kind: app
-              target_name: ${var.app_name}
-              eval_mode: single_turn
-              eval_experiment_name: ${var.agent_eval_experiment_name}
-              dataset_name: ${var.agent_eval_dataset_name}
-
-        - task_key: eval_serving_agent
-          environment_key: serverless
-          notebook_task:
-            notebook_path: ../notebooks/evals/run_agent_evals.py
-            base_parameters:
-              target_kind: endpoint
-              target_name: ${var.serving_agent_endpoint}
-              eval_mode: single_turn
-              eval_experiment_name: ${var.agent_eval_experiment_name}
-              dataset_name: ${var.agent_eval_dataset_name}
-
-        - task_key: eval_genie_agent
-          environment_key: serverless
-          notebook_task:
-            notebook_path: ../notebooks/evals/run_agent_evals.py
-            base_parameters:
-              target_kind: genie
-              target_name: ${var.genie_space_id}
-              eval_mode: single_turn
-              eval_experiment_name: ${var.agent_eval_experiment_name}
-              dataset_name: ${var.agent_eval_dataset_name}
+        # One evaluation per target; the list is a bundle variable (JSON) so targets are
+        # added per environment without editing the job.
+        - task_key: eval_each_target
+          for_each_task:
+            inputs: ${var.eval_targets}
+            concurrency: 1
+            task:
+              task_key: eval_target
+              environment_key: serverless
+              notebook_task:
+                notebook_path: ../notebooks/evals/run_agent_evals.py
+                base_parameters:
+                  target_kind: "{{input.kind}}"
+                  target_name: "{{input.name}}"
+                  eval_experiment_name: ${var.agent_eval_experiment_name}
+                  dataset_name: ${var.agent_eval_dataset_name}
+                  judge_model: ${var.judge_model}
+                  app_name: ${var.app_name}
+                  eval_secret_scope: ${var.eval_secret_scope}
+                  sql_warehouse_id: ${var.sql_warehouse_id}

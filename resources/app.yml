@@ -37,6 +37,8 @@ resources:
             value: "0.1"
           - name: OTEL_PYTHON_LOG_CORRELATION
             value: "true"
+          - name: OTEL_PYTHON_LOG_FORMAT
+            value: "%(asctime)s %(levelname)s [%(name)s] [request_id=%(request_id)s session_id=%(session_id)s user_id=%(user_id)s trace_id=%(otelTraceID)s span_id=%(otelSpanID)s] - %(message)s"
           - name: JOB_ID
             value_from: app-job
           - name: VOLUME_ROOT

@@ -17,12 +17,10 @@
 # MAGIC | `dataset_name` | Optional UC-backed MLflow dataset name |
 # MAGIC | `judge_model` | LLM judge for scorers |
 # MAGIC | `max_turns` | Max conversation turns for multi-turn mode |
-# MAGIC | `fail_on_missing_target` | `true` to fail if target is unconfigured |
-
-# COMMAND ----------
-
-# MAGIC %pip install -q mlflow[databricks]>=3.1.0 databricks-openai databricks-sdk
-# MAGIC dbutils.library.restartPython()
+# MAGIC | `fail_on_missing_target` | `true` (default) to fail if target is unconfigured |
+# MAGIC | `app_name` | The Databricks App to call for `target_kind=app` |
+# MAGIC | `sql_warehouse_id` | SQL warehouse used to read traces stored in Unity Catalog |
+# MAGIC | `eval_secret_scope` | Secret scope with `client-id`/`client-secret` of a service principal that may use the app (job runs only) |
 
 # COMMAND ----------
 
@@ -38,11 +36,14 @@ import mlflow
 dbutils.widgets.dropdown("target_kind", "endpoint", ["app", "endpoint", "genie"])  # noqa: F821
 dbutils.widgets.text("target_name", "")  # noqa: F821
 dbutils.widgets.dropdown("eval_mode", "single_turn", ["single_turn", "multi_turn"])  # noqa: F821
-dbutils.widgets.text("eval_experiment_name", "/Shared/databricks-apps-fastapi-starter/evals")  # noqa: F821
+dbutils.widgets.text("eval_experiment_name", "")  # noqa: F821
 dbutils.widgets.text("dataset_name", "")  # noqa: F821
 dbutils.widgets.text("judge_model", "databricks-claude-sonnet-4-6")  # noqa: F821
 dbutils.widgets.text("max_turns", "3")  # noqa: F821
-dbutils.widgets.dropdown("fail_on_missing_target", "false", ["true", "false"])  # noqa: F821
+dbutils.widgets.dropdown("fail_on_missing_target", "true", ["true", "false"])  # noqa: F821
+dbutils.widgets.text("app_name", "")  # noqa: F821
+dbutils.widgets.text("eval_secret_scope", "")  # noqa: F821
+dbutils.widgets.text("sql_warehouse_id", "")  # noqa: F821
 
 TARGET_KIND = dbutils.widgets.get("target_kind")  # noqa: F821
 TARGET_NAME = dbutils.widgets.get("target_name").strip()  # noqa: F821
@@ -52,6 +53,13 @@ DATASET_NAME = dbutils.widgets.get("dataset_name").strip()  # noqa: F821
 JUDGE_MODEL = dbutils.widgets.get("judge_model").strip()  # noqa: F821
 MAX_TURNS = int(dbutils.widgets.get("max_turns") or "3")  # noqa: F821
 FAIL_ON_MISSING = dbutils.widgets.get("fail_on_missing_target") == "true"  # noqa: F821
+APP_NAME = dbutils.widgets.get("app_name").strip()  # noqa: F821
+SECRET_SCOPE = dbutils.widgets.get("eval_secret_scope").strip()  # noqa: F821
+SQL_WAREHOUSE_ID = dbutils.widgets.get("sql_warehouse_id").strip()  # noqa: F821
+if SQL_WAREHOUSE_ID:  # traces stored in Unity Catalog are read through a warehouse
+    import os
+
+    os.environ["MLFLOW_TRACING_SQL_WAREHOUSE_ID"] = SQL_WAREHOUSE_ID
 
 print(f"target_kind  = {TARGET_KIND}")
 print(f"target_name  = {TARGET_NAME}")
@@ -96,7 +104,9 @@ if not TARGET_NAME:
 
 # ── Build predict function ────────────────────────────────────────────────
 
-predict_fn = build_predict_fn(target_kind=TARGET_KIND, target_name=TARGET_NAME)  # noqa: F821
+predict_fn = build_predict_fn(  # noqa: F821
+    target_kind=TARGET_KIND, target_name=TARGET_NAME, secret_scope=SECRET_SCOPE
+)
 print(f"predict_fn ready for {TARGET_KIND}/{TARGET_NAME}")
 
 # COMMAND ----------

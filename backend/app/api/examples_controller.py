@@ -146,9 +146,11 @@ async def run_job(
 async def get_job_run(
     run_id: int,
     request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
     logger: Annotated[Logger, Depends(get_logger)],
 ):
-    adapter = JobsAdapter(get_user_workspace_client(request), logger)
+    job_id = int(_require_job_id(settings))
+    adapter = JobsAdapter(get_user_workspace_client(request), logger, job_id=job_id)
     return await adapter.run_state(run_id)
 
 

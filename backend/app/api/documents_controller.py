@@ -20,6 +20,7 @@ from app.core.deps import (
     get_user_workspace_client,
     get_workspace_client,
 )
+from app.core.errors import ResourceNotFoundError
 from app.models.user_dto import CurrentUser
 from app.core.deps import get_current_user
 from app.services.document_service import DocumentService
@@ -118,18 +119,15 @@ async def delete_document(
     if doc is None:
         raise HTTPException(status_code=404, detail="Document not found")
     if settings.databricks_integrations_enabled():
-        await UcFilesAdapter(get_user_workspace_client(request), logger).delete(
-            doc["storage_path"]
-        )
-        if settings.job_id:
-            try:
-                await JobsAdapter(get_workspace_client(request), logger).run_now(
-                    int(settings.job_id)
-                )
-            except Exception:
-                logger.warning(
-                    "Could not start the ingestion job after a delete", exc_info=True
-                )
+        files = UcFilesAdapter(get_user_workspace_client(request), logger)
+        try:
+            await files.delete(doc["storage_path"])
+        except ResourceNotFoundError:
+            pass  # a retry after a failed job start: the file is already gone
+        if settings.job_id:  # a failure here keeps the record so the user can retry
+            await JobsAdapter(get_workspace_client(request), logger).run_now(
+                int(settings.job_id)
+            )
     await service.delete_document(document_id=documentId)
     return Response(status_code=204)
 
@@ -158,7 +156,9 @@ async def get_document_status(
             logger,
         ).similarity_search(
             ["document_id"],
-            query_text=doc["name"] or "document",
+            query_text=doc[
+                "id"
+            ],  # the filters select the document; the text is irrelevant
             filters={"user_id": user.id, "document_id": doc["id"]},
             num_results=1,
             timeout=settings.vector_timeout_seconds,

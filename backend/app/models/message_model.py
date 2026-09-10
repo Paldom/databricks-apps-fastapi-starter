@@ -37,6 +37,5 @@ class Message(AuditMixin, Base):
     __table_args__ = (
         Index("ix_messages_session_id", "session_id"),
         Index("ix_messages_user_id", "user_id"),
-        Index("ix_messages_session_created", "session_id", "created_at"),
         Index("ix_messages_session_created_id", "session_id", "created_at", "id"),
     )

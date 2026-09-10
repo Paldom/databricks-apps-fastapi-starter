@@ -103,18 +103,41 @@ def update_trace_context(
 
 
 @contextmanager
-def root_span(name: str) -> Iterator[None]:
-    """Open a root MLflow span so trace metadata has a trace to attach to.
+def root_span(name: str) -> Iterator[Any]:
+    """Open the agent root span so metadata and attributes have a trace to attach to.
 
-    Autologged LangChain/OpenAI spans nest under it. No-op when tracing is off.
+    Autologged LangChain/OpenAI spans nest under it. Yields ``None`` when tracing is
+    off; callers use :func:`stamp_span` which tolerates that.
     """
     if not _mlflow_enabled:
-        yield
+        yield None
         return
     import mlflow
+    from mlflow.entities import SpanType
 
-    with mlflow.start_span(name=name):
-        yield
+    with mlflow.start_span(name=name, span_type=SpanType.AGENT) as span:
+        yield span
+
+
+def stamp_span(
+    span: Any,
+    *,
+    inputs: Any = None,
+    outputs: Any = None,
+    attributes: dict[str, Any] | None = None,
+) -> None:
+    """Best-effort inputs/outputs/attributes on a span (None when tracing is off)."""
+    if span is None:
+        return
+    try:
+        if inputs is not None:
+            span.set_inputs(inputs)
+        if outputs is not None:
+            span.set_outputs(outputs)
+        if attributes:
+            span.set_attributes({k: v for k, v in attributes.items() if v is not None})
+    except Exception:
+        logger.debug("stamping the root span failed", exc_info=True)
 
 
 # ---------------------------------------------------------------------------

@@ -17,7 +17,7 @@ MIGRATION_MESSAGE ?= new migration
 	install install-backend install-frontend \
 	dev-db dev-db-down migrate-up migrate-new \
 	dev-api dev-frontend dev \
-	openapi-export frontend-api-gen generate \
+	openapi-export frontend-api-gen env-example generate \
 	format lint typecheck security test frontend-build check load-test \
 	bundle-validate bundle-deploy bundle-run bundle-summary
 
@@ -76,7 +76,10 @@ openapi-export:
 frontend-api-gen:
 	cd $(FRONTEND_DIR) && $(NPM) run api:gen
 
-generate: openapi-export frontend-api-gen
+env-example:
+	cd $(BACKEND_DIR) && $(UV) run python scripts/export_env_example.py
+
+generate: openapi-export frontend-api-gen env-example
 
 # ── Checks ─────────────────────────────────────────────────────────
 

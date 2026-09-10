@@ -23,7 +23,7 @@ resources:
           notebook_task:
             notebook_path: ../notebooks/serving/deploy.py
             base_parameters:
-              serving_agent_endpoint: ${var.serving_agent_endpoint}
-              serving_agent_uc_model_name: ${var.serving_agent_uc_model_name}
+              serving_agent_endpoint: serving-agent-${var.resource_name_suffix}
+              serving_agent_uc_model_name: ${var.rag_catalog_name}.${resources.schemas.rag_schema.name}.serving_agent
               serving_agent_experiment_id: ${resources.experiments.serving_agent_experiment.id}
               serving_agent_chat_model: ${var.serving_agent_chat_model}

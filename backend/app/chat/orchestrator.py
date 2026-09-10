@@ -14,7 +14,13 @@ from typing import Any
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.chat.context import ChatContext
-from app.core.mlflow_runtime import get_active_trace_id, root_span, update_trace_context
+from app.core.context import genie_conversation_started
+from app.core.mlflow_runtime import (
+    get_active_trace_id,
+    root_span,
+    stamp_span,
+    update_trace_context,
+)
 from app.core.observability import get_tracer, safe_attr
 
 _tracer = get_tracer()
@@ -49,23 +55,38 @@ class ChatOrchestrator:
                 "chat.orchestrator.stream",
                 attributes={"chat.id": safe_attr(context.chat_id)},
             ),
-            root_span("chat.turn"),
+            root_span("chat.turn") as span,
         ):
             _attach_trace_metadata(context)
+            stamp_span(
+                span, inputs={"question": messages[-1]["content"] if messages else ""}
+            )
             state: dict[str, Any] = {}
-            async for event in self._agent.astream_events(
-                input={"messages": convert_messages(messages)},
-                config={"configurable": context.configurable()},
-                version="v2",
-            ):
-                for out in _translate_event(event, state):
-                    yield out
-            yield {
-                "type": "done",
-                "finish_reason": "stop",
-                "thread_id": context.chat_id,
-                "trace_id": get_active_trace_id(),
-            }
+            answer: list[str] = []
+            try:
+                async for event in self._agent.astream_events(
+                    input={"messages": convert_messages(messages)},
+                    config={"configurable": context.configurable()},
+                    version="v2",
+                ):
+                    for out in _translate_event(event, state):
+                        if out["type"] == "text-delta":
+                            answer.append(out["delta"])
+                        yield out
+                yield {
+                    "type": "done",
+                    "finish_reason": "stop",
+                    "thread_id": context.chat_id,
+                    "trace_id": get_active_trace_id(),
+                    # internal: set by the Genie tool when it opened a conversation
+                    "genie_conversation_id": genie_conversation_started.get(),
+                }
+            finally:
+                stamp_span(
+                    span,
+                    outputs={"answer": "".join(answer)},
+                    attributes=_turn_attributes(context, state.get("usage", {})),
+                )
 
     async def invoke(
         self, messages: list[dict[str, Any]], context: ChatContext
@@ -76,14 +97,51 @@ class ChatOrchestrator:
                 "chat.orchestrator.invoke",
                 attributes={"chat.id": safe_attr(context.chat_id)},
             ),
-            root_span("chat.turn"),
+            root_span("chat.turn") as span,
         ):
             _attach_trace_metadata(context)
-            result = await self._agent.ainvoke(
-                {"messages": convert_messages(messages)},
-                config={"configurable": context.configurable()},
+            stamp_span(
+                span, inputs={"question": messages[-1]["content"] if messages else ""}
             )
-            return _answer_text(result["messages"]), get_active_trace_id()
+            usage: dict[str, int] = {}
+            try:
+                result = await self._agent.ainvoke(
+                    {"messages": convert_messages(messages)},
+                    config={"configurable": context.configurable()},
+                )
+                for message in result["messages"]:
+                    _add_usage(usage, getattr(message, "usage_metadata", None))
+                answer = _answer_text(result["messages"])
+                return answer, get_active_trace_id()
+            finally:
+                stamp_span(
+                    span,
+                    outputs={"answer": locals().get("answer", "")},
+                    attributes=_turn_attributes(context, usage),
+                )
+
+
+def _turn_attributes(context: ChatContext, usage: dict[str, int]) -> dict[str, Any]:
+    return {
+        "user.id": context.user_id,
+        "session.id": context.chat_id,
+        "llm.input_tokens": usage.get("input_tokens"),
+        "llm.output_tokens": usage.get("output_tokens"),
+    }
+
+
+def _add_usage(usage: dict[str, int], metadata: Any) -> None:
+    """Accumulate LangChain ``usage_metadata`` (per model call) into the turn total."""
+    if not metadata:
+        return
+    for key in ("input_tokens", "output_tokens"):
+        value = (
+            metadata.get(key)
+            if isinstance(metadata, dict)
+            else getattr(metadata, key, None)
+        )
+        if isinstance(value, int):
+            usage[key] = usage.get(key, 0) + value
 
 
 def _answer_text(messages: list[Any]) -> str:
@@ -146,6 +204,7 @@ def _translate_event(
     if chunk is None:
         return []
 
+    _add_usage(state.setdefault("usage", {}), getattr(chunk, "usage_metadata", None))
     out: list[dict[str, Any]] = []
     text = _text(getattr(chunk, "content", None))
     if text:

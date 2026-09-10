@@ -123,23 +123,23 @@ async def upload_knowledge_file(
     encoded_uid = _encode_user_id(current_user.id)
     relative_path = f"{UPLOAD_SUBDIR}/{encoded_uid}/{document_id}__{filename}"
 
-    adapter = UcFilesAdapter(get_user_workspace_client(request), logger)
-    uploaded = await adapter.upload(
-        settings.volume_root,
-        relative_path,
-        payload,
-        overwrite=False,
-    )
-
     full_path = f"{settings.volume_root.rstrip('/')}/{relative_path}"
-    logger.info("Knowledge file uploaded: %s (%d bytes)", full_path, uploaded)
-    await documents.create_pending(
+    await documents.create_pending(  # listed and deletable even if the upload fails
         document_id,
         filename=filename,
         content_type=file.content_type or "application/octet-stream",
-        size_bytes=uploaded,
+        size_bytes=len(payload),
         storage_path=full_path,
     )
+    adapter = UcFilesAdapter(get_user_workspace_client(request), logger)
+    try:
+        uploaded = await adapter.upload(
+            settings.volume_root, relative_path, payload, overwrite=False
+        )
+    except Exception:
+        await documents.delete_document(str(document_id))
+        raise
+    logger.info("Knowledge file uploaded: %s (%d bytes)", full_path, uploaded)
 
     return KnowledgeFileUploadResponse(
         document_id=str(document_id),

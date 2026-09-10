@@ -8,7 +8,7 @@ from sqlalchemy import delete, or_, select, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError
-from app.core.pagination import decode_cursor, encode_cursor
+from app.core.pagination import decode_uuid_cursor, encode_cursor
 from app.models.chat_session_model import ChatSession
 from app.models.message_model import Message
 from app.models.project_model import Project
@@ -35,10 +35,9 @@ class ChatRepository:
         )
 
         if cursor:
-            stamp, row_id = decode_cursor(cursor)
+            stamp, row_uuid = decode_uuid_cursor(cursor)
             query = query.where(
-                tuple_(ChatSession.updated_at, ChatSession.id)
-                < (stamp, uuid.UUID(row_id))
+                tuple_(ChatSession.updated_at, ChatSession.id) < (stamp, row_uuid)
             )
 
         query = query.limit(limit + 1)
@@ -153,10 +152,9 @@ class ChatRepository:
         )
 
         if cursor:
-            stamp, row_id = decode_cursor(cursor)
+            stamp, row_uuid = decode_uuid_cursor(cursor)
             query = query.where(
-                tuple_(ChatSession.updated_at, ChatSession.id)
-                < (stamp, uuid.UUID(row_id))
+                tuple_(ChatSession.updated_at, ChatSession.id) < (stamp, row_uuid)
             )
 
         query = query.limit(limit + 1)
@@ -251,9 +249,9 @@ class ChatRepository:
             .order_by(Message.created_at.asc(), Message.id.asc())
         )
         if cursor:
-            stamp, row_id = decode_cursor(cursor)
+            stamp, row_uuid = decode_uuid_cursor(cursor)
             query = query.where(
-                tuple_(Message.created_at, Message.id) > (stamp, uuid.UUID(row_id))
+                tuple_(Message.created_at, Message.id) > (stamp, row_uuid)
             )
         query = query.limit(limit + 1)
         result = await self._session.execute(query)
@@ -266,6 +264,22 @@ class ChatRepository:
             else None
         )
         return items, next_cursor, has_more
+
+    async def list_recent_messages(
+        self, owner_user_id: str, chat_id: str, limit: int
+    ) -> list[Message]:
+        """The newest ``limit`` messages in chronological order (the model's context)."""
+        query = (
+            select(Message)
+            .where(
+                Message.session_id == uuid.UUID(chat_id),
+                Message.user_id == owner_user_id,
+            )
+            .order_by(Message.created_at.desc(), Message.id.desc())
+            .limit(limit)
+        )
+        result = await self._session.execute(query)
+        return list(reversed(list(result.scalars().all())))
 
     async def add_message(
         self,

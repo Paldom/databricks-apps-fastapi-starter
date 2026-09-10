@@ -6,7 +6,7 @@ from sqlalchemy import delete, select, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError
-from app.core.pagination import decode_cursor, encode_cursor
+from app.core.pagination import decode_uuid_cursor, encode_cursor
 from app.models.file_record_model import FileRecord
 from app.models.project_model import Project
 
@@ -34,10 +34,9 @@ class DocumentRepository:
         if project_id:
             query = query.where(FileRecord.project_id == project_id)
         if cursor:
-            stamp, row_id = decode_cursor(cursor)
+            stamp, row_uuid = decode_uuid_cursor(cursor)
             query = query.where(
-                tuple_(FileRecord.created_at, FileRecord.id)
-                < (stamp, uuid.UUID(row_id))
+                tuple_(FileRecord.created_at, FileRecord.id) < (stamp, row_uuid)
             )
 
         query = query.limit(limit + 1)

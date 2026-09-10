@@ -20,6 +20,7 @@ from app.agents.factory import (
     list_available_backends,
 )
 from app.core.config import Settings
+from app.core.context import log_fields
 from app.core.deps import (
     CurrentUser,
     get_ai_client,
@@ -66,6 +67,7 @@ async def _invoke_supervisor(
     custom_inputs = agent_request.custom_inputs or {}
     public_thread_id = str(custom_inputs.get("thread_id") or uuid4())
     orchestrator = await get_chat_orchestrator(request)
+    log_fields.set({"session_id": public_thread_id, "user_id": user.id})
     # Stateless by design (evals, curl): the transcript is the request, nothing is stored.
     text, trace_id = await orchestrator.invoke(
         messages,
