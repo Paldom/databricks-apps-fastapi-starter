@@ -14,9 +14,24 @@ from typing import Any
 log_fields: ContextVar[dict[str, str]] = ContextVar("log_fields", default={})
 # session_id/user_id of the running chat turn, added to every log line by the logging filter
 
-genie_conversation_started: ContextVar[str | None] = ContextVar(
-    "genie_conversation_started", default=None
-)  # set by the Genie tool when it opens a conversation; persisted by the controller
+turn_state: ContextVar[dict[str, Any] | None] = ContextVar("turn_state", default=None)
+# One dict per chat turn (``trace_id``, ``genie_conversation_id``). LangGraph runs tools in
+# their own tasks, so a ContextVar *set* there never reaches the caller; mutating the dict
+# the controller created does.
+
+
+def new_turn_state() -> dict[str, Any]:
+    state: dict[str, Any] = {}
+    turn_state.set(state)
+    return state
+
+
+def record_turn(**fields: Any) -> None:
+    state = turn_state.get()
+    if state is not None:
+        state.update(fields)
+
+
 obo_workspace_client: ContextVar[Any | None] = ContextVar(
     "obo_workspace_client", default=None
 )

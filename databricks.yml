@@ -11,7 +11,7 @@ experimental:
   scripts:
     prebuild: npm ci --prefix frontend && npm run build --prefix frontend
     # UC table privileges for the app's service principal (index reads, MLflow trace writes)
-    postdeploy: bash scripts/postdeploy_grants.sh ${bundle.target}
+    postdeploy: bash scripts/postdeploy_grants.sh ${bundle.target} ${workspace.profile}
 
 sync:
   include:
@@ -146,6 +146,7 @@ targets:
   staging:
     variables:
       resource_name_suffix: stg
+      rag_schema_name: starter_rag_stg # staging and prod share a metastore; keep their data apart
       environment: staging
       app_name: fastapi-starter-stg
       otel_traces_sampler: parentbased_traceidratio

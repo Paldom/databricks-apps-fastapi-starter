@@ -22,7 +22,7 @@ from openai import AsyncOpenAI
 
 from app.chat.registry import SpecialistSpec
 from app.core.config import Settings
-from app.core.context import genie_conversation_started, obo_workspace_client
+from app.core.context import obo_workspace_client, record_turn
 from app.core.observability import get_tracer, safe_attr, tag_exception
 
 _tracer = get_tracer()
@@ -189,7 +189,7 @@ def _build_genie_tool(
                 result["conversation_id"]
                 and result["conversation_id"] != conversation_id
             ):
-                genie_conversation_started.set(result["conversation_id"])
+                record_turn(genie_conversation_id=result["conversation_id"])
             if result["status"] in ("FAILED", "CANCELLED", "QUERY_RESULT_EXPIRED"):
                 raise ToolException(f"Genie {result['status'].lower()}")
             return _genie_text(result)

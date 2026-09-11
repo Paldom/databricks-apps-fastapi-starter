@@ -14,7 +14,7 @@ from typing import Any
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.chat.context import ChatContext
-from app.core.context import genie_conversation_started
+from app.core.context import record_turn
 from app.core.mlflow_runtime import (
     get_active_trace_id,
     root_span,
@@ -58,6 +58,7 @@ class ChatOrchestrator:
             root_span("chat.turn") as span,
         ):
             _attach_trace_metadata(context)
+            record_turn(trace_id=get_active_trace_id())
             stamp_span(
                 span, inputs={"question": messages[-1]["content"] if messages else ""}
             )
@@ -78,8 +79,6 @@ class ChatOrchestrator:
                     "finish_reason": "stop",
                     "thread_id": context.chat_id,
                     "trace_id": get_active_trace_id(),
-                    # internal: set by the Genie tool when it opened a conversation
-                    "genie_conversation_id": genie_conversation_started.get(),
                 }
             finally:
                 stamp_span(
@@ -100,10 +99,12 @@ class ChatOrchestrator:
             root_span("chat.turn") as span,
         ):
             _attach_trace_metadata(context)
+            record_turn(trace_id=get_active_trace_id())
             stamp_span(
                 span, inputs={"question": messages[-1]["content"] if messages else ""}
             )
             usage: dict[str, int] = {}
+            answer = ""
             try:
                 result = await self._agent.ainvoke(
                     {"messages": convert_messages(messages)},
@@ -116,7 +117,7 @@ class ChatOrchestrator:
             finally:
                 stamp_span(
                     span,
-                    outputs={"answer": locals().get("answer", "")},
+                    outputs={"answer": answer},
                     attributes=_turn_attributes(context, usage),
                 )
 

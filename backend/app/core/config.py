@@ -92,7 +92,9 @@ class Settings(BaseSettings):
     vector_timeout_seconds: int = 30
     openai_timeout_seconds: int = 30
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_ignore_empty=True, extra="ignore"
+    )
 
     @field_validator("supervisor_model", mode="before")
     @classmethod

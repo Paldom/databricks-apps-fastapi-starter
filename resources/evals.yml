@@ -22,6 +22,7 @@ resources:
               - mlflow[databricks]>=3.14,<4
               - databricks-openai>=0.17,<1
               - databricks-sdk>=0.100
+              - databricks-agents>=1.0 # mlflow.genai.datasets on Databricks
       tasks:
         # One evaluation per target; the list is a bundle variable (JSON) so targets are
         # added per environment without editing the job.
@@ -37,9 +38,8 @@ resources:
                 base_parameters:
                   target_kind: "{{input.kind}}"
                   target_name: "{{input.name}}"
-                  eval_experiment_name: ${var.agent_eval_experiment_name}
+                  eval_experiment_id: ${resources.experiments.agent_eval_experiment.id}
                   dataset_name: ${var.agent_eval_dataset_name}
                   judge_model: ${var.judge_model}
-                  app_name: ${var.app_name}
                   eval_secret_scope: ${var.eval_secret_scope}
                   sql_warehouse_id: ${var.sql_warehouse_id}

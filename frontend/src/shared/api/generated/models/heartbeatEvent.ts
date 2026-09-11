@@ -4,8 +4,8 @@
  * Databricks Apps FastAPI Starter API
  * OpenAPI spec version: 0.1.0
  */
+import type { HeartbeatEventType } from './heartbeatEventType';
 
-export const HeartbeatEventValue = {
-  type: 'heartbeat',
-} as const;
-export type HeartbeatEvent = typeof HeartbeatEventValue;
+export interface HeartbeatEvent {
+  type: HeartbeatEventType;
+}

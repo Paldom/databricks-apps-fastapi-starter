@@ -41,37 +41,33 @@ def _build_endpoint_predict_fn(endpoint_name: str):
     return mlflow.genai.to_predict_fn(f"endpoints:/{endpoint_name}")
 
 
-def _app_access_token(ws: Any, secret_scope: str) -> str:
-    """An OAuth token the Apps ingress accepts.
+def _app_auth(ws: Any, secret_scope: str):
+    """A callable returning Authorization headers the Apps ingress accepts.
 
     A job's own credential is an internal token that the ingress rejects (401) and that
     cannot be exchanged without an account federation policy. Two ways work:
     - a service principal with CAN_USE on the app whose client id/secret sit in
       ``secret_scope`` (keys ``client-id`` and ``client-secret``): client-credentials flow;
-    - outside a job (a machine with ``databricks auth login``): the SDK's OAuth token.
+    - outside a notebook (a machine with ``databricks auth login``): the SDK's OAuth token.
+    The SDK refreshes the token, so the callable is invoked per request.
     """
-    import requests
+    from databricks.sdk import WorkspaceClient
 
     if secret_scope:
         secrets = globals()["dbutils"].secrets
-        response = requests.post(
-            f"{ws.config.host.rstrip('/')}/oidc/v1/token",
-            auth=(
-                secrets.get(secret_scope, "client-id"),
-                secrets.get(secret_scope, "client-secret"),
-            ),
-            data={"grant_type": "client_credentials", "scope": "all-apis"},
-            timeout=30,
+        principal = WorkspaceClient(
+            host=ws.config.host,
+            client_id=secrets.get(secret_scope, "client-id"),
+            client_secret=secrets.get(secret_scope, "client-secret"),
         )
-        response.raise_for_status()
-        return response.json()["access_token"]
+        return principal.config.authenticate
     if "dbutils" in globals():
         raise RuntimeError(
             "The app target needs a caller the Apps ingress accepts: set eval_secret_scope "
             "(service principal client-id/client-secret with CAN_USE on the app) or run "
             "the app target from a machine with `databricks auth login`."
         )
-    return ws.config.oauth_token().access_token
+    return ws.config.authenticate
 
 
 def _build_app_predict_fn(app_name: str, secret_scope: str = ""):
@@ -82,13 +78,10 @@ def _build_app_predict_fn(app_name: str, secret_scope: str = ""):
 
     ws = WorkspaceClient()
     app_url = ws.apps.get(app_name).url.rstrip("/")
-    token = _app_access_token(ws, secret_scope)
+    auth = _app_auth(ws, secret_scope)
 
     def predict_fn(input: list[dict], custom_inputs: dict | None = None, **kwargs):
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {token}",
-        }
+        headers = {"Content-Type": "application/json", **auth()}
         response = requests.post(
             f"{app_url}/api/agents/supervisor/invocations",
             headers=headers,
@@ -208,7 +201,9 @@ def _parse_genie_response(rsp: Any) -> tuple[str, str | None, list, str | None]:
 def load_eval_data(dataset_name: str, target_kind: str) -> list[dict]:
     """Load an MLflow evaluation dataset or return a small inline fallback."""
     if dataset_name:
-        return mlflow.genai.datasets.get_dataset(dataset_name)
+        # UC-backed datasets need the databricks-agents package (declared in resources/evals.yml)
+        dataset = mlflow.genai.datasets.get_dataset(name=dataset_name)
+        return dataset.to_df().to_dict(orient="records")
 
     # Small inline fallback; every row carries expectations so Correctness can score it.
     return [
@@ -280,31 +275,6 @@ def run_single_turn_eval(*, predict_fn, data: list[dict], judge_model: str):
         )
 
 
-def run_multi_turn_eval(*, predict_fn, judge_model: str, max_turns: int = 3):
-    """Run multi-turn evaluation using ConversationSimulator (experimental)."""
-    from mlflow.genai.scorers import Safety
-    from mlflow.genai.simulators import ConversationSimulator
-
-    simulator = ConversationSimulator(
-        test_cases=[
-            {
-                "inputs": {
-                    "goal": "Understand revenue trends by region",
-                    "persona": "You are a product manager who wants concise answers.",
-                }
-            },
-        ],
-        max_turns=max_turns,
-    )
-
-    with mlflow.start_run(run_name="agent-eval-multi-turn"):
-        return mlflow.genai.evaluate(
-            data=simulator,
-            predict_fn=predict_fn,
-            scorers=[Safety(model=judge_model)],
-        )
-
-
 # COMMAND ----------
 
 # ---------------------------------------------------------------------------
@@ -317,13 +287,11 @@ def log_eval_outputs(
     *,
     target_kind: str,
     target_name: str,
-    eval_mode: str,
 ) -> dict[str, Any]:
     """Log CSV + JSON artifacts and return a machine-readable summary."""
     summary: dict[str, Any] = {
         "target_kind": target_kind,
         "target_name": target_name,
-        "eval_mode": eval_mode,
         "run_id": result.run_id,
         "metrics": result.metrics,
     }

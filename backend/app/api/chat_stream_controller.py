@@ -23,10 +23,9 @@ from app.chat.context import ChatContext
 from app.chat.deps import get_chat_orchestrator
 from app.chat.parts import TurnAccumulator
 from app.core.config import settings
-from app.core.context import log_fields
+from app.core.context import log_fields, new_turn_state, turn_state
 from app.core.deps import get_current_user
 from app.core.logging import get_logger
-from app.core.mlflow_runtime import get_active_trace_id
 from app.models.user_dto import CurrentUser
 from app.services.chat_service import ChatService
 
@@ -160,14 +159,18 @@ async def chat_stream(
         if chat["id"] in _active_chats:  # one turn per chat at a time
             yield _line(_error("busy"))
             return
-        try:
-            await asyncio.wait_for(_turns.acquire(), timeout=2)
-        except TimeoutError:
-            yield _line(_error("busy"))
-            return
-        _active_chats.add(chat["id"])
+        _active_chats.add(chat["id"])  # reserved before waiting for capacity
+        acquired = False
         turn = TurnAccumulator()
+        state = new_turn_state()  # shared with the producer task and the tools
         try:
+            try:
+                async with asyncio.timeout(2):
+                    await _turns.acquire()
+                acquired = True
+            except TimeoutError:
+                yield _line(_error("busy"))
+                return
             async with _chats(request, user.id) as chats:
                 await chats.add_message(chat["id"], "user", question, [])
             async for event in _with_heartbeat(
@@ -179,7 +182,7 @@ async def chat_stream(
                     yield _line(event)
                     continue
                 # Persist before acknowledging: a client that stops at `done` must find the answer.
-                started = event.pop("genie_conversation_id", None)
+                started = state.get("genie_conversation_id")
                 async with _chats(request, user.id) as chats:
                     await chats.add_message(
                         chat["id"],
@@ -203,7 +206,8 @@ async def chat_stream(
             yield _line(_error("internal_error"))
         finally:
             _active_chats.discard(chat["id"])
-            _turns.release()
+            if acquired:
+                _turns.release()
 
     return StreamingResponse(event_source(), media_type="application/x-ndjson")
 
@@ -233,13 +237,13 @@ async def _with_heartbeat(
                 async for event in events:
                     await queue.put(event)
         except TimeoutError:
-            await queue.put(_TurnError("timeout", get_active_trace_id()))
+            await queue.put(_TurnError("timeout", _trace_id()))
             return
         except asyncio.CancelledError:
             raise
         except Exception:
             _logger.exception("Chat producer failed")
-            await queue.put(_TurnError("internal_error", get_active_trace_id()))
+            await queue.put(_TurnError("internal_error", _trace_id()))
             return
         await queue.put(stop)
 
@@ -258,6 +262,12 @@ async def _with_heartbeat(
             yield item
     finally:
         task.cancel()
+        await asyncio.wait([task])  # the chat stays reserved until the producer is gone
+
+
+def _trace_id() -> str | None:
+    """The turn's MLflow trace id, recorded by the orchestrator while its span was open."""
+    return (turn_state.get() or {}).get("trace_id")
 
 
 def _line(event: dict[str, Any]) -> str:

@@ -14,6 +14,7 @@ import os
 import uvicorn
 
 from app.core.config import settings
+from app.core.logging import setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -39,5 +40,8 @@ def run_server() -> None:
 
 
 if __name__ == "__main__":
+    setup_logging(
+        settings.log_level
+    )  # before migrations: the OTel log format needs the envelope fields
     run_migrations()
     run_server()

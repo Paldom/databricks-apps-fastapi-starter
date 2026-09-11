@@ -173,9 +173,11 @@ components:
         mapping:
           done: '#/components/schemas/DoneEvent'
           error: '#/components/schemas/ErrorEvent'
+          heartbeat: '#/components/schemas/HeartbeatEvent'
           text-delta: '#/components/schemas/TextDeltaEvent'
           tool-call-begin: '#/components/schemas/ToolCallBeginEvent'
           tool-call-delta: '#/components/schemas/ToolCallDeltaEvent'
+          tool-result: '#/components/schemas/ToolResultEvent'
         propertyName: type
       oneOf:
       - $ref: '#/components/schemas/TextDeltaEvent'

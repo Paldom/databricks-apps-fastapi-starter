@@ -94,8 +94,8 @@ machine, so changes under `.claude/`, `.agents/`, `.github/` and `resources/` ne
 
 - Settings: one `Settings` class in `core/config.py`; `backend/env.example` is generated from it (`make generate`).
 - Auth: Databricks Apps forward `X-Forwarded-User`/`-Email`; `get_current_user` guards every route that reads or
-  writes user data, including chat streaming and agent invocations. Local dev uses the fallback user only when
-  `ENABLE_LOCAL_DEV_AUTH_FALLBACK=true`.
+  writes user data, including chat streaming and agent invocations. Local dev uses the fallback user while `ENVIRONMENT=development` unless
+  `ENABLE_LOCAL_DEV_AUTH_FALLBACK=false` (the bundle sets it).
 - Databricks clients: use the SDK `WorkspaceClient` and `databricks-openai` / `databricks-langchain` clients that
   refresh OAuth tokens; never build an OpenAI client from a static token.
 - Chat: `/api/chat/stream` needs an owned chat id; the backend loads the stored transcript, appends the new user
@@ -104,7 +104,7 @@ machine, so changes under `.claude/`, `.agents/`, `.github/` and `resources/` ne
   `backend/openapi.yaml` and the frontend client is generated from it. Tools raise `ToolException` with a fixed
   public text; per-tool and per-turn deadlines live in `Settings`. Specialists go through `agents/adapters/*`.
 - Identity in tools: never from tool arguments; read `config["configurable"]` (`ChatContext.configurable()`).
-  Retrieval always filters by the caller's `user_id`.
+  Direct AI Search retrieval filters by the caller's `user_id`; a bound Knowledge Assistant is a shared corpus by design.
 - Errors: never send `str(exc)` to clients; log it with the request id and return a generic message plus the
   MLflow trace id.
 - Tests: `backend/tests` mock external I/O at the adapter boundary only; never stub hard dependencies
@@ -122,15 +122,14 @@ machine, so changes under `.claude/`, `.agents/`, `.github/` and `resources/` ne
 
 ## Bundle conventions
 
-- One `app_config` block; target differences are variables (`environment`, `log_level`, `enable_obo`, `enable_docs`,
+- One app definition (`resources/app.yml`); target differences are variables (`environment`, `log_level`, `enable_obo`, `enable_docs`,
   `enable_examples`). Optional bindings (Knowledge Assistant, serving agent, Genie, remote app) and their env
   entries live in a target (lists merge by `name`); the Apps API rejects empty env values and empty bindings.
 - Jobs run on serverless `environments` (`client: "3"`); Lakebase is an autoscaling project; the AI Search endpoint
-  and app telemetry destinations are resources; experiments store traces in UC (`trace_location`, immutable once
-  set); `lifecycle.started: true` so deploy also starts the app; `experimental.scripts` holds the `prebuild`
+  and app telemetry destinations are resources; the app and evals experiments store traces in UC (`trace_location`, immutable once set); `lifecycle.started: true` so deploy also starts the app; `experimental.scripts` holds the `prebuild`
   (frontend) and `postdeploy` (UC grants for the app service principal) hooks.
 - The Delta Sync index is created by the ingestion job, not declared (its source table must exist first).
-- Validate every target before committing bundle changes: `databricks bundle validate -t dev|staging|prod`.
+- Validate every target before committing bundle changes: `databricks bundle validate -t dev|staging|prod --profile "$DATABRICKS_CONFIG_PROFILE"`.
 
 ## Agent tooling
 

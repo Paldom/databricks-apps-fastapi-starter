@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import get_args
+
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
@@ -53,11 +55,10 @@ def _patch_openapi_schema(schema: dict) -> None:
         "discriminator": {
             "propertyName": "type",
             "mapping": {
-                "text-delta": "#/components/schemas/TextDeltaEvent",
-                "tool-call-begin": "#/components/schemas/ToolCallBeginEvent",
-                "tool-call-delta": "#/components/schemas/ToolCallDeltaEvent",
-                "done": "#/components/schemas/DoneEvent",
-                "error": "#/components/schemas/ErrorEvent",
+                get_args(m.model_fields["type"].annotation)[0]: (
+                    f"#/components/schemas/{m.__name__}"
+                )
+                for m in STREAMING_EVENT_MODELS
             },
         },
     }

@@ -34,9 +34,9 @@ export const getChatStreamResponseToolCallBeginEventMock = (overrideResponse: Pa
 
 export const getChatStreamResponseToolCallDeltaEventMock = (overrideResponse: Partial<ToolCallDeltaEvent> = {}): ToolCallDeltaEvent => ({...{args_delta: faker.string.alpha({length: {min: 10, max: 20}}), tool_call_id: faker.string.alpha({length: {min: 10, max: 20}}), type: faker.helpers.arrayElement(['tool-call-delta'] as const)}, ...overrideResponse});
 
-export const getChatStreamResponseToolResultEventMock = (overrideResponse: Partial<ToolResultEvent> = {}): ToolResultEvent => ({...{is_error: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), result: faker.string.alpha({length: {min: 10, max: 20}}), tool_call_id: faker.string.alpha({length: {min: 10, max: 20}}), type: "tool-result"}, ...overrideResponse});
+export const getChatStreamResponseToolResultEventMock = (overrideResponse: Partial<ToolResultEvent> = {}): ToolResultEvent => ({...{is_error: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), result: faker.string.alpha({length: {min: 10, max: 20}}), tool_call_id: faker.string.alpha({length: {min: 10, max: 20}}), type: faker.helpers.arrayElement(['tool-result'] as const)}, ...overrideResponse});
 
-export const getChatStreamResponseHeartbeatEventMock = (overrideResponse: Partial<HeartbeatEvent> = {}): HeartbeatEvent => ({...{type: "heartbeat"}, ...overrideResponse});
+export const getChatStreamResponseHeartbeatEventMock = (overrideResponse: Partial<HeartbeatEvent> = {}): HeartbeatEvent => ({...{type: faker.helpers.arrayElement(['heartbeat'] as const)}, ...overrideResponse});
 
 export const getChatStreamResponseDoneEventMock = (overrideResponse: Partial<DoneEvent> = {}): DoneEvent => ({...{finish_reason: faker.helpers.arrayElement(['stop','length','error'] as const), thread_id: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), trace_id: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), type: faker.helpers.arrayElement(['done'] as const)}, ...overrideResponse});
 

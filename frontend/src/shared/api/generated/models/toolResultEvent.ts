@@ -4,10 +4,11 @@
  * Databricks Apps FastAPI Starter API
  * OpenAPI spec version: 0.1.0
  */
+import type { ToolResultEventType } from './toolResultEventType';
 
 export interface ToolResultEvent {
   is_error?: boolean;
   result: string;
   tool_call_id: string;
-  type: 'tool-result';
+  type: ToolResultEventType;
 }

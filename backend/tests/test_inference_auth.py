@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 import app.main as app_main
@@ -128,3 +129,56 @@ def test_stream_requires_an_owned_chat_and_uses_the_stored_transcript(monkeypatc
         (CHAT_A, "assistant"),
     ]
     assert a.text.strip().splitlines()[-1].startswith('{"type": "done"')
+
+
+@pytest.mark.asyncio
+async def test_stream_rejects_a_second_turn_on_the_same_chat(monkeypatch):
+    """The chat is reserved while a turn runs (the test clients buffer responses, so the
+    route is driven directly)."""
+    import asyncio
+    from contextlib import asynccontextmanager
+
+    from app.api import chat_stream_controller as ctrl
+    from app.models.user_dto import CurrentUser
+
+    monkeypatch.setattr(settings, "enable_chat_title_generation", False)
+    _FakeChats.writes = []
+
+    @asynccontextmanager
+    async def fake_chats(request, user_id):
+        yield _FakeChats(user_id)
+
+    release = asyncio.Event()
+
+    class _SlowOrchestrator:
+        async def stream(self, messages, context):
+            yield {"type": "text-delta", "delta": "thinking"}
+            await release.wait()
+            yield {
+                "type": "done",
+                "finish_reason": "stop",
+                "thread_id": context.chat_id,
+            }
+
+    monkeypatch.setattr(ctrl, "_chats", fake_chats)
+    user = CurrentUser(id="user-a", email="a@example.com")
+    body = ctrl.ChatStreamRequest(
+        thread_id=CHAT_A, messages=[ctrl.ChatStreamMessage(role="user", content="hi")]
+    )
+
+    async def start():
+        response = await ctrl.chat_stream(
+            body, request=object(), user=user, orchestrator=_SlowOrchestrator()
+        )
+        return response.body_iterator
+
+    first = await start()
+    assert '"text-delta"' in await first.__anext__()  # the first turn is running
+    second = [line async for line in await start()]
+    release.set()
+    rest = [line async for line in first]
+
+    assert len(second) == 1 and '"code": "busy"' in second[0]
+    assert rest[-1].startswith('{"type": "done"')
+    # the rejected turn stored nothing; the first one stored its user and assistant rows
+    assert [w[2] for w in _FakeChats.writes] == ["user", "assistant"]

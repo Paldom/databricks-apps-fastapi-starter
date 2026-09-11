@@ -14,7 +14,12 @@ from pathlib import Path
 import mlflow
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.errors import NotFound
-from databricks.sdk.service.serving import EndpointCoreConfigInput, ServedEntityInput
+from databricks.sdk.service.serving import (
+    EndpointCoreConfigInput,
+    EndpointStateConfigUpdate,
+    EndpointStateReady,
+    ServedEntityInput,
+)
 from mlflow.models.resources import DatabricksServingEndpoint
 
 mlflow.set_tracking_uri("databricks")
@@ -112,10 +117,12 @@ except NotFound:
 # COMMAND ----------
 
 for _ in range(60):  # the waiter returns on the config change; confirm READY
-    endpoint = ws.serving_endpoints.get(endpoint_name)
-    ready = str(getattr(endpoint.state, "ready", ""))
-    updating = str(getattr(endpoint.state, "config_update", ""))
-    if "READY" in ready and "NOT_UPDATING" in updating:
+    state = ws.serving_endpoints.get(endpoint_name).state
+    if (
+        state is not None
+        and state.ready == EndpointStateReady.READY
+        and state.config_update == EndpointStateConfigUpdate.NOT_UPDATING
+    ):
         break
     time.sleep(10)
 else:
