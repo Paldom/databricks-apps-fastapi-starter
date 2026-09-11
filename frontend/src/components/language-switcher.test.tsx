@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 const changeLanguage = vi.fn()
 
-vi.mock('@/i18n/client', () => ({
+vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     i18n: { resolvedLanguage: 'en', changeLanguage },
   }),

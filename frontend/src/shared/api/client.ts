@@ -20,7 +20,7 @@ export const customInstance = <T>(
   return instance
     .request({
       url,
-      method: options?.method as AxiosRequestConfig['method'],
+      method: options?.method,
       data: options?.body,
       headers: options?.headers as AxiosRequestConfig['headers'],
       signal: options?.signal as AxiosRequestConfig['signal'],

@@ -214,3 +214,5 @@ cython_debug/
 .vscode/settings.json
 *.bak
 .agent/skills/
+!frontend/src/lib/
+.playwright-mcp/

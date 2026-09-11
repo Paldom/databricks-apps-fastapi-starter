@@ -1,14 +1,15 @@
 import { create } from 'zustand'
-import { devtools, persist, subscribeWithSelector } from 'zustand/middleware'
+import { devtools, persist } from 'zustand/middleware'
 
 type Theme = 'light' | 'dark'
 
 type UIState = {
   // Layout
-  sidebarCollapsed: boolean
   theme: Theme
-  toggleSidebar: () => void
   setTheme: (theme: Theme) => void
+  sidebarCollapsed: boolean
+  setSidebarCollapsed: (collapsed: boolean) => void
+  toggleSidebar: () => void
 
   // Active selections
   activeProjectId: string | null
@@ -31,13 +32,15 @@ type UIState = {
 export const useUIStore = create<UIState>()(
   devtools(
     persist(
-      subscribeWithSelector((set) => ({
+      (set) => ({
         // Layout
-        sidebarCollapsed: false,
         theme: 'light',
+        setTheme: (theme) => set({ theme }),
+        sidebarCollapsed: false,
+        setSidebarCollapsed: (collapsed) =>
+          set({ sidebarCollapsed: collapsed }),
         toggleSidebar: () =>
           set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
-        setTheme: (theme) => set({ theme }),
 
         // Active selections
         activeProjectId: null,
@@ -56,10 +59,13 @@ export const useUIStore = create<UIState>()(
         setDocumentSidebarOpen: (open) => set({ documentSidebarOpen: open }),
         toggleDocumentSidebar: () =>
           set((state) => ({ documentSidebarOpen: !state.documentSidebarOpen })),
-      })),
+      }),
       {
         name: 'ui-store',
-        partialize: (state) => ({ theme: state.theme }),
+        partialize: (state) => ({
+          theme: state.theme,
+          sidebarCollapsed: state.sidebarCollapsed,
+        }),
       }
     ),
     { name: 'UIStore' }

@@ -3,7 +3,7 @@ import { router } from './routes'
 
 describe('router configuration', () => {
   it('defines a single root route with an error boundary', () => {
-    expect(router.routes.length).toBe(1)
+    expect(router.routes).toHaveLength(1)
 
     const rootRoute = router.routes[0] as {
       path?: string

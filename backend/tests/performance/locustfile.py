@@ -10,8 +10,9 @@ Usage (local):
 """
 
 import os
+
 from databricks.sdk import WorkspaceClient
-from locust import HttpUser, task, between
+from locust import HttpUser, between, task
 
 
 class DatabricksAppsUser(HttpUser):

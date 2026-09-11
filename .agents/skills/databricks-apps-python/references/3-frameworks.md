@@ -215,6 +215,90 @@ demo.launch(server_name="0.0.0.0", server_port=port)
 
 ---
 
+<<<<<<<< HEAD:.agents/skills/databricks-apps-python/references/3-frameworks.md
+========
+## Flask
+
+**Best for**: Custom REST APIs, lightweight web apps, webhook receivers.
+
+**Critical**: Deploy with Gunicorn — never use Flask's dev server in production.
+
+```python
+from flask import Flask, request, jsonify
+from databricks.sdk.core import Config
+from databricks import sql
+
+app = Flask(__name__)
+cfg = Config()
+
+@app.route("/api/data")
+def get_data():
+    conn = sql.connect(
+        server_hostname=cfg.host,
+        http_path="/sql/1.0/warehouses/<id>",
+        credentials_provider=lambda: cfg.authenticate,
+    )
+    with conn.cursor() as cursor:
+        cursor.execute("SELECT * FROM catalog.schema.table LIMIT 10")
+        return jsonify(cursor.fetchall())
+```
+
+| Detail | Value |
+|--------|-------|
+| Pre-installed version | 3.0.3 |
+| app.yaml command | `["gunicorn", "app:app", "-w", "4", "-b", "0.0.0.0:8000"]` |
+| Auth header | `request.headers.get('x-forwarded-access-token')` |
+
+**Databricks tips**:
+- Use connection pooling (Flask doesn't cache connections like Streamlit)
+- Gunicorn workers (`-w 4`) handle concurrent requests
+- Use `request.headers` for user authorization tokens
+
+---
+
+## FastAPI
+
+**Best for**: Modern async APIs, auto-generated OpenAPI/Swagger docs, high-performance backends.
+
+**Critical**: Deploy with uvicorn.
+
+```python
+from fastapi import FastAPI, Request
+from databricks.sdk.core import Config
+from databricks import sql
+
+app = FastAPI(title="My API")
+cfg = Config()
+
+@app.get("/api/data")
+async def get_data(request: Request):
+    user_token = request.headers.get("x-forwarded-access-token")
+    conn = sql.connect(
+        server_hostname=cfg.host,
+        http_path="/sql/1.0/warehouses/<id>",
+        access_token=user_token,
+    )
+    with conn.cursor() as cursor:
+        cursor.execute("SELECT * FROM catalog.schema.table LIMIT 10")
+        return cursor.fetchall()
+```
+
+| Detail | Value |
+|--------|-------|
+| Pre-installed version | 0.115.0 |
+| app.yaml command | `["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]` |
+| Auth header | `request.headers.get('x-forwarded-access-token')` via `Request` |
+
+**Databricks tips**:
+- Auto-generates OpenAPI docs at `/docs` (Swagger) and `/redoc`
+- Databricks SQL connector is synchronous — use `asyncio.to_thread()` for async endpoints
+- Good choice for API backends that serve a React/TypeScript frontend
+
+**Cookbook**: [apps-cookbook.dev/docs/category/fastapi](https://apps-cookbook.dev/docs/category/fastapi) — getting started, endpoint examples.
+
+---
+
+>>>>>>>> origin/main:.claude/skills/databricks-apps-python/3-frameworks.md
 ## Reflex
 
 **Best for**: Full-stack Python apps with reactive UIs, no JavaScript required. Edge case — for a JS/React frontend prefer `databricks-apps` (AppKit); for a JSON API prefer FastAPI.

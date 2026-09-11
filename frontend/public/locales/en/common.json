@@ -28,7 +28,9 @@
     "sql": "SQL",
     "arguments": "Arguments",
     "result": "Result",
-    "toolError": "The tool returned an error."
+    "toolError": "The tool returned an error.",
+    "copy": "Copy",
+    "copied": "Copied"
   },
   "project": {
     "addProject": "Add project",

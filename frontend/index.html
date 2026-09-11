@@ -11,23 +11,7 @@
       rel="stylesheet"
     />
     <title>Chat App</title>
-    <script>
-      ;(() => {
-        try {
-          const raw = localStorage.getItem('ui-store')
-          if (!raw) return
-          const data = JSON.parse(raw)
-          const theme = data?.state?.theme
-          if (theme === 'dark') {
-            document.documentElement.classList.add('dark')
-            document.documentElement.style.colorScheme = 'dark'
-          } else if (theme === 'light') {
-            document.documentElement.classList.remove('dark')
-            document.documentElement.style.colorScheme = 'light'
-          }
-        } catch {}
-      })()
-    </script>
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import Boolean, ForeignKey, String, TIMESTAMP, func
+from sqlalchemy import TIMESTAMP, Boolean, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base

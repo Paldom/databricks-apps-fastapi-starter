@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import ConfigDict
@@ -44,7 +45,7 @@ class UpdateProjectRequest(ApiModel):
     name: str | None = None
 
 
-def _to_project(d: dict) -> Project:
+def _to_project(d: dict[str, Any]) -> Project:
     return Project(
         id=d["id"],
         name=d["name"],

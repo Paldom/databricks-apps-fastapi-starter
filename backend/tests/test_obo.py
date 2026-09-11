@@ -1,5 +1,7 @@
-from fastapi.testclient import TestClient
 from unittest.mock import MagicMock
+
+from fastapi.testclient import TestClient
+
 import app.main as app_main
 from app.core.config import settings
 
@@ -19,7 +21,7 @@ def test_workspace_client_middleware_uses_header(monkeypatch):
     monkeypatch.setattr("app.middlewares.workspace_client.WorkspaceClient", DummyWC)
 
     with TestClient(app_main.app) as client:
-        client.app.state.runtime.workspace_client = MagicMock(
+        client.app.state.runtime.workspace_client = MagicMock(  # type: ignore[attr-defined]
             config=MagicMock(host="http://h")
         )
         response = client.get(
@@ -47,7 +49,7 @@ def test_workspace_client_middleware_ignores_header_when_disabled(monkeypatch):
     monkeypatch.setattr("app.middlewares.workspace_client.WorkspaceClient", dummy_wc)
 
     with TestClient(app_main.app) as client:
-        client.app.state.runtime.workspace_client = "default"
+        client.app.state.runtime.workspace_client = "default"  # type: ignore[attr-defined]
         response = client.get(
             "/api/me",
             headers={

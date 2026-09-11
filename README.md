@@ -293,7 +293,9 @@ features need `ENABLE_DATABRICKS_INTEGRATIONS=true` and an authenticated CLI pro
 ## Security
 
 - Request size limits, security headers and a strict CORS default (no wildcard; `CORS_ALLOW_ORIGINS` lists
-  explicit origins) are middlewares in `backend/app/middlewares`.
+  explicit origins) are middlewares in `backend/app/middlewares`. The Content-Security-Policy allows only
+  same-origin scripts (the theme bootstrap is `public/theme-init.js`, not inline) plus the Google Fonts
+  origins; `SECURITY.md` says how to report a vulnerability.
 - API errors carry a generic message and the trace id, never exception text; `/api/health` reports a failing
   dependency as `Unavailable` and logs the cause.
 - Secrets never live in the repo: `detect-secrets` runs in pre-commit, `.env` is ignored, and Model Serving

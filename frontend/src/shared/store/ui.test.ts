@@ -9,8 +9,8 @@ describe('useUIStore', () => {
 
   it('has default state', () => {
     const state = useUIStore.getState()
-    expect(state.sidebarCollapsed).toBe(false)
     expect(state.theme).toBe('light')
+    expect(state.sidebarCollapsed).toBe(false)
   })
 
   it('toggles sidebar', () => {
@@ -18,6 +18,14 @@ describe('useUIStore', () => {
     toggleSidebar()
     expect(useUIStore.getState().sidebarCollapsed).toBe(true)
     toggleSidebar()
+    expect(useUIStore.getState().sidebarCollapsed).toBe(false)
+  })
+
+  it('sets sidebar collapsed state', () => {
+    const { setSidebarCollapsed } = useUIStore.getState()
+    setSidebarCollapsed(true)
+    expect(useUIStore.getState().sidebarCollapsed).toBe(true)
+    setSidebarCollapsed(false)
     expect(useUIStore.getState().sidebarCollapsed).toBe(false)
   })
 

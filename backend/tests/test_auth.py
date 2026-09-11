@@ -3,7 +3,6 @@ from fastapi.testclient import TestClient
 import app.main as app_main
 from app.core.config import settings
 
-
 ME_HEADERS = {
     "X-Forwarded-User": "test-user",
     "X-Forwarded-Email": "user@example.com",
@@ -60,3 +59,16 @@ def test_api_route_uses_local_dev_fallback(monkeypatch):
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == "local-dev-user"
+
+
+def test_me_decodes_utf8_forwarded_name():
+    # The Apps proxy forwards UTF-8 names as raw bytes; HTTP decodes headers
+    # as latin-1, so "Pál" arrives as "PÃ¡l" unless re-decoded.
+    headers = [
+        (k, v) for k, v in ME_HEADERS.items() if k != "X-Forwarded-Preferred-Username"
+    ] + [(b"X-Forwarded-Preferred-Username", "Domonkos Pál".encode())]
+    with TestClient(app_main.app) as client:
+        response = client.get("/api/me", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["name"] == "Domonkos Pál"

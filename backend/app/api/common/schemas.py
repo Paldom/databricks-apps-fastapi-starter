@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict
@@ -20,7 +20,7 @@ class ApiModel(BaseModel):
     )
 
 
-class DocumentStatus(str, Enum):
+class DocumentStatus(StrEnum):
     pending = "pending"
     ingested = "ingested"
     error = "error"

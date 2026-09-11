@@ -97,6 +97,8 @@ def update_trace_context(
     try:
         import mlflow
 
+        if mlflow.get_current_active_span() is None:  # e.g. background title generation
+            return
         mlflow.update_current_trace(metadata=metadata or None, tags=tags or None)
     except Exception:
         logger.debug("update_current_trace failed", exc_info=True)

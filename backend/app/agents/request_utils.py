@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from app.agents.response_utils import _to_dict
 from mlflow.types.responses import ResponsesAgentRequest
+
+from app.agents.response_utils import _to_dict
 
 
 def last_user_text(request: ResponsesAgentRequest) -> str:

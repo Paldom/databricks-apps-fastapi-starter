@@ -8,6 +8,7 @@ import {
 } from '@assistant-ui/react'
 import { useTranslation } from '@/i18n/client'
 import { cn } from '@/lib/utils'
+import { MarkdownText } from '@/components/assistant-ui/markdown-text'
 import { Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -43,7 +44,7 @@ function AssistantMessage() {
     <MessagePrimitive.Root className="flex justify-start py-2">
       <div className="max-w-[80%] rounded-lg bg-muted px-4 py-2">
         <MessagePrimitive.Content
-          components={{ tools: { Fallback: GenericTool } }}
+          components={{ Text: MarkdownText, tools: { Fallback: GenericTool } }}
         />
         <MessagePrimitive.Error>
           <p role="alert" className="mt-2 text-destructive">

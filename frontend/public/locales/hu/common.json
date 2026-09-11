@@ -16,7 +16,9 @@
     "duplicate": "Masolas",
     "delete": "Torles",
     "confirmDelete": "Biztosan torolni szeretne ezt a beszelgetest?",
-    "emptyState": "Valasszon egy beszelgetest vagy kezdjen ujat"
+    "emptyState": "Valasszon egy beszelgetest vagy kezdjen ujat",
+    "copy": "Másolás",
+    "copied": "Másolva"
   },
   "project": {
     "addProject": "Projekt hozzaadasa",

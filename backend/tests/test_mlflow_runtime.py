@@ -79,7 +79,9 @@ class TestExtractTraceId:
         assert self.extract(payload) is None
 
     def test_nested_empty_returns_none(self):
-        payload = {"databricks_output": {"trace": {}}}
+        payload: dict[str, dict[str, dict[str, str]]] = {
+            "databricks_output": {"trace": {}}
+        }
         assert self.extract(payload) is None
 
 

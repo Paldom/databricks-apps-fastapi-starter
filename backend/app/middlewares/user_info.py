@@ -8,6 +8,21 @@ from app.models.user_dto import CurrentUser
 from app.repositories.user_repository import get_or_create_user
 
 
+def _decode_header(value: str | None) -> str | None:
+    """Fix UTF-8 header values decoded as latin-1.
+
+    HTTP header values are latin-1 by spec, but the Databricks Apps proxy forwards
+    names like "Pál" as raw UTF-8 bytes; without this they render as mojibake.
+    ASCII values round-trip unchanged.
+    """
+    if value is None:
+        return None
+    try:
+        return value.encode("latin-1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return value
+
+
 async def user_info_middleware(request: Request, call_next):
     """Extract Databricks forwarded identity headers, upsert local user, set request state.
 
@@ -18,7 +33,9 @@ async def user_info_middleware(request: Request, call_next):
     user_id = request.headers.get("X-Forwarded-User") if trusted else None
     email = request.headers.get("X-Forwarded-Email") if trusted else None
     preferred_username = (
-        request.headers.get("X-Forwarded-Preferred-Username") if trusted else None
+        _decode_header(request.headers.get("X-Forwarded-Preferred-Username"))
+        if trusted
+        else None
     )
 
     if (

@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useTranslation } from '@/i18n/client'
+import { useTranslation } from 'react-i18next'
 
 export type DropzoneProps = Readonly<{
   onFilesAdded: (files: File[]) => void
@@ -52,6 +52,26 @@ export function Dropzone({
     []
   )
 
+  const filterFiles = useCallback(
+    (files: File[]) =>
+      files.filter((file) => {
+        if (maxSize && file.size > maxSize) return false
+        if (accept) {
+          const acceptedTypes = accept.split(',').map((t) => t.trim())
+          const fileType = file.type
+          const fileExtension = `.${file.name.split('.').pop()}`.toLowerCase()
+          return acceptedTypes.some(
+            (type) =>
+              type === fileType ||
+              type.toLowerCase() === fileExtension ||
+              (type.endsWith('/*') && fileType.startsWith(type.slice(0, -1)))
+          )
+        }
+        return true
+      }),
+    [maxSize, accept]
+  )
+
   const handleDrop = useCallback(
     (e: React.DragEvent<HTMLButtonElement>) => {
       e.preventDefault()
@@ -60,39 +80,24 @@ export function Dropzone({
 
       if (disabled) return
 
-      const files = Array.from(e.dataTransfer.files)
-      const validFiles = files.filter((file) => {
-        if (maxSize && file.size > maxSize) return false
-        if (accept) {
-          const acceptedTypes = accept.split(',').map((t) => t.trim())
-          const fileType = file.type
-          const fileExtension = `.${file.name.split('.').pop()}`
-          return acceptedTypes.some(
-            (type) =>
-              type === fileType ||
-              type === fileExtension ||
-              (type.endsWith('/*') && fileType.startsWith(type.slice(0, -1)))
-          )
-        }
-        return true
-      })
-
+      const validFiles = filterFiles(Array.from(e.dataTransfer.files))
       if (validFiles.length > 0) {
-        onFilesAdded(multiple ? validFiles : [validFiles[0]])
+        onFilesAdded(multiple ? validFiles : validFiles.slice(0, 1))
       }
     },
-    [disabled, maxSize, accept, multiple, onFilesAdded]
+    [disabled, filterFiles, multiple, onFilesAdded]
   )
 
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files ? Array.from(e.target.files) : []
-      if (files.length > 0) {
-        onFilesAdded(multiple ? files : [files[0]])
+      const validFiles = filterFiles(files)
+      if (validFiles.length > 0) {
+        onFilesAdded(multiple ? validFiles : validFiles.slice(0, 1))
       }
       e.target.value = ''
     },
-    [multiple, onFilesAdded]
+    [filterFiles, multiple, onFilesAdded]
   )
 
   return (
