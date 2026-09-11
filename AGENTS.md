@@ -129,7 +129,7 @@ machine, so changes under `.claude/`, `.agents/`, `.github/` and `resources/` ne
   and app telemetry destinations are resources; the app and evals experiments store traces in UC (`trace_location`, immutable once set); `lifecycle.started: true` so deploy also starts the app; `experimental.scripts` holds the `prebuild`
   (frontend) and `postdeploy` (UC grants for the app service principal) hooks.
 - The Delta Sync index is created by the ingestion job, not declared (its source table must exist first).
-- Validate every target before committing bundle changes: `databricks bundle validate -t dev|staging|prod --profile "$DATABRICKS_CONFIG_PROFILE"`.
+- Validate every target before committing bundle changes: `databricks bundle validate --strict -t dev|staging|prod --profile "$DATABRICKS_CONFIG_PROFILE"` (CI runs it strict: one resource per `<key>.<type>.yml`, no warnings).
 
 ## Agent tooling
 

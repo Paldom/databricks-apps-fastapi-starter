@@ -13,7 +13,7 @@ from pydantic_settings import BaseSettings
 from app.core.config import Settings
 
 HEADER = """# Generated from backend/app/core/config.py (make generate); edit the Settings class, not this file.
-# Local development: copy to backend/.env. On Databricks Apps the bundle sets these (resources/app.yml)
+# Local development: copy to backend/.env. On Databricks Apps the bundle sets these (resources/fastapi_app.app.yml)
 # and the platform injects PGHOST/PGPORT/PGDATABASE/PGUSER/PGSSLMODE, DATABRICKS_HOST and the
 # app credentials; leave DATABASE_URL and the DATABRICKS_* auth variables unset there.
 # The PG* values below match backend/docker-compose.yml (make dev-db); an empty value means unset.

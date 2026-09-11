@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field, field_validator, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -64,7 +64,9 @@ class Settings(BaseSettings):
 
     # Knowledge Assistant (Agent Bricks)
     knowledge_assistant_endpoint: Optional[str] = None
-    example_secret: Optional[str] = None  # value of a bound secret (showcase route)
+    example_secret: Optional[SecretStr] = (
+        None  # a bound secret (showcase route); never logged
+    )
     knowledge_assistant_timeout_seconds: int = 60
 
     # Chat orchestrator (the Apps ingress cuts requests at about two minutes)

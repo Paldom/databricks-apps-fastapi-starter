@@ -97,7 +97,7 @@ jobs:
           version: 1.16.0
 
       - name: Validate ${{ matrix.target }}
-        run: databricks bundle validate -t ${{ matrix.target }}
+        run: databricks bundle validate --strict -t ${{ matrix.target }}
 
   all-checks:
     # Single required status check: fails if any job failed or was cancelled; skipped jobs are fine.

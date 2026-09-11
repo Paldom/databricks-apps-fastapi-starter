@@ -114,9 +114,11 @@ resources:
             securable_type: VOLUME
             securable_full_name: ${var.rag_catalog_name}.${resources.schemas.rag_schema.name}.${resources.volumes.rag_upload_volume.name}
             permission: WRITE_VOLUME
-        # MLflow trace tables (created with the experiment): the app writes spans, logs, metrics
-        # and annotations; the schema-level SELECT for index queries stays in the postdeploy hook
-        # because the index only exists after the first ingestion run.
+        # MLflow trace tables (created together with the experiment through its trace_location,
+        # a preview field): the app writes spans, logs, metrics and annotations. If a workspace
+        # ignores trace_location, delete these four bindings and grant MODIFY on the schema in
+        # scripts/postdeploy_grants.sh instead. The schema-level SELECT for index queries stays in
+        # the hook because the index only exists after the first ingestion run.
         - name: trace-spans
           uc_securable:
             securable_type: TABLE
@@ -147,7 +149,7 @@ resources:
             permission: CAN_QUERY
         # Optional specialist bindings (pair with the env entries above):
         # - name: genie-space
-        #   genie_space: { space_id: "${var.genie_space_id}", permission: CAN_RUN }
+        #   genie_space: { name: "${var.genie_space_id}", space_id: "${var.genie_space_id}", permission: CAN_RUN }
         # - name: knowledge-assistant
         #   serving_endpoint: { name: "${var.knowledge_assistant_endpoint_name}", permission: CAN_QUERY }
         # - name: serving-agent
@@ -156,5 +158,6 @@ resources:
         #   app: { name: "${var.app_agent_name}", permission: CAN_USE }
         # - name: app-secret
         #   secret: { scope: "${resources.secret_scopes.app_secrets.name}", key: example, permission: READ }
+        #   (declare READ for the app's service principal on the scope too, see app_secrets.secret_scope.yml)
         # - name: sql-warehouse
         #   sql_warehouse: { id: "${var.sql_warehouse_id}", permission: CAN_USE }

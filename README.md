@@ -19,7 +19,7 @@ Knowledge Assistant), streams over NDJSON and stores every turn server-side.
 ```bash
 git clone https://github.com/Paldom/databricks-apps-fastapi-starter.git
 cd databricks-apps-fastapi-starter
-make setup            # uv sync, npm ci, pre-commit hooks, agent skills
+make setup            # uv sync, npm ci, pre-commit hooks
 cp backend/env.example backend/.env
 make dev-db && make migrate-up && make dev
 ```
@@ -30,7 +30,7 @@ Databricks integrations stay off unless `ENABLE_DATABRICKS_INTEGRATIONS=true` an
 
 ### Deploy to a workspace
 
-Requirements: Databricks CLI 1.16 (validated; the bundle requires `>= 1.15`), Node 22 (see `.nvmrc`), `uv`, a workspace with Databricks Apps and
+Requirements: Databricks CLI 1.16 or newer, Node 22 (see `.nvmrc`), `uv`, a workspace with Databricks Apps and
 Lakebase, and a Unity Catalog catalog you may create schemas in (`rag_catalog_name`, default `main`).
 
 ```bash
@@ -105,7 +105,8 @@ hardcoded.
 
 The database password is the app's OAuth token, minted on every connection. Table privileges on the schema
 are `uc_securable` bindings where the table exists at deploy time: the four `app_mlflow_*` trace tables are
-bound with `MODIFY`. The AI Search index exists only after the first ingestion run, so `USE_SCHEMA` and
+bound with `MODIFY` (they are created with the experiment's `trace_location`, a preview field; a workspace that
+ignores it has no tables, so delete those bindings and grant `MODIFY` on the schema in the hook instead). The AI Search index exists only after the first ingestion run, so `USE_SCHEMA` and
 `SELECT` on the bundle schema come from the `postdeploy` hook, which fails the deploy when the app has no
 service principal yet (re-run it with `bash scripts/postdeploy_grants.sh <target>`). Binding kinds in use:
 `postgres`, `experiment`, `job`, `uc_securable` (volume and tables), `serving_endpoint`; optional ones in the
@@ -115,21 +116,24 @@ are listed as comments in the app file and set per target when a workspace uses 
 
 ### Secrets
 
-The bundle owns a workspace secret scope (`resources/app_secrets.secret_scope.yml`, named `<bundle>-<suffix>`) and
-nothing else: bundles create scopes, never values, so `databricks bundle deploy` succeeds before any key exists.
-Values are put once per workspace and read in three ways:
+The bundle owns two workspace secret scopes (`resources/*.secret_scope.yml`): `<bundle>-eval-<suffix>` for the
+evaluation job's credentials and `<bundle>-app-<suffix>` for keys the app binds. Secret ACLs are scope-wide, so
+each consumer gets its own scope. Bundles create scopes, never values, so `databricks bundle deploy` succeeds
+before any key exists; values are put once per workspace:
 
 ```bash
-databricks secrets put-secret databricks-apps-fastapi-starter-dev client-id --string-value <sp client id> --profile "$DATABRICKS_CONFIG_PROFILE"
-databricks secrets put-secret databricks-apps-fastapi-starter-dev client-secret --profile "$DATABRICKS_CONFIG_PROFILE"   # prompts
+databricks secrets put-secret databricks-apps-fastapi-starter-eval-dev client-id --string-value <sp client id> --profile "$DATABRICKS_CONFIG_PROFILE"
+databricks secrets put-secret databricks-apps-fastapi-starter-eval-dev client-secret --profile "$DATABRICKS_CONFIG_PROFILE"   # prompts
 ```
 
 - Jobs read keys with `dbutils.secrets.get(scope, key)`; the evaluation job takes the scope name from the
-  `eval_secret_scope` variable, which defaults to the bundle scope.
+  `eval_secret_scope` variable, which defaults to the eval scope. An identity other than the deployer that runs
+  the job needs `READ` in the scope's `permissions`.
 - The app binds one key (`secret: {scope, key, permission: READ}`) and receives the value as an environment
-  variable through `value_from`; the binding grants the app's service principal `READ` on the key, and the
-  key must exist before that deploy, so it lives in a target like the other optional bindings. The showcase
-  route `GET /api/examples/secret` reports whether `EXAMPLE_SECRET` arrived (never its value).
+  variable through `value_from`. The key must exist before that deploy and the bundle reconciles scope ACLs
+  on every deploy, so the target that enables the binding also declares `READ` for the app's service principal
+  on the app scope (client id from `databricks apps get`). The showcase route `GET /api/examples/secret`
+  reports whether `EXAMPLE_SECRET` arrived, never its value; the setting is a `SecretStr`.
 - Unity Catalog secrets (`resources.secrets`, a `catalog.schema.secret` object with grants) are the newer,
   governed alternative for jobs; apps bind workspace scopes only, so this template uses a scope.
 
@@ -153,6 +157,7 @@ targets:
           resources:
             - name: genie-space
               genie_space:
+                name: ${var.genie_space_id}
                 space_id: ${var.genie_space_id}
                 permission: CAN_RUN
 ```

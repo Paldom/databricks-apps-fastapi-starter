@@ -105,7 +105,7 @@ variables:
     default: ""
   eval_secret_scope:
     description: Secret scope holding client-id/client-secret of a service principal with CAN_USE on the app (the eval job calls the app with it); the bundle-managed scope by default
-    default: ${resources.secret_scopes.app_secrets.name}
+    default: ${resources.secret_scopes.eval_secrets.name}
   app_experiment_name:
     description: MLflow experiment for app traces
     default: /Shared/${bundle.name}/app-${bundle.target}

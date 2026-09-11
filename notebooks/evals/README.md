@@ -1,6 +1,6 @@
 # Agent evaluations
 
-Evaluations run as a bundle job (`resources/evals.yml`), not as backend code: they target deployed surfaces
+Evaluations run as a bundle job (`resources/agent_eval_job.job.yml`), not as backend code: they target deployed surfaces
 (the app, a Model Serving endpoint, a Genie space) through `mlflow.genai.evaluate`.
 
 ```

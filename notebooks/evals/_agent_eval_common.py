@@ -201,7 +201,7 @@ def _parse_genie_response(rsp: Any) -> tuple[str, str | None, list, str | None]:
 def load_eval_data(dataset_name: str, target_kind: str) -> list[dict]:
     """Load an MLflow evaluation dataset or return a small inline fallback."""
     if dataset_name:
-        # UC-backed datasets need the databricks-agents package (declared in resources/evals.yml)
+        # UC-backed datasets need the databricks-agents package (declared in resources/agent_eval_job.job.yml)
         dataset = mlflow.genai.datasets.get_dataset(name=dataset_name)
         return dataset.to_df().to_dict(orient="records")
 
