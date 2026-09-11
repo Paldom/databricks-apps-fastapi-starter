@@ -75,6 +75,16 @@ export const getGetJobRunExamplesJobRunIdGetMockHandler = (overrideResponse?: un
   }, options)
 }
 
+export const getBoundSecretExamplesSecretGetMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.get('*/examples/secret', async (info) => {await delay(100);
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+    return new HttpResponse(null,
+      { status: 200,
+        
+      })
+  }, options)
+}
+
 export const getServingExamplesServingPostMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
   return http.post('*/examples/serving', async (info) => {await delay(100);
   if (typeof overrideResponse === 'function') {await overrideResponse(info); }
@@ -121,6 +131,7 @@ export const getExamplesMock = () => [
   getGenieAskExamplesGenieSpaceIdAskPostMockHandler(),
   getRunJobExamplesJobPostMockHandler(),
   getGetJobRunExamplesJobRunIdGetMockHandler(),
+  getBoundSecretExamplesSecretGetMockHandler(),
   getServingExamplesServingPostMockHandler(),
   getDownloadExamplesUcDownloadGetMockHandler(),
   getUploadExamplesUcUploadPostMockHandler(),

@@ -10,16 +10,3 @@ resources:
           value: ${bundle.name}
         - key: target
           value: ${bundle.target}
-
-  postgres_roles:
-    app_role:
-      parent: ${resources.postgres_projects.app_db.id}/branches/production
-      role_id: app
-      postgres_role: app
-
-  postgres_databases:
-    main_database:
-      parent: ${resources.postgres_projects.app_db.id}/branches/production
-      database_id: app
-      postgres_database: app
-      role: ${resources.postgres_roles.app_role.id}

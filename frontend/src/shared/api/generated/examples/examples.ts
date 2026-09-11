@@ -567,6 +567,117 @@ export function useGetJobRunExamplesJobRunIdGet<TData = Awaited<ReturnType<typeo
 
 
 /**
+ * Show that a bundle-bound secret reached the app; the value itself never leaves it.
+ * @summary Bound Secret
+ */
+export type boundSecretExamplesSecretGetResponse200 = {
+  data: unknown
+  status: 200
+}
+    
+export type boundSecretExamplesSecretGetResponseSuccess = (boundSecretExamplesSecretGetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type boundSecretExamplesSecretGetResponse = (boundSecretExamplesSecretGetResponseSuccess)
+
+export const getBoundSecretExamplesSecretGetUrl = () => {
+
+
+  
+
+  return `/examples/secret`
+}
+
+export const boundSecretExamplesSecretGet = async ( options?: RequestInit): Promise<boundSecretExamplesSecretGetResponse> => {
+  
+  return customInstance<boundSecretExamplesSecretGetResponse>(getBoundSecretExamplesSecretGetUrl(),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+);}
+
+
+
+
+
+export const getBoundSecretExamplesSecretGetQueryKey = () => {
+    return [
+    `/examples/secret`
+    ] as const;
+    }
+
+    
+export const getBoundSecretExamplesSecretGetQueryOptions = <TData = Awaited<ReturnType<typeof boundSecretExamplesSecretGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof boundSecretExamplesSecretGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getBoundSecretExamplesSecretGetQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof boundSecretExamplesSecretGet>>> = ({ signal }) => boundSecretExamplesSecretGet({ signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof boundSecretExamplesSecretGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type BoundSecretExamplesSecretGetQueryResult = NonNullable<Awaited<ReturnType<typeof boundSecretExamplesSecretGet>>>
+export type BoundSecretExamplesSecretGetQueryError = unknown
+
+
+export function useBoundSecretExamplesSecretGet<TData = Awaited<ReturnType<typeof boundSecretExamplesSecretGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof boundSecretExamplesSecretGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof boundSecretExamplesSecretGet>>,
+          TError,
+          Awaited<ReturnType<typeof boundSecretExamplesSecretGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useBoundSecretExamplesSecretGet<TData = Awaited<ReturnType<typeof boundSecretExamplesSecretGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof boundSecretExamplesSecretGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof boundSecretExamplesSecretGet>>,
+          TError,
+          Awaited<ReturnType<typeof boundSecretExamplesSecretGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useBoundSecretExamplesSecretGet<TData = Awaited<ReturnType<typeof boundSecretExamplesSecretGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof boundSecretExamplesSecretGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Bound Secret
+ */
+
+export function useBoundSecretExamplesSecretGet<TData = Awaited<ReturnType<typeof boundSecretExamplesSecretGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof boundSecretExamplesSecretGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getBoundSecretExamplesSecretGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+/**
  * @summary Serving
  */
 export type servingExamplesServingPostResponse200 = {

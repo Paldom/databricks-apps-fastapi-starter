@@ -1,6 +1,6 @@
 bundle:
   name: databricks-apps-fastapi-starter
-  databricks_cli_version: ">= 1.15.0, <= 1.99.99"
+  databricks_cli_version: ">= 1.16.0, <= 1.99.99"
   engine: direct
 
 include:
@@ -104,8 +104,8 @@ variables:
     description: SQL warehouse id; MLflow needs it to read traces stored in Unity Catalog (evaluations)
     default: ""
   eval_secret_scope:
-    description: Secret scope holding client-id/client-secret of a service principal with CAN_USE on the app (the eval job calls the app with it; empty = app target fails in a job)
-    default: ""
+    description: Secret scope holding client-id/client-secret of a service principal with CAN_USE on the app (the eval job calls the app with it); the bundle-managed scope by default
+    default: ${resources.secret_scopes.app_secrets.name}
   app_experiment_name:
     description: MLflow experiment for app traces
     default: /Shared/${bundle.name}/app-${bundle.target}
@@ -142,6 +142,11 @@ targets:
       postgres_projects:
         app_db:
           purge_on_delete: true
+      apps:
+        fastapi_app:
+          permissions: # who may open the app; staging/prod decide per audience
+            - level: CAN_USE
+              group_name: users
 
   staging:
     variables:

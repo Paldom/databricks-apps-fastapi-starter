@@ -1239,6 +1239,20 @@ paths:
       summary: Get Job Run
       tags:
       - examples
+  /examples/secret:
+    get:
+      description: Show that a bundle-bound secret reached the app; the value itself
+        never leaves it.
+      operationId: bound_secret_examples_secret_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Bound Secret
+      tags:
+      - examples
   /examples/serving:
     post:
       operationId: serving_examples_serving_post

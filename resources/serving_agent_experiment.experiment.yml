@@ -1,0 +1,4 @@
+resources:
+  experiments:
+    serving_agent_experiment:
+      name: ${var.serving_agent_experiment_name}

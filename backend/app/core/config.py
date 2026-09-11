@@ -64,6 +64,7 @@ class Settings(BaseSettings):
 
     # Knowledge Assistant (Agent Bricks)
     knowledge_assistant_endpoint: Optional[str] = None
+    example_secret: Optional[str] = None  # value of a bound secret (showcase route)
     knowledge_assistant_timeout_seconds: int = 60
 
     # Chat orchestrator (the Apps ingress cuts requests at about two minutes)

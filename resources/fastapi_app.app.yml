@@ -6,7 +6,10 @@ resources:
       source_code_path: ../backend
       compute_size: MEDIUM
       lifecycle:
-        started: true
+        started: true # deploy also starts the app
+      # Preview fields, set per target when needed: budget_policy_id / usage_policy_id (serverless
+      # usage policy), compute_min_instances + compute_max_instances (scale out), space (app spaces),
+      # git_repository + git_source (deploy from Git instead of the bundle's source_code_path).
       config:
         command:
           - opentelemetry-instrument
@@ -75,6 +78,10 @@ resources:
           #   value_from: genie-space
           # - name: SERVING_AGENT_ENDPOINT
           #   value_from: serving-agent
+          # A bound secret arrives as its value; the key must exist in the bundle scope before
+          # the deploy (databricks secrets put-secret <scope> <key>).
+          # - name: EXAMPLE_SECRET
+          #   value_from: app-secret
           - name: MAX_UPLOAD_BYTES
             value: "52428800"
       telemetry_export_destinations:
@@ -82,9 +89,11 @@ resources:
             logs_table: ${var.rag_catalog_name}.${resources.schemas.rag_schema.name}.app_logs
             metrics_table: ${var.rag_catalog_name}.${resources.schemas.rag_schema.name}.app_metrics
             traces_table: ${var.rag_catalog_name}.${resources.schemas.rag_schema.name}.app_traces
-      permissions:
-        - level: CAN_USE
-          group_name: users
+      # permissions are set per target (dev: all users). A service principal that evaluates the app
+      # through the ingress needs CAN_USE too:
+      # permissions:
+      #   - level: CAN_USE
+      #     service_principal_name: <evaluation service principal>
       resources:
         - name: postgres
           description: Lakebase database (schemas are created by the app's migrations)
@@ -105,6 +114,29 @@ resources:
             securable_type: VOLUME
             securable_full_name: ${var.rag_catalog_name}.${resources.schemas.rag_schema.name}.${resources.volumes.rag_upload_volume.name}
             permission: WRITE_VOLUME
+        # MLflow trace tables (created with the experiment): the app writes spans, logs, metrics
+        # and annotations; the schema-level SELECT for index queries stays in the postdeploy hook
+        # because the index only exists after the first ingestion run.
+        - name: trace-spans
+          uc_securable:
+            securable_type: TABLE
+            securable_full_name: ${var.rag_catalog_name}.${resources.schemas.rag_schema.name}.${resources.experiments.app_experiment.trace_location.uc_trace_location.table_prefix}_otel_spans
+            permission: MODIFY
+        - name: trace-logs
+          uc_securable:
+            securable_type: TABLE
+            securable_full_name: ${var.rag_catalog_name}.${resources.schemas.rag_schema.name}.${resources.experiments.app_experiment.trace_location.uc_trace_location.table_prefix}_otel_logs
+            permission: MODIFY
+        - name: trace-metrics
+          uc_securable:
+            securable_type: TABLE
+            securable_full_name: ${var.rag_catalog_name}.${resources.schemas.rag_schema.name}.${resources.experiments.app_experiment.trace_location.uc_trace_location.table_prefix}_otel_metrics
+            permission: MODIFY
+        - name: trace-annotations
+          uc_securable:
+            securable_type: TABLE
+            securable_full_name: ${var.rag_catalog_name}.${resources.schemas.rag_schema.name}.${resources.experiments.app_experiment.trace_location.uc_trace_location.table_prefix}_otel_annotations
+            permission: MODIFY
         - name: supervisor-model
           serving_endpoint:
             name: ${var.supervisor_model}
@@ -122,3 +154,7 @@ resources:
         #   serving_endpoint: { name: "${var.serving_agent_endpoint}", permission: CAN_QUERY }
         # - name: app-agent
         #   app: { name: "${var.app_agent_name}", permission: CAN_USE }
+        # - name: app-secret
+        #   secret: { scope: "${resources.secret_scopes.app_secrets.name}", key: example, permission: READ }
+        # - name: sql-warehouse
+        #   sql_warehouse: { id: "${var.sql_warehouse_id}", permission: CAN_USE }

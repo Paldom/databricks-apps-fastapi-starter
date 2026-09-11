@@ -13,7 +13,7 @@ supervisor that routes to specialist tools (remote Databricks App, Model Serving
 Assistant or direct AI Search retrieval), Lakebase Postgres for app state, MLflow tracing and evaluation, and
 Declarative Automation Bundles (`databricks.yml` + `resources/*.yml`) as the only deployment path.
 
-Principle: **everything is resource-based**. Databricks resources are bound to the app in `resources/app.yml` and
+Principle: **everything is resource-based**. Databricks resources are bound to the app in `resources/fastapi_app.app.yml` and
 arrive as environment variables. Never hardcode resource names or IDs; never read `os.getenv` outside
 `backend/app/core/config.py`.
 
@@ -33,8 +33,8 @@ backend/alembic/  migrations (run at app start)
 backend/tests/    pytest
 frontend/src/     app/ (providers, router), components/, hooks/, lib/assistant/ (NDJSON chat runtime), shared/api/ (Orval client)
 notebooks/        jobs (RAG ingestion), evals (MLflow), serving (optional Model Serving agent)
-resources/        bundle resources: app, database, unity_catalog, vector_search, compute, evals, experiment, serving_agent
-scripts/          postdeploy_grants.sh (bundle hook), setup-agentic.sh
+resources/        one resource per <resource_key>.<resource_type>.yml (app, postgres_*, schema, volume, vector_search_endpoint, job, experiment, secret_scope)
+scripts/          postdeploy_grants.sh (bundle hook)
 ```
 
 Layer rules are enforced by import-linter (`backend/pyproject.toml`): `api → services → repositories → models`, and
@@ -43,7 +43,7 @@ Layer rules are enforced by import-linter (`backend/pyproject.toml`): `api → s
 ## Commands
 
 ```bash
-make setup                 # uv sync, npm ci, pre-commit hooks, agent skills (scripts/setup-agentic.sh)
+make setup                 # uv sync, npm ci, pre-commit hooks
 make dev-db && make migrate-up && make dev
 make check                 # offline gate: pre-commit, ruff, mypy, bandit, pytest, frontend build (CI runs the same)
 make generate              # export OpenAPI, regenerate the frontend client and env.example (commit the result)
@@ -122,7 +122,7 @@ machine, so changes under `.claude/`, `.agents/`, `.github/` and `resources/` ne
 
 ## Bundle conventions
 
-- One app definition (`resources/app.yml`); target differences are variables (`environment`, `log_level`, `enable_obo`, `enable_docs`,
+- One app definition (`resources/fastapi_app.app.yml`); one resource per `<name>.<resource_type>.yml` file (the CLI recommends it); target differences are variables (`environment`, `log_level`, `enable_obo`, `enable_docs`,
   `enable_examples`). Optional bindings (Knowledge Assistant, serving agent, Genie, remote app) and their env
   entries live in a target (lists merge by `name`); the Apps API rejects empty env values and empty bindings.
 - Jobs run on serverless `environments` (`client: "3"`); Lakebase is an autoscaling project; the AI Search endpoint
@@ -133,6 +133,5 @@ machine, so changes under `.claude/`, `.agents/`, `.github/` and `resources/` ne
 
 ## Agent tooling
 
-Skills live in `.agents/skills` (installed by `scripts/setup-agentic.sh` from `skills-lock.json` and the Databricks AI
-Dev Kit; per-agent directories are symlinks and are gitignored). MCP servers are configured in `.mcp.json`
+Skills are tracked in `.agents/skills`; per-agent directories (`.claude/skills`, `.cursor/skills`, ...) are gitignored symlinks to it. MCP servers are configured in `.mcp.json`
 (Claude), `.cursor/mcp.json` and `.vscode/mcp.json`; the Databricks MCP server comes from the AI Dev Kit plugin.

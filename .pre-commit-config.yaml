@@ -41,7 +41,7 @@ repos:
     hooks:
       - id: detect-secrets
         args: [--baseline, .secrets.baseline]
-        exclude: ^(package-lock\.json|backend/uv\.lock|backend/openapi\.yaml|skills-lock\.json|\.secrets\.baseline|frontend/public/mockServiceWorker\.js)$
+        exclude: ^(package-lock\.json|backend/uv\.lock|backend/openapi\.yaml|\.secrets\.baseline|frontend/public/mockServiceWorker\.js)$
 
   - repo: https://github.com/python-jsonschema/check-jsonschema
     rev: 0.37.1
@@ -82,7 +82,7 @@ repos:
         entry: frontend/node_modules/.bin/prettier --write --config frontend/.prettierrc --ignore-path .prettierignore
         language: system
         types_or: [yaml, json, markdown, ts, tsx, css]
-        exclude: ^(resources/|databricks\.yml$|backend/openapi\.yaml$|.*\.lock$|package-lock\.json$|skills-lock\.json$|\.secrets\.baseline$|frontend/(public|coverage|reports)/)
+        exclude: ^(resources/|databricks\.yml$|backend/openapi\.yaml$|.*\.lock$|package-lock\.json$$|\.secrets\.baseline$|frontend/(public|coverage|reports)/)
       - id: eslint
         name: eslint (frontend)
         entry: npm --prefix frontend run lint --silent --

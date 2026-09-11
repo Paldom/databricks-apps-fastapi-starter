@@ -83,9 +83,8 @@ generate: openapi-export frontend-api-gen env-example
 
 # ── Checks ─────────────────────────────────────────────────────────
 
-setup: install  ## Install deps, git hooks and agent skills
+setup: install  ## Install deps and git hooks
 	uv run --project backend pre-commit install --install-hooks
-	bash scripts/setup-agentic.sh
 
 precommit:  ## Run the commit gate over all files
 	uv run --project backend pre-commit run --all-files

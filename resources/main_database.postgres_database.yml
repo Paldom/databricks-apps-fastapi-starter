@@ -1,0 +1,7 @@
+resources:
+  postgres_databases:
+    main_database:
+      parent: ${resources.postgres_projects.app_db.id}/branches/production
+      database_id: app
+      postgres_database: app
+      role: ${resources.postgres_roles.app_role.id}

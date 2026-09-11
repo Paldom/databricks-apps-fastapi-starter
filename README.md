@@ -42,7 +42,7 @@ databricks bundle deploy   -t dev --profile "$DATABRICKS_CONFIG_PROFILE"
 
 That single deploy runs the `prebuild` hook (frontend build into `backend/public`), creates or updates every
 resource under `resources/`, starts the app (`lifecycle.started`) and runs the `postdeploy` hook that grants
-the app's service principal the Unity Catalog privileges it needs. The app reports the deployed commit at
+the app's service principal `USE_SCHEMA` and `SELECT` on the bundle schema (everything else is a binding). The app reports the deployed commit at
 `/api/health` (`version`).
 
 The first deploy takes a few minutes longer: the Lakebase project and the AI Search endpoint are provisioned,
@@ -53,17 +53,18 @@ workspace; the bundle binds them but does not create them.
 
 ## What a target provisions
 
-| Resource                       | File                          | dev                                      | prod                                                 |
-| ------------------------------ | ----------------------------- | ---------------------------------------- | ---------------------------------------------------- |
-| App `fastapi-starter-<suffix>` | `resources/app.yml`           | MEDIUM compute, docs and examples on     | MEDIUM compute, OBO on, examples off                 |
-| Lakebase project + database    | `resources/database.yml`      | 0.5 to 2 CU, suspends after 5 min        | 1 to 4 CU, never suspends                            |
-| Schema + volume                | `resources/unity_catalog.yml` | `<catalog>.<prefix>starter_rag`, uploads | `<catalog>.starter_rag` (staging: `starter_rag_stg`) |
-| AI Search endpoint             | `resources/vector_search.yml` | STANDARD (billed while it exists)        | STANDARD                                             |
-| Ingestion job                  | `resources/compute.yml`       | serverless, file-arrival trigger on      | serverless, file-arrival trigger on                  |
-| Experiments (app, evals)       | `resources/experiment.yml`    | traces in UC tables `app_mlflow_*`       | same                                                 |
-| Evaluation job                 | `resources/evals.yml`         | serverless, one run per target           | same                                                 |
-| Serving agent job + experiment | `resources/serving_agent.yml` | run on demand                            | run on demand                                        |
-| App telemetry tables           | `resources/app.yml`           | `app_logs`, `app_metrics`, `app_traces`  | same                                                 |
+| Resource                         | File                                                                                | dev                                      | prod                                                 |
+| -------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------- |
+| App `fastapi-starter-<suffix>`   | `resources/fastapi_app.app.yml`                                                     | MEDIUM compute, docs and examples on     | MEDIUM compute, OBO on, examples off                 |
+| Lakebase project, role, database | `resources/*.postgres_*.yml`                                                        | 0.5 to 2 CU, suspends after 5 min        | 1 to 4 CU, never suspends                            |
+| Schema + volume                  | `resources/rag_schema.schema.yml`, `rag_upload_volume.volume.yml`                   | `<catalog>.<prefix>starter_rag`, uploads | `<catalog>.starter_rag` (staging: `starter_rag_stg`) |
+| AI Search endpoint               | `resources/rag_endpoint.vector_search_endpoint.yml`                                 | STANDARD (billed while it exists)        | STANDARD                                             |
+| Ingestion job                    | `resources/rag_ingestion_job.job.yml`                                               | serverless, file-arrival trigger on      | serverless, file-arrival trigger on                  |
+| Experiments (app, evals)         | `resources/*.experiment.yml`                                                        | traces in UC tables `app_mlflow_*`       | same                                                 |
+| Evaluation job                   | `resources/agent_eval_job.job.yml`                                                  | serverless, one run per target           | same                                                 |
+| Serving agent job + experiment   | `resources/deploy_serving_agent.job.yml`, `serving_agent_experiment.experiment.yml` | run on demand                            | run on demand                                        |
+| App telemetry tables             | `resources/fastapi_app.app.yml`                                                     | `app_logs`, `app_metrics`, `app_traces`  | same                                                 |
+| Secret scope                     | `resources/app_secrets.secret_scope.yml`                                            | `<bundle>-<suffix>`, values put by you   | same                                                 |
 
 Development mode prefixes schema, job and experiment names per developer; app names, the Lakebase project id
 and the AI Search endpoint name are shared per target. The ingestion job's Delta Sync index is created by the
@@ -82,7 +83,7 @@ frontend/  React 19 + TypeScript + Vite, assistant-ui runtime, generated Orval c
 backend/   FastAPI, SQLAlchemy async + Alembic (Lakebase), LangGraph supervisor, MLflow tracing
 notebooks/ jobs/rag_ingestion_job.py (serverless), evals/ (mlflow.genai.evaluate), serving/ (ResponsesAgent)
 resources/ bundle resources; databricks.yml holds the variables and the three targets
-scripts/   postdeploy_grants.sh (UC privileges for the app service principal), setup-agentic.sh
+scripts/   postdeploy_grants.sh (schema privileges for the app service principal)
 ```
 
 Backend layers are enforced by import-linter: `api → services → repositories → models`, and `core` never
@@ -90,7 +91,7 @@ imports `chat` or `agents`.
 
 ### App resource bindings
 
-Everything the app talks to is bound in `resources/app.yml` and arrives as environment variables; nothing is
+Everything the app talks to is bound in `resources/fastapi_app.app.yml` and arrives as environment variables; nothing is
 hardcoded.
 
 | Binding            | Kind             | Permission               | Env var                                                                            |
@@ -103,10 +104,34 @@ hardcoded.
 | `embedding-model`  | Serving endpoint | `CAN_QUERY`              | `AI_GATEWAY_EMBEDDING_MODEL`                                                       |
 
 The database password is the app's OAuth token, minted on every connection. Table privileges on the schema
-(reading the AI Search index, writing MLflow traces) cannot be expressed as app bindings; the `postdeploy`
-hook grants `USE_SCHEMA` and `SELECT` on the bundle schema and `MODIFY` on the `app_mlflow_*` trace tables to
-the app's service principal. It fails the deploy when the app has no service principal yet; re-run it with
-`bash scripts/postdeploy_grants.sh <target>`.
+are `uc_securable` bindings where the table exists at deploy time: the four `app_mlflow_*` trace tables are
+bound with `MODIFY`. The AI Search index exists only after the first ingestion run, so `USE_SCHEMA` and
+`SELECT` on the bundle schema come from the `postdeploy` hook, which fails the deploy when the app has no
+service principal yet (re-run it with `bash scripts/postdeploy_grants.sh <target>`). Binding kinds in use:
+`postgres`, `experiment`, `job`, `uc_securable` (volume and tables), `serving_endpoint`; optional ones in the
+commented block: `genie_space`, `app`, `secret`, `sql_warehouse`. Preview app fields (`usage_policy_id`,
+`budget_policy_id`, `compute_min_instances`/`compute_max_instances`, `space`, `git_repository`/`git_source`)
+are listed as comments in the app file and set per target when a workspace uses them.
+
+### Secrets
+
+The bundle owns a workspace secret scope (`resources/app_secrets.secret_scope.yml`, named `<bundle>-<suffix>`) and
+nothing else: bundles create scopes, never values, so `databricks bundle deploy` succeeds before any key exists.
+Values are put once per workspace and read in three ways:
+
+```bash
+databricks secrets put-secret databricks-apps-fastapi-starter-dev client-id --string-value <sp client id> --profile "$DATABRICKS_CONFIG_PROFILE"
+databricks secrets put-secret databricks-apps-fastapi-starter-dev client-secret --profile "$DATABRICKS_CONFIG_PROFILE"   # prompts
+```
+
+- Jobs read keys with `dbutils.secrets.get(scope, key)`; the evaluation job takes the scope name from the
+  `eval_secret_scope` variable, which defaults to the bundle scope.
+- The app binds one key (`secret: {scope, key, permission: READ}`) and receives the value as an environment
+  variable through `value_from`; the binding grants the app's service principal `READ` on the key, and the
+  key must exist before that deploy, so it lives in a target like the other optional bindings. The showcase
+  route `GET /api/examples/secret` reports whether `EXAMPLE_SECRET` arrived (never its value).
+- Unity Catalog secrets (`resources.secrets`, a `catalog.schema.secret` object with grants) are the newer,
+  governed alternative for jobs; apps bind workspace scopes only, so this template uses a scope.
 
 ### Optional specialists
 
@@ -133,7 +158,7 @@ targets:
 ```
 
 The same pattern applies to `knowledge-assistant` and `serving-agent` (`serving_endpoint`, `CAN_QUERY`) and
-`app-agent` (`app`, `CAN_USE`); the commented block in `resources/app.yml` lists them.
+`app-agent` (`app`, `CAN_USE`); the commented block in `resources/fastapi_app.app.yml` lists them.
 
 ## Chat
 
@@ -179,7 +204,7 @@ with it when `knowledge_assistant_name` is set on purpose.
 
 `ENABLE_EXAMPLES=true` (dev only by default) mounts `/api/examples/*`: Genie ask, Knowledge Assistant ask,
 embeddings, AI Search query, a job run (`202` + `GET /api/examples/job/{run_id}` polling), a Model Serving
-query (`SERVING_ENDPOINT_NAME`), UC volume upload and download. They are authenticated, use the caller's
+query (`SERVING_ENDPOINT_NAME`), a bound secret check, UC volume upload and download. They are authenticated, use the caller's
 identity when OBO is on and the app's otherwise, and return `503` with a clear message when the resource is
 not configured.
 
@@ -204,14 +229,8 @@ UC dataset in `agent_eval_dataset_name`. Results land in the evals experiment.
 
 The job needs `sql_warehouse_id` (the evals experiment stores traces in Unity Catalog; the bundle creates no
 warehouse). The app target is called through the Apps ingress, which rejects a job's own credential, so it
-also needs `eval_secret_scope`: a secret scope holding `client-id` and `client-secret` of a service principal
-that has `CAN_USE` on the app:
-
-```bash
-databricks secrets create-scope eval-app --profile "$DATABRICKS_CONFIG_PROFILE"
-databricks secrets put-secret eval-app client-id --string-value <client id> --profile "$DATABRICKS_CONFIG_PROFILE"
-databricks secrets put-secret eval-app client-secret --profile "$DATABRICKS_CONFIG_PROFILE"   # prompts
-```
+also needs the `client-id` and `client-secret` keys of a service principal that has `CAN_USE` on the app in
+the bundle secret scope (`eval_secret_scope`, see Secrets above).
 
 From a machine with `databricks auth login` the same predict function works with the user's OAuth token. The
 `endpoint` and `genie` targets work with the job identity. A UC dataset (`agent_eval_dataset_name`) needs the

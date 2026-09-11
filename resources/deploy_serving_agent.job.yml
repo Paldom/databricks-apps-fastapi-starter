@@ -1,10 +1,6 @@
 # Optional serving agent. First enablement: `databricks bundle run deploy_serving_agent`, then set
 # serving_agent_endpoint (and bind it to the app) and redeploy.
 resources:
-  experiments:
-    serving_agent_experiment:
-      name: ${var.serving_agent_experiment_name}
-
   jobs:
     deploy_serving_agent:
       name: DeployServingAgent-${var.resource_name_suffix}

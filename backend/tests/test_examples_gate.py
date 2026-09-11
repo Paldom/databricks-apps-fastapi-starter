@@ -25,6 +25,36 @@ def test_examples_disabled_by_default():
     assert "ENABLE_EXAMPLES" in response.json()["detail"]
 
 
+def test_bound_secret_is_reported_without_its_value(monkeypatch):
+    api_app = _api_app()
+    api_app.dependency_overrides[get_settings] = lambda: Settings(
+        enable_examples=True,
+        example_secret="s3cr3t-value",  # pragma: allowlist secret (test fixture)
+        _env_file=None,
+    )
+    try:
+        with TestClient(app_main.app, headers=AUTH) as client:
+            response = client.get("/api/examples/secret")
+    finally:
+        api_app.dependency_overrides.clear()
+    assert response.status_code == 200
+    assert response.json() == {"configured": True, "length": 12}
+    assert "s3cr3t" not in response.text
+
+
+def test_bound_secret_missing_is_503(monkeypatch):
+    api_app = _api_app()
+    api_app.dependency_overrides[get_settings] = lambda: Settings(
+        enable_examples=True, _env_file=None
+    )
+    try:
+        with TestClient(app_main.app, headers=AUTH) as client:
+            response = client.get("/api/examples/secret")
+    finally:
+        api_app.dependency_overrides.clear()
+    assert response.status_code == 503
+
+
 def test_examples_require_identity(monkeypatch):
     monkeypatch.setattr(settings, "enable_local_dev_auth_fallback", False)
     api_app = _api_app()

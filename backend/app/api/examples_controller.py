@@ -107,6 +107,16 @@ def _require_knowledge_assistant_endpoint(settings: Settings) -> str:
     return endpoint
 
 
+@router.get("/secret")
+async def bound_secret(settings: Annotated[Settings, Depends(get_settings)]):
+    """Show that a bundle-bound secret reached the app; the value itself never leaves it."""
+    if not settings.example_secret:
+        raise ConfigurationError(
+            "EXAMPLE_SECRET not bound (secret binding in the app resource)"
+        )
+    return {"configured": True, "length": len(settings.example_secret)}
+
+
 @router.post("/serving")
 async def serving(
     request: Request,

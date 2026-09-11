@@ -201,14 +201,12 @@ cython_debug/
 
 # Local notes
 .local/
-# Agent skills are installed, not vendored (scripts/setup-agentic.sh; manifests: skills-lock.json, .ai-dev-kit/)
+# Per-agent skill directories are symlinks to .agents/skills (tracked)
 .claude/skills/
 .cursor/skills/
 .github/skills/
 .gemini/skills/
 .opencode/skills/
-.ai-dev-kit/.installed-skills
-.ai-dev-kit/.agent-b-skills
 
 # Per-machine agent state
 .claude/projects/

@@ -1,0 +1,9 @@
+resources:
+  experiments:
+    agent_eval_experiment:
+      name: ${var.agent_eval_experiment_name}
+      trace_location:
+        uc_trace_location:
+          catalog: ${var.rag_catalog_name}
+          schema: ${resources.schemas.rag_schema.name}
+          table_prefix: evals_mlflow
