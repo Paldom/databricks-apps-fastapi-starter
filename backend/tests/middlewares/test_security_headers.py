@@ -1,8 +1,15 @@
 """Security headers: CSP must support the SPA without inline scripts."""
 
+from urllib.parse import urlsplit
+
 from fastapi.testclient import TestClient
 
 import app.main as app_main
+
+
+def _hosts(tokens: set[str]) -> set[str]:
+    """Hostnames of the URL sources in a CSP directive (parsed, not matched as substrings)."""
+    return {urlsplit(token).netloc for token in tokens if token.startswith("https://")}
 
 
 def _headers():
@@ -19,10 +26,12 @@ def test_csp_allows_spa_needs_and_bans_inline_scripts():
         if name
     }
     assert directives["script-src"] == {"'self'"}  # scripts: same origin, never inline
-    assert (
-        "https://fonts.googleapis.com" in directives["style-src"]
-    )  # stylesheet origin
-    assert "https://fonts.gstatic.com" in directives["font-src"]  # font files origin
+    assert directives["style-src"] >= {"'self'", "'unsafe-inline'"}
+    assert _hosts(directives["style-src"]) == {
+        "fonts.googleapis.com"
+    }  # stylesheet origin
+    assert directives["font-src"] >= {"'self'", "data:"}
+    assert _hosts(directives["font-src"]) == {"fonts.gstatic.com"}  # font files origin
 
 
 def test_baseline_headers_present():
