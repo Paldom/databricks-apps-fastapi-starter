@@ -1,4 +1,4 @@
-"""KnowledgeAssistantAdapter calls the Responses API and maps failures."""
+"""KnowledgeAssistantClient calls the Responses API and maps failures."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.core.databricks.knowledge_assistant import KnowledgeAssistantAdapter
+from app.core.databricks.knowledge_assistant import KnowledgeAssistantClient
 from app.core.errors import DatabricksAPIError
 
 
@@ -32,7 +32,7 @@ class _Responses:
 def _adapter(fail: bool = False):
     responses = _Responses(fail)
     client = SimpleNamespace(responses=responses)
-    return KnowledgeAssistantAdapter(client, logging.getLogger("test")), responses
+    return KnowledgeAssistantClient(client, logging.getLogger("test")), responses
 
 
 @pytest.mark.asyncio

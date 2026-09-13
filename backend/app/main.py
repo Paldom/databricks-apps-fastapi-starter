@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import get_args
+import logging
+
+from typing import Any, get_args
 
 from pathlib import Path, PurePosixPath
 
@@ -12,7 +14,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api.router import build_api_router
 from app.core.bootstrap import lifespan
 from app.core.config import Settings, settings
-from app.core.errors import AppError
+from app.core.errors import AppError, ExternalServiceError
+from app.core.mlflow_runtime import get_active_trace_id
 from app.middlewares.request_context import request_context_middleware
 from app.middlewares.request_size import RequestSizeMiddleware
 from app.middlewares.security_headers import security_headers_middleware
@@ -20,11 +23,19 @@ from app.middlewares.user_info import user_info_middleware
 from app.middlewares.workspace_client import workspace_client_middleware
 
 
+_logger = logging.getLogger(__name__)
+
+
 def _app_error_response(exc: AppError) -> JSONResponse:
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": exc.detail},
-    )
+    """Map an AppError to JSON; upstream failures never carry provider text to clients."""
+    content: dict[str, Any] = {"detail": exc.detail}
+    if isinstance(exc, ExternalServiceError):
+        _logger.warning("External service error: %s", exc.detail, exc_info=exc.cause)
+        content = {
+            "detail": "An upstream Databricks service failed.",
+            "trace_id": get_active_trace_id(),
+        }
+    return JSONResponse(status_code=exc.status_code, content=content)
 
 
 def no_cache(response: Response) -> Response:

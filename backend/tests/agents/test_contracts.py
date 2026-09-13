@@ -1,4 +1,4 @@
-"""Tests for agent contracts, request_utils, and response_utils."""
+"""Tests for agent contracts and response_utils."""
 
 from __future__ import annotations
 
@@ -27,8 +27,8 @@ class TestResponseUtils:
         assert resp.custom_outputs == {"sql": "SELECT 1"}
 
 
-class TestRequestUtils:
-    """request_utils helper tests."""
+class TestLastUserText:
+    """last_user_text helper tests."""
 
     def test_last_user_text_basic(self):
         from mlflow.types.responses import ResponsesAgentRequest

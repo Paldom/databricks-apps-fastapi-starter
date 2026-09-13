@@ -136,9 +136,6 @@ npm run api:gen
 npm run storybook
 npm run build-storybook
 
-# Sonar (requires mise + sonar-scanner)
-npm run sonar:version
-npm run sonar:scan
 ```
 
 ## Testing

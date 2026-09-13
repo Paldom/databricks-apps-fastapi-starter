@@ -60,7 +60,9 @@ agent_dir = (
     else Path(".")
 )
 agent_file = agent_dir / "agent.py"
-pip_requirements = str(agent_dir / "requirements.txt")  # log_model accepts the file path
+pip_requirements = str(
+    agent_dir / "requirements.txt"
+)  # log_model accepts the file path
 print(f"Agent file: {agent_file}; requirements: {pip_requirements}")
 
 # COMMAND ----------

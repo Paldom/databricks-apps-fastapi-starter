@@ -8,8 +8,10 @@ MLflow `ResponsesAgent` contract.
 
 Upload a document → the file-arrival **Lakeflow Job** parses and chunks it and syncs an **AI Search** index →
 the **App**'s chat (a LangGraph supervisor) answers with the knowledge specialist, filtered by the uploading
-user → the same answer surface runs as a **Model Serving** `ResponsesAgent` → every turn is an **MLflow trace**
-stored in **Unity Catalog** → the **evaluation Job** scores those surfaces with Foundation Model judges.
+user → every turn is an **MLflow trace** stored in **Unity Catalog** → the **evaluation Job** scores the app,
+a Model Serving endpoint or a Genie space with Foundation Model judges. The optional **Model Serving**
+`ResponsesAgent` (`notebooks/serving`) shows the same contract on an endpoint; it proxies a chat model and has
+no retrieval of its own.
 
 One narrative, every level, one agent contract. Everything else is optional.
 

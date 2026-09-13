@@ -27,7 +27,10 @@ def upgrade() -> None:
             "is_active", sa.Boolean(), server_default=sa.text("true"), nullable=False
         ),
         sa.Column(
-            "last_seen_at", sa.TIMESTAMP(timezone=True), server_default=sa.func.now()
+            "last_seen_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
         ),
         sa.Column(
             "created_at",

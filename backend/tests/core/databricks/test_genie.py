@@ -16,7 +16,12 @@ class _Genie:
 
     def start_conversation(self, space_id, question):
         self.calls.append(("start", space_id, question))
-        return SimpleNamespace(response=SimpleNamespace(conversation_id="c1", id="m1"))
+        # the SDK start response carries ids and, optionally, the first message
+        return SimpleNamespace(
+            response=SimpleNamespace(
+                conversation_id="c1", message_id="m1", message=None
+            )
+        )
 
     def create_message(self, space_id, conversation_id, question):
         self.calls.append(("follow_up", space_id, conversation_id, question))
@@ -46,7 +51,8 @@ async def test_calls_are_scoped_to_the_space_and_unwrapped():
     assert (first.conversation_id, follow.id) == ("c1", "m2")
     assert (await client.get_message("c1", "m2")).id == "m2"
     assert genie.calls[0] == ("start", "space-1", "q")
-    assert genie.calls[1] == ("follow_up", "space-1", "c1", "more")
+    assert genie.calls[1] == ("get", "space-1", "c1", "m1")  # start had no message yet
+    assert genie.calls[2] == ("follow_up", "space-1", "c1", "more")
 
 
 @pytest.mark.asyncio

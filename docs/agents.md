@@ -2,10 +2,11 @@
 
 ## One contract
 
-Every specialist implements `AgentAdapter` (`backend/app/agents/contracts.py`) on the MLflow `ResponsesAgent`
-request and response types, so the same adapter serves the chat tool, `POST /api/agents/{backend}/invocations`
-and the evaluation job. The Model Serving agent in `notebooks/serving/agent.py` implements the same contract on
-the endpoint side.
+The app, serving and Genie specialists implement `AgentAdapter` (`backend/app/agents/contracts.py`) on the
+MLflow `ResponsesAgent` request and response types, so the same adapter serves the chat tool,
+`POST /api/agents/{backend}/invocations` and the evaluation job. The knowledge specialist is a tool over the
+Knowledge Assistant client or the AI Search index, not an adapter. The Model Serving agent in
+`notebooks/serving/agent.py` implements the contract on the endpoint side as a chat-model proxy.
 
 | Backend            | Adapter                              | Talks to                                            |
 | ------------------ | ------------------------------------ | --------------------------------------------------- |

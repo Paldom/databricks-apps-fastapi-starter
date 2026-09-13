@@ -7,30 +7,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 from app.chat.registry import SpecialistSpec
 from app.chat.tools import _format_knowledge_results
-from app.agents.adapters.genie_adapter import parse_genie_response
-
-
-class TestParseGenieResponse:
-    def test_formats_text_attachment(self):
-        att = MagicMock()
-        att.text = MagicMock(content="Revenue is $1M")
-        att.query = None
-        rsp = MagicMock(attachments=[att])
-        result = parse_genie_response(rsp)
-        assert "Revenue is $1M" in result["text"]
-
-    def test_handles_empty_attachments(self):
-        rsp = MagicMock(attachments=[])
-        rsp.conversation_id = None
-        result = parse_genie_response(rsp)
-        assert result["text"] == "No Genie response text"
-
-    def test_handles_no_attachments_attr(self):
-        rsp = MagicMock(spec=[])
-        del rsp.attachments
-        rsp.conversation_id = None
-        result = parse_genie_response(rsp)
-        assert result["text"] == "No Genie response text"
 
 
 class TestFormatKnowledgeResults:
@@ -95,3 +71,55 @@ class TestServingTool:
         else:
             result = await tool("hello")
         assert "Response answer" in result
+
+
+class TestSpecialistToolsUseTheClientLayer:
+    @pytest.mark.asyncio
+    async def test_knowledge_assistant_tool_asks_the_endpoint(self):
+        from app.chat.tools import _build_ka_endpoint_tool
+        from app.core.config import Settings
+
+        ai_client = MagicMock()
+        ai_client.responses.create = AsyncMock(
+            return_value=MagicMock(output_text="From the assistant")
+        )
+        settings = Settings(knowledge_assistant_endpoint="ka-endpoint", _env_file=None)
+        tool = _build_ka_endpoint_tool(settings, ai_client=ai_client)
+        assert await tool.ainvoke({"question": "what?"}) == "From the assistant"
+        kwargs = ai_client.responses.create.call_args.kwargs
+        assert kwargs["model"] == "ka-endpoint"
+        assert kwargs["input"] == [{"role": "user", "content": "what?"}]
+
+    @pytest.mark.asyncio
+    async def test_genie_tool_records_the_conversation_for_follow_ups(self):
+        from types import SimpleNamespace
+
+        from app.chat.registry import SpecialistSpec
+        from app.chat.tools import _build_genie_tool
+        from app.core.config import Settings
+        from app.core.context import new_turn_state
+
+        message = SimpleNamespace(
+            conversation_id="conv-9",
+            id="msg-1",
+            status="COMPLETED",
+            attachments=[
+                SimpleNamespace(text=SimpleNamespace(content="42 rows"), query=None)
+            ],
+        )
+        ws = MagicMock()
+        ws.genie.start_conversation.return_value = MagicMock(
+            response=MagicMock(
+                message=message, conversation_id="conv-9", message_id="msg-1"
+            )
+        )
+        settings = Settings(genie_space_id="space-1", _env_file=None)
+        spec = SpecialistSpec(key="genie", description="d", kind="genie")
+        tool = _build_genie_tool(spec, settings, workspace_client=ws)
+        state = new_turn_state()
+        text = await tool.ainvoke(
+            {"question": "how many?"}, config={"configurable": {}}
+        )
+        assert "42 rows" in text
+        assert state["genie_conversation_id"] == "conv-9"
+        ws.genie.start_conversation.assert_called_once_with("space-1", "how many?")

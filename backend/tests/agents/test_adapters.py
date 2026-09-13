@@ -119,7 +119,11 @@ class TestGenieAdapter:
 
         mock_ws = MagicMock()
         mock_ws.genie.start_conversation.return_value = MagicMock(
-            response=self._message("EXECUTING_QUERY")
+            response=MagicMock(
+                message=self._message("EXECUTING_QUERY"),
+                conversation_id="conv-123",
+                message_id="msg-1",
+            )
         )
         mock_ws.genie.get_message.return_value = self._message("COMPLETED")
         mock_ws.genie.get_message_attachment_query_result.return_value = MagicMock(

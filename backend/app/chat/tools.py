@@ -23,7 +23,7 @@ from openai import AsyncOpenAI
 from app.chat.registry import SpecialistSpec
 from app.core.config import Settings
 from app.core.context import obo_workspace_client, record_turn
-from app.core.databricks.knowledge_assistant import KnowledgeAssistantAdapter
+from app.core.databricks.knowledge_assistant import KnowledgeAssistantClient
 from app.core.observability import get_tracer, safe_attr, tag_exception
 
 _tracer = get_tracer()
@@ -236,14 +236,14 @@ def _build_knowledge_tool(
 
 def _build_ka_endpoint_tool(settings: Settings, *, ai_client: AsyncOpenAI) -> Any:
     endpoint = settings.knowledge_assistant_endpoint or ""
+    client = KnowledgeAssistantClient(ai_client, logging.getLogger(__name__))
 
     @tool
     async def knowledge_assistant(question: str) -> str:
         """Search the knowledge base for relevant documents."""
 
         async def call() -> str:
-            adapter = KnowledgeAssistantAdapter(ai_client, logging.getLogger(__name__))
-            return await adapter.ask_text(endpoint, question) or (
+            return await client.ask_text(endpoint, question) or (
                 "No relevant documents found."
             )
 

@@ -45,7 +45,9 @@ JUDGE_MODEL = dbutils.widgets.get("judge_model").strip()  # noqa: F821
 SECRET_SCOPE = dbutils.widgets.get("eval_secret_scope").strip()  # noqa: F821
 SQL_WAREHOUSE_ID = dbutils.widgets.get("sql_warehouse_id").strip()  # noqa: F821
 if not SQL_WAREHOUSE_ID:  # the evals experiment stores traces in Unity Catalog
-    raise ValueError("sql_warehouse_id is required to read traces stored in Unity Catalog")
+    raise ValueError(
+        "sql_warehouse_id is required to read traces stored in Unity Catalog"
+    )
 import os
 
 os.environ["MLFLOW_TRACING_SQL_WAREHOUSE_ID"] = SQL_WAREHOUSE_ID

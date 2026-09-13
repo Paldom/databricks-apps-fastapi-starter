@@ -21,7 +21,6 @@
     "typecheck": "tsc --noEmit",
     "api:gen": "orval",
     "sonar:version": "mise exec -- sonar-scanner -v",
-    "sonar:scan": "mise exec -- sonar-scanner",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },

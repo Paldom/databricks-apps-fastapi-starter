@@ -37,18 +37,19 @@ developers deploying `dev` share them. The bundle root is the deploying identity
 
 ## First-deploy troubleshooting
 
-| Symptom                                                                    | Cause and fix                                                                                           |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `lifecycle.started is only supported in direct deployment mode`            | an older deployment used the Terraform engine: `databricks bundle deployment migrate -t dev` once       |
-| `Must specify environment variable source using either value or valueFrom` | an env entry has an empty value; move optional entries to a target block                                |
-| `Found N recommendations` on validate                                      | a file holds more than one resource; keep one resource per `<key>.<type>.yml` (CI validates `--strict`) |
-| `INTERNAL_ERROR: Failed to grant permissions for SP ... deadline exceeded` | transient on the Lakebase side; re-run the deploy                                                       |
-| `postdeploy: app ... has no service principal`                             | the app was created but has no principal yet; re-run `bash scripts/postdeploy_grants.sh <target>`       |
-| `ai: Unavailable` in `/api/health`                                         | the supervisor model endpoint is missing or not queryable by the app; check `supervisor_model`          |
-| `Index not created yet` in `/api/health`                                   | expected before the first ingestion run; upload a document or run `rag_ingestion_job`                   |
-| Traces missing in the experiment                                           | `MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT` must stay `true` while telemetry export is on                    |
-| `not ready to sync` from the ingestion job                                 | a freshly created index is still provisioning; the job waits and tolerates this                         |
-| `trace_location` rejected on an existing experiment                        | the field is immutable; use a new experiment name                                                       |
+| Symptom                                                                    | Cause and fix                                                                                                     |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `lifecycle.started is only supported in direct deployment mode`            | an older deployment used the Terraform engine: `databricks bundle deployment migrate -t dev` once                 |
+| `Must specify environment variable source using either value or valueFrom` | an env entry has an empty value; move optional entries to a target block                                          |
+| `Found N recommendations` on validate                                      | a file holds more than one resource; keep one resource per `<key>.<type>.yml` (CI validates `--strict`)           |
+| `INTERNAL_ERROR: Failed to grant permissions for SP ... deadline exceeded` | transient on the Lakebase side; re-run the deploy                                                                 |
+| `postdeploy: app ... has no service principal`                             | the app was created but has no principal yet; re-run `bash scripts/postdeploy_grants.sh <target>`                 |
+| `ai: Unavailable` in `/api/health`                                         | the supervisor model endpoint is missing or not queryable by the app; check `supervisor_model`                    |
+| `Index not created yet` in `/api/health`                                   | expected before the first ingestion run; upload a document or run `rag_ingestion_job`                             |
+| Traces missing in the experiment                                           | `MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT` must stay `true` while telemetry export is on                              |
+| `not ready to sync` from the ingestion job                                 | a freshly created index is still provisioning; the job waits and tolerates this                                   |
+| `Can't locate revision identified by ...` at app start                     | the database is at a migration revision the code no longer has; in `dev`, recreate the database (see lakebase.md) |
+| `trace_location` rejected on an existing experiment                        | the field is immutable; use a new experiment name                                                                 |
 
 ## Verify a deploy
 

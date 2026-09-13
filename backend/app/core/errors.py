@@ -1,6 +1,3 @@
-from http import HTTPStatus
-
-
 # ---------------------------------------------------------------------------
 # Application-level exception hierarchy
 # ---------------------------------------------------------------------------
@@ -79,5 +76,3 @@ class ResourceNotFoundError(AppError):
 # ---------------------------------------------------------------------------
 # Backward-compatible HTTP error helper
 # ---------------------------------------------------------------------------
-
-DEFAULT_ERROR_MESSAGES = {status.value: status.phrase for status in HTTPStatus}

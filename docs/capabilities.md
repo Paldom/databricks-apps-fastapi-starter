@@ -23,7 +23,7 @@ The earlier module registry is gone: a capability is now one binding, one enviro
 | Serving agent         | `deploy_serving_agent` job, then `serving-agent` binding      | `agents/adapters/serving_adapter.py`                           |
 | Remote app specialist | `app-agent` binding, `APP_AGENT_NAME`                         | `agents/adapters/app_adapter.py`                               |
 | Bound secret          | `app-secret` binding, `EXAMPLE_SECRET`                        | `api/examples_controller.py` (`GET /api/examples/secret`)      |
-| Chat titles           | `ENABLE_CHAT_TITLE_GENERATION`, `TITLE_MODEL`                 | `chat/titles.py`                                               |
+| Chat titles           | `ENABLE_CHAT_TITLE_GENERATION`, `TITLE_MODEL`                 | `chat/title/service.py`                                        |
 | On-behalf-of          | `ENABLE_OBO`, `forward_user_access_token`, `user_api_scopes`  | `middlewares/workspace_client.py`                              |
 
 Without a Knowledge Assistant the knowledge specialist queries the AI Search index directly, filtered by the

@@ -13,7 +13,7 @@ from app.agents.contracts import ResponsesAgentRequest
 from app.core.config import Settings
 from app.core.databricks.ai_gateway import AiGatewayAdapter
 from app.core.databricks.jobs import JobsAdapter
-from app.core.databricks.knowledge_assistant import KnowledgeAssistantAdapter
+from app.core.databricks.knowledge_assistant import KnowledgeAssistantClient
 from app.core.databricks.serving import ServingAdapter
 from app.core.databricks.uc_files import UcFilesAdapter
 from app.core.databricks.vector_search import VectorSearchAdapter
@@ -274,7 +274,7 @@ async def agent_ask(
 ):
     """Ask the Knowledge Assistant endpoint through the Responses API."""
     endpoint = _require_knowledge_assistant_endpoint(settings)
-    adapter = KnowledgeAssistantAdapter(get_user_ai_client(request), logger)
+    adapter = KnowledgeAssistantClient(get_user_ai_client(request), logger)
     messages: list[Any] = [m.model_dump() for m in body.messages]
     response = await adapter.ask(endpoint, messages)
     return response.model_dump()
@@ -289,7 +289,7 @@ async def agent_ask_stream(
 ):
     """Stream Knowledge Assistant Responses events as server-sent events."""
     endpoint = _require_knowledge_assistant_endpoint(settings)
-    adapter = KnowledgeAssistantAdapter(get_user_ai_client(request), logger)
+    adapter = KnowledgeAssistantClient(get_user_ai_client(request), logger)
     messages: list[Any] = [m.model_dump() for m in body.messages]
 
     async def events() -> AsyncGenerator[str, None]:

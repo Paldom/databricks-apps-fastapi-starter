@@ -27,16 +27,15 @@ class GenieClient:
         self._genie = workspace_client.genie
         self._space_id = space_id
 
-    @property
-    def space_id(self) -> str:
-        return self._space_id
-
     async def start_conversation(self, question: str) -> Any:
         """Open a conversation with the first question; returns the Genie message."""
         waiter = await self._call(
             "start", self._genie.start_conversation, self._space_id, question
         )
-        return waiter.response
+        started = waiter.response  # GenieStartConversationResponse, not yet a message
+        return started.message or await self.get_message(
+            started.conversation_id, started.message_id
+        )
 
     async def create_message(self, conversation_id: str, question: str) -> Any:
         """Follow up in an existing conversation; returns the Genie message."""

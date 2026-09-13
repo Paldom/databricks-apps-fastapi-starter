@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from fastapi.testclient import TestClient
 
 import app.main as app_main
@@ -90,3 +92,32 @@ def test_examples_require_identity(monkeypatch):
     finally:
         api_app.dependency_overrides.clear()
     assert response.status_code == 401
+
+
+def test_upstream_failures_never_expose_provider_text(monkeypatch):
+    """A Databricks SDK error becomes a fixed 502 body with the trace id, not the SDK message."""
+    from app.api import examples_controller as examples
+
+    class _Genie:
+        def start_conversation(self, *_):
+            raise RuntimeError("private-test-diagnostic")
+
+    monkeypatch.setattr(
+        examples,
+        "get_user_workspace_client",
+        lambda request: SimpleNamespace(genie=_Genie()),
+    )
+    api_app = _api_app()
+    api_app.dependency_overrides[get_settings] = lambda: Settings(
+        enable_examples=True, enable_databricks_integrations=True, _env_file=None
+    )
+    try:
+        with TestClient(app_main.app, headers=AUTH) as client:
+            response = client.post(
+                "/api/examples/genie/space-1/ask", json={"content": "hi"}
+            )
+    finally:
+        api_app.dependency_overrides.clear()
+    assert response.status_code == 502
+    assert "private-test-diagnostic" not in response.text
+    assert set(response.json()) == {"detail", "trace_id"}

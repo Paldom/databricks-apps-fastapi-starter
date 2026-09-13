@@ -36,7 +36,6 @@ def build_predict_fn(target_kind: str, target_name: str, secret_scope: str = "")
     raise ValueError(f"Unknown target_kind: {target_kind}")
 
 
-
 def _app_auth(ws: Any, secret_scope: str):
     """A callable returning Authorization headers the Apps ingress accepts.
 

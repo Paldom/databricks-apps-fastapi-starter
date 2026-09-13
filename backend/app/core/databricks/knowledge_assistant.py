@@ -19,7 +19,7 @@ from app.core.observability import get_tracer, safe_attr, tag_exception
 _tracer = get_tracer()
 
 
-class KnowledgeAssistantAdapter:
+class KnowledgeAssistantClient:
     def __init__(self, client: AsyncOpenAI, logger: Logger) -> None:
         self._client = client
         self._logger = logger

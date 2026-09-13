@@ -17,7 +17,7 @@ Guidance for coding agents and new contributors working in `backend/`. Repo-wide
   reader. `env.example` is generated from it.
 - **Databricks clients.** `core/databricks/` is the complete client layer: `genie.py`, `knowledge_assistant.py`,
   `serving.py`, `jobs.py`, `uc_files.py`, `vector_search.py`, `ai_gateway.py`, each with spans and error mapping,
-  sync SDK calls offloaded through `_async_bridge.run_sync`. Nothing above this layer imports the SDK directly.
+  sync SDK calls offloaded through `_async_bridge.run_sync`. Outside this layer the SDK appears only where an identity is built: the engine's OAuth hook, the workspace-client factory and the on-behalf-of middleware.
 - **Agents.** `agents/adapters/` implement `AgentAdapter` (`agents/contracts.py`) on the MLflow `ResponsesAgent`
   request and response types: `app_adapter` (remote Databricks App), `serving_adapter` (Model Serving),
   `genie_adapter` (conversation handling and normalisation on top of `core/databricks/genie.py`).

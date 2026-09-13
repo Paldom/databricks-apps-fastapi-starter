@@ -1,33 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-interface AxiosConfig {
-  headers: Record<string, string | undefined>
-  [key: string]: unknown
-}
-
-const { requestMock, interceptorRef, createMock } = vi.hoisted(() => ({
+const { requestMock, createMock } = vi.hoisted(() => ({
   requestMock: vi.fn(),
-  interceptorRef: {
-    current: undefined as ((config: AxiosConfig) => AxiosConfig) | undefined,
-  },
   createMock: vi.fn(),
 }))
 
 vi.mock('axios', () => {
   const create = createMock.mockImplementation(() => {
-    const interceptors = {
-      request: {
-        use: (handler: (config: AxiosConfig) => AxiosConfig) => {
-          interceptorRef.current = handler
-          return handler
-        },
-      },
-      response: {},
-    }
-
     return {
       defaults: {},
-      interceptors,
+      interceptors: { request: { use: vi.fn() }, response: {} },
       request: requestMock,
     }
   })
@@ -47,15 +29,6 @@ import { customInstance } from './client'
 describe('shared/api/client', () => {
   beforeEach(() => {
     requestMock.mockResolvedValue({ data: { ok: true } })
-    localStorage.clear()
-  })
-
-  it('does not attach bearer token (auth is server-side)', () => {
-    localStorage.setItem('authToken', 'token-123')
-    const initialConfig: AxiosConfig = { headers: {} }
-    const config = interceptorRef.current?.(initialConfig) ?? initialConfig
-
-    expect(config.headers.Authorization).toBeUndefined()
   })
 
   it('configures axios with base URL and timeout defaults', () => {
@@ -64,28 +37,6 @@ describe('shared/api/client', () => {
 
     expect(config?.baseURL).toBe('/api')
     expect(config?.timeout).toBe(10000)
-  })
-
-  it('skips localStorage when window is undefined', () => {
-    const getItem = vi.spyOn(localStorage, 'getItem')
-    const originalWindow = globalThis.window
-    // @ts-expect-error - simulate non-browser environment
-    globalThis.window = undefined
-
-    const initialConfig: AxiosConfig = { headers: {} }
-    interceptorRef.current?.(initialConfig)
-
-    expect(getItem).not.toHaveBeenCalled()
-
-    globalThis.window = originalWindow
-    getItem.mockRestore()
-  })
-
-  it('leaves headers unchanged when no token exists', () => {
-    const initialConfig: AxiosConfig = { headers: {} }
-    const config = interceptorRef.current?.(initialConfig) ?? initialConfig
-
-    expect(config.headers.Authorization).toBeUndefined()
   })
 
   it('delegates to the axios instance and returns wrapped response', async () => {
