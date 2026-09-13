@@ -12,6 +12,8 @@ Unity Catalog, app telemetry tables, and the app itself with its resource bindin
 supervisor that routes to specialists (your own documents, Genie, a Model Serving agent, a remote app or a
 Knowledge Assistant), streams over NDJSON and stores every turn server-side.
 
+Deep dives live in [`docs/`](docs/README.md); the design contract is [`DESIGN.md`](DESIGN.md).
+
 ## Quickstart
 
 ### Local development (no workspace needed)
@@ -53,18 +55,18 @@ workspace; the bundle binds them but does not create them.
 
 ## What a target provisions
 
-| Resource                         | File                                                                                | dev                                      | prod                                                 |
-| -------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------- |
-| App `fastapi-starter-<suffix>`   | `resources/fastapi_app.app.yml`                                                     | MEDIUM compute, docs and examples on     | MEDIUM compute, OBO on, examples off                 |
-| Lakebase project, role, database | `resources/*.postgres_*.yml`                                                        | 0.5 to 2 CU, suspends after 5 min        | 1 to 4 CU, never suspends                            |
-| Schema + volume                  | `resources/rag_schema.schema.yml`, `rag_upload_volume.volume.yml`                   | `<catalog>.<prefix>starter_rag`, uploads | `<catalog>.starter_rag` (staging: `starter_rag_stg`) |
-| AI Search endpoint               | `resources/rag_endpoint.vector_search_endpoint.yml`                                 | STANDARD (billed while it exists)        | STANDARD                                             |
-| Ingestion job                    | `resources/rag_ingestion_job.job.yml`                                               | serverless, file-arrival trigger on      | serverless, file-arrival trigger on                  |
-| Experiments (app, evals)         | `resources/*.experiment.yml`                                                        | traces in UC tables `app_mlflow_*`       | same                                                 |
-| Evaluation job                   | `resources/agent_eval_job.job.yml`                                                  | serverless, one run per target           | same                                                 |
-| Serving agent job + experiment   | `resources/deploy_serving_agent.job.yml`, `serving_agent_experiment.experiment.yml` | run on demand                            | run on demand                                        |
-| App telemetry tables             | `resources/fastapi_app.app.yml`                                                     | `app_logs`, `app_metrics`, `app_traces`  | same                                                 |
-| Secret scope                     | `resources/app_secrets.secret_scope.yml`                                            | `<bundle>-<suffix>`, values put by you   | same                                                 |
+| Resource                                     | File                                                                                | dev                                      | prod                                                 |
+| -------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------- |
+| App `fastapi-starter-<suffix>`               | `resources/fastapi_app.app.yml`                                                     | MEDIUM compute, docs and examples on     | MEDIUM compute, OBO on, examples off                 |
+| Lakebase Autoscaling project, role, database | `resources/*.postgres_*.yml`                                                        | 0.5 to 2 CU, suspends after 5 min        | 1 to 4 CU, never suspends                            |
+| Schema + volume                              | `resources/rag_schema.schema.yml`, `rag_upload_volume.volume.yml`                   | `<catalog>.<prefix>starter_rag`, uploads | `<catalog>.starter_rag` (staging: `starter_rag_stg`) |
+| AI Search endpoint                           | `resources/rag_endpoint.vector_search_endpoint.yml`                                 | STANDARD (billed while it exists)        | STANDARD                                             |
+| Ingestion job (Lakeflow Jobs)                | `resources/rag_ingestion_job.job.yml`                                               | serverless, file-arrival trigger on      | serverless, file-arrival trigger on                  |
+| Experiments (app, evals)                     | `resources/*.experiment.yml`                                                        | traces in UC tables `app_mlflow_*`       | same                                                 |
+| Evaluation job (Lakeflow Jobs)               | `resources/agent_eval_job.job.yml`                                                  | serverless, one run per target           | same                                                 |
+| Serving agent job + experiment               | `resources/deploy_serving_agent.job.yml`, `serving_agent_experiment.experiment.yml` | run on demand                            | run on demand                                        |
+| App telemetry tables                         | `resources/fastapi_app.app.yml`                                                     | `app_logs`, `app_metrics`, `app_traces`  | same                                                 |
+| Secret scope                                 | `resources/app_secrets.secret_scope.yml`                                            | `<bundle>-<suffix>`, values put by you   | same                                                 |
 
 Development mode prefixes schema, job and experiment names per developer; app names, the Lakebase project id
 and the AI Search endpoint name are shared per target. The ingestion job's Delta Sync index is created by the

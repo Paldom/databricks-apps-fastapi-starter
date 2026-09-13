@@ -60,8 +60,7 @@ describe('shared/api/client', () => {
 
   it('configures axios with base URL and timeout defaults', () => {
     const config = createMock.mock.calls[0]?.[0] as
-      | { baseURL?: string; timeout?: number }
-      | undefined
+      { baseURL?: string; timeout?: number } | undefined
 
     expect(config?.baseURL).toBe('/api')
     expect(config?.timeout).toBe(10000)

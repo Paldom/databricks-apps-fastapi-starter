@@ -113,12 +113,3 @@ class ProjectRepository:
             )
         )
         return getattr(result, "rowcount", 0) > 0
-
-    async def get_project(self, owner_user_id: str, project_id: str) -> Project | None:
-        result = await self._session.execute(
-            select(Project).where(
-                Project.id == project_id,
-                Project.owner_user_id == owner_user_id,
-            )
-        )
-        return result.scalar_one_or_none()

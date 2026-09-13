@@ -1,7 +1,4 @@
 from http import HTTPStatus
-from typing import Optional
-
-from fastapi import HTTPException
 
 
 # ---------------------------------------------------------------------------
@@ -69,11 +66,6 @@ class RequestTooLargeError(AppError):
         super().__init__(413, detail, **kw)
 
 
-class RequestTimeoutError(AppError):
-    def __init__(self, detail: str = "Request timed out", **kw):
-        super().__init__(504, detail, **kw)
-
-
 class PathValidationError(AppError):
     def __init__(self, detail: str = "Invalid path", **kw):
         super().__init__(400, detail, **kw)
@@ -89,9 +81,3 @@ class ResourceNotFoundError(AppError):
 # ---------------------------------------------------------------------------
 
 DEFAULT_ERROR_MESSAGES = {status.value: status.phrase for status in HTTPStatus}
-
-
-def http_error(status_code: int, detail: Optional[str] = None) -> HTTPException:
-    """Return an :class:`HTTPException` with a standardized message."""
-    message = detail or DEFAULT_ERROR_MESSAGES.get(status_code, "Unknown Error")
-    return HTTPException(status_code=status_code, detail=message)

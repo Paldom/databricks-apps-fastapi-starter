@@ -10,9 +10,7 @@ export default defineConfig({
       schemas: 'src/shared/api/generated/models',
       client: 'react-query',
       mock: {
-        type: 'msw',
-        useExamples: true,
-        delay: 100,
+        generators: [{ type: 'msw', useExamples: true, delay: 100 }],
       },
       override: {
         mutator: {

@@ -28,17 +28,13 @@ import mlflow
 def build_predict_fn(target_kind: str, target_name: str, secret_scope: str = ""):
     """Return a predict_fn compatible with ``mlflow.genai.evaluate()``."""
     if target_kind == "endpoint":
-        return _build_endpoint_predict_fn(target_name)
+        return mlflow.genai.to_predict_fn(f"endpoints:/{target_name}")
     if target_kind == "app":
         return _build_app_predict_fn(target_name, secret_scope)
     if target_kind == "genie":
         return _build_genie_predict_fn(target_name)
     raise ValueError(f"Unknown target_kind: {target_kind}")
 
-
-def _build_endpoint_predict_fn(endpoint_name: str):
-    """Use ``mlflow.genai.to_predict_fn()`` — the cleanest path for serving."""
-    return mlflow.genai.to_predict_fn(f"endpoints:/{endpoint_name}")
 
 
 def _app_auth(ws: Any, secret_scope: str):

@@ -1,0 +1,12 @@
+# gitleaks configuration (used by .github/workflows/gitleaks.yml and the CI secret scan).
+# The detect-secrets baseline stores SHA-1 hashes of allowlisted test fixtures as
+# "hashed_secret"; only those lines in that file are allowed, everything else still scans.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "detect-secrets baseline: hashed_secret entries are hashes, not credentials"
+condition = "AND"
+regexTarget = "line"
+paths = ['''^\.secrets\.baseline$''']
+regexes = ['''"hashed_secret": "[0-9a-f]{40}"''']

@@ -7,23 +7,17 @@ SDK configurator.  That is handled by ``opentelemetry-instrument``.
 
 from __future__ import annotations
 
+from functools import cache
 from typing import Any
 
 from opentelemetry import trace
 from opentelemetry.trace import StatusCode
 
-_TRACER: trace.Tracer | None = None
 
-
+@cache
 def get_tracer(name: str = "app") -> trace.Tracer:
     """Return a Tracer for the given instrumentation scope."""
-    global _TRACER
-    if name == "app" and _TRACER is not None:
-        return _TRACER
-    tracer = trace.get_tracer(name)
-    if name == "app":
-        _TRACER = tracer
-    return tracer
+    return trace.get_tracer(name)
 
 
 def tag_exception(span: trace.Span, exc: Exception) -> None:

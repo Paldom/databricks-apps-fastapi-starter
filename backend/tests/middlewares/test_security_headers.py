@@ -11,11 +11,18 @@ def _headers():
 
 
 def test_csp_allows_spa_needs_and_bans_inline_scripts():
-    csp = _headers()["content-security-policy"]
-    assert "script-src 'self'" in csp
-    assert "'unsafe-inline'" not in csp.split("style-src")[0]  # scripts: never
-    assert "https://fonts.googleapis.com" in csp  # stylesheet origin
-    assert "https://fonts.gstatic.com" in csp  # font files origin
+    directives = {
+        name: set(values)
+        for name, *values in (
+            part.split() for part in _headers()["content-security-policy"].split(";")
+        )
+        if name
+    }
+    assert directives["script-src"] == {"'self'"}  # scripts: same origin, never inline
+    assert (
+        "https://fonts.googleapis.com" in directives["style-src"]
+    )  # stylesheet origin
+    assert "https://fonts.gstatic.com" in directives["font-src"]  # font files origin
 
 
 def test_baseline_headers_present():

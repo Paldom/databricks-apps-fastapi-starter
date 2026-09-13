@@ -44,7 +44,6 @@ class Settings(BaseSettings):
     cors_allow_origins: list[str] = []  # empty = no CORS middleware (Vite proxies /api)
     vector_search_endpoint_name: Optional[str] = None
     vector_search_index_name: Optional[str] = None
-    databricks_http_path: Optional[str] = None
     databricks_token: Optional[str] = None
     log_level: str = "INFO"
     volume_root: str = "/Volumes/main/default"
@@ -67,7 +66,6 @@ class Settings(BaseSettings):
     example_secret: Optional[SecretStr] = (
         None  # a bound secret (showcase route); never logged
     )
-    knowledge_assistant_timeout_seconds: int = 60
 
     # Chat orchestrator (the Apps ingress cuts requests at about two minutes)
     supervisor_model: str = "databricks-claude-sonnet-4-6"
@@ -89,9 +87,7 @@ class Settings(BaseSettings):
     mlflow_experiment_id: Optional[str] = None
 
     # Timeouts (seconds)
-    genie_timeout_seconds: int = 30
     serving_timeout_seconds: int = 30
-    job_timeout_seconds: int = 120
     vector_timeout_seconds: int = 30
     openai_timeout_seconds: int = 30
 
@@ -133,20 +129,8 @@ class Settings(BaseSettings):
             "test",
         )
 
-    def has_knowledge_assistant_config(self) -> bool:
-        return bool(self.knowledge_assistant_endpoint)
-
     def has_vector_search_config(self) -> bool:
         return bool(self.vector_search_endpoint_name and self.vector_search_index_name)
-
-    def has_genie_config(self) -> bool:
-        return bool(self.genie_space_id)
-
-    def has_serving_agent_config(self) -> bool:
-        return bool(self.serving_agent_endpoint)
-
-    def has_knowledge_specialist_config(self) -> bool:
-        return bool(self.ai_gateway_embedding_model and self.has_vector_search_config())
 
     def has_pg_database_config(self) -> bool:
         return all([self.pg_host, self.pg_database, self.pg_user])

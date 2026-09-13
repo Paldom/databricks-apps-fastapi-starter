@@ -35,6 +35,7 @@ frontend/src/     app/ (providers, router), components/, hooks/, lib/assistant/ 
 notebooks/        jobs (RAG ingestion), evals (MLflow), serving (optional Model Serving agent)
 resources/        one resource per <resource_key>.<resource_type>.yml (app, postgres_*, schema, volume, vector_search_endpoint, job, experiment, secret_scope)
 scripts/          postdeploy_grants.sh (bundle hook)
+docs/             deep dives (deployment, app resources, Lakebase, capabilities, agents, RAG, evaluation, observability); DESIGN.md holds the design contract
 ```
 
 Layer rules are enforced by import-linter (`backend/pyproject.toml`): `api → services → repositories → models`, and

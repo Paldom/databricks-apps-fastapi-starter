@@ -20,11 +20,7 @@ import {
   getListDocumentsQueryKey,
   useGetDocumentStatus,
 } from '@/shared/api/generated/documents/documents'
-import type {
-  Document,
-  DocumentStatus,
-  BodyUploadKnowledgeFileKnowledgeFilesPost,
-} from '@/shared/api/generated/models'
+import type { Document, DocumentStatus } from '@/shared/api/generated/models'
 import { useUploadKnowledgeFileKnowledgeFilesPost } from '@/shared/api/generated/knowledge/knowledge'
 import { useQueryClient } from '@tanstack/react-query'
 
@@ -137,12 +133,7 @@ export function DocumentSidebar() {
 
   const handleFilesAdded = (files: File[]) => {
     files.forEach((file) => {
-      // Orval types this binary multipart field as string; FormData requires the File itself.
-      knowledgeUpload.mutate({
-        data: {
-          file: file as unknown as BodyUploadKnowledgeFileKnowledgeFilesPost['file'],
-        },
-      })
+      knowledgeUpload.mutate({ data: { file } })
     })
   }
 

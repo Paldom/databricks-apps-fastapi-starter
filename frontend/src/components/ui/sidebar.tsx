@@ -611,7 +611,7 @@ function SidebarMenuSkeleton({
   // Stable pseudo-random width between 50 to 90% using crypto.
   const width = React.useMemo(() => {
     const byte = crypto.getRandomValues(new Uint8Array(1))[0] ?? 0
-    return `${(byte % 41) + 50}%`
+    return `${50 + Math.round((byte / 255) * 40)}%` // scaled, not modulo: no bias
   }, [])
 
   return (

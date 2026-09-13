@@ -7,19 +7,16 @@ that is still running when the per-tool deadline expires.
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import Any
 
 from mlflow.types.responses import ResponsesAgentRequest
 
 from app.agents.contracts import AgentInvocationResult
-from app.agents.request_utils import last_user_text
-from app.agents.response_utils import text_to_response
+from app.agents.response_utils import last_user_text, text_to_response
+from app.core.databricks.genie import GenieClient
 
-logger = logging.getLogger(__name__)
 
 TERMINAL = {"COMPLETED", "FAILED", "CANCELLED", "QUERY_RESULT_EXPIRED"}
-MAX_ROWS = 100
 POLL_SECONDS = 2
 
 
@@ -71,7 +68,7 @@ class GenieAdapter:
     source = "genie"
 
     def __init__(self, workspace_client: Any, space_id: str) -> None:
-        self._genie = workspace_client.genie
+        self._client = GenieClient(workspace_client, space_id)
         self._space_id = space_id
 
     async def ask(
@@ -86,23 +83,15 @@ class GenieAdapter:
         Returns the parsed message; ``status`` is ``pending`` when the deadline hit.
         """
         if conversation_id:
-            waiter = await asyncio.to_thread(
-                self._genie.create_message, self._space_id, conversation_id, question
-            )
+            message = await self._client.create_message(conversation_id, question)
         else:
-            waiter = await asyncio.to_thread(
-                self._genie.start_conversation, self._space_id, question
-            )
-        message = waiter.response
+            message = await self._client.start_conversation(question)
         try:
             async with asyncio.timeout(timeout):
                 while _status(message) not in TERMINAL:
                     await asyncio.sleep(POLL_SECONDS)
-                    message = await asyncio.to_thread(
-                        self._genie.get_message,
-                        self._space_id,
-                        message.conversation_id,
-                        _message_id(message),
+                    message = await self._client.get_message(
+                        message.conversation_id, _message_id(message)
                     )
         except TimeoutError:
             parsed = parse_genie_response(message)
@@ -114,9 +103,7 @@ class GenieAdapter:
 
     async def status(self, conversation_id: str, message_id: str) -> dict[str, Any]:
         """Current state of a message (for polling a pending turn)."""
-        message = await asyncio.to_thread(
-            self._genie.get_message, self._space_id, conversation_id, message_id
-        )
+        message = await self._client.get_message(conversation_id, message_id)
         parsed = parse_genie_response(message)
         if _status(message) in TERMINAL:
             parsed["rows"] = await self._rows(message, parsed["attachments"])
@@ -129,19 +116,9 @@ class GenieAdapter:
         attachment = next((a for a in attachments if a.get("query")), None)
         if attachment is None or not attachment.get("id"):
             return []
-        try:
-            result = await asyncio.to_thread(
-                self._genie.get_message_attachment_query_result,
-                self._space_id,
-                message.conversation_id,
-                _message_id(message),
-                attachment["id"],
-            )
-        except Exception:
-            logger.warning("Genie query result unavailable", exc_info=True)
-            return []
-        data = getattr(getattr(result, "statement_response", None), "result", None)
-        return list(getattr(data, "data_array", None) or [])[:MAX_ROWS]
+        return await self._client.query_rows(
+            message.conversation_id, _message_id(message), attachment["id"]
+        )
 
     async def invoke(self, request: ResponsesAgentRequest) -> AgentInvocationResult:
         parsed = await self.ask(last_user_text(request))

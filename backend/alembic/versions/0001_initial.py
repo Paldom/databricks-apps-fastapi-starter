@@ -1,12 +1,13 @@
-"""Initial schema.
+"""Initial schema: users, projects, settings, chat sessions with their Genie conversation,
+messages with content parts and MLflow trace ids, file records.
 
 Revision ID: 0001
 Revises:
-Create Date: 2026-03-18
 """
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 revision = "0001"
 down_revision = None
@@ -98,6 +99,8 @@ def upgrade() -> None:
         sa.Column(
             "status", sa.String(50), server_default=sa.text("'active'"), nullable=False
         ),
+        # Genie keeps its own conversation per chat so follow-ups stay in context
+        sa.Column("genie_conversation_id", sa.String(255), nullable=True),
         sa.Column(
             "created_at",
             sa.TIMESTAMP(timezone=True),
@@ -129,6 +132,14 @@ def upgrade() -> None:
         sa.Column("user_id", sa.String(255), sa.ForeignKey("users.id"), nullable=False),
         sa.Column("role", sa.String(50), nullable=False),
         sa.Column("content", sa.Text(), nullable=False),
+        # ordered content parts (text, tool calls with results) as streamed to the client
+        sa.Column(
+            "parts",
+            sa.JSON().with_variant(postgresql.JSONB(), "postgresql"),
+            nullable=False,
+            server_default=sa.text("'[]'"),
+        ),
+        sa.Column("trace_id", sa.String(64), nullable=True),
         sa.Column(
             "created_at",
             sa.TIMESTAMP(timezone=True),
@@ -147,7 +158,7 @@ def upgrade() -> None:
     op.create_index("ix_messages_session_id", "messages", ["session_id"])
     op.create_index("ix_messages_user_id", "messages", ["user_id"])
     op.create_index(
-        "ix_messages_session_created", "messages", ["session_id", "created_at"]
+        "ix_messages_session_created_id", "messages", ["session_id", "created_at", "id"]
     )
 
     # ── file_records ───────────────────────────────────────────────

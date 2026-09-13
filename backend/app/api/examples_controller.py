@@ -13,6 +13,7 @@ from app.agents.contracts import ResponsesAgentRequest
 from app.core.config import Settings
 from app.core.databricks.ai_gateway import AiGatewayAdapter
 from app.core.databricks.jobs import JobsAdapter
+from app.core.databricks.knowledge_assistant import KnowledgeAssistantAdapter
 from app.core.databricks.serving import ServingAdapter
 from app.core.databricks.uc_files import UcFilesAdapter
 from app.core.databricks.vector_search import VectorSearchAdapter
@@ -43,10 +44,6 @@ router = APIRouter(
     tags=["examples"],
     dependencies=[Depends(get_current_user), Depends(_examples_enabled)],
 )
-
-
-class ExampleMessage(BaseModel):
-    text: str = Field(..., min_length=1, max_length=4096)
 
 
 class ExampleRow(BaseModel):
@@ -273,13 +270,14 @@ async def agent_ask(
     request: Request,
     body: AgentQuestion,
     settings: Annotated[Settings, Depends(get_settings)],
+    logger: Annotated[Logger, Depends(get_logger)],
 ):
     """Ask the Knowledge Assistant endpoint through the Responses API."""
     endpoint = _require_knowledge_assistant_endpoint(settings)
-    ai_client = get_user_ai_client(request)
+    adapter = KnowledgeAssistantAdapter(get_user_ai_client(request), logger)
     messages: list[Any] = [m.model_dump() for m in body.messages]
-    resp = await ai_client.responses.create(model=endpoint, input=messages)
-    return resp.model_dump()
+    response = await adapter.ask(endpoint, messages)
+    return response.model_dump()
 
 
 @router.post("/agent/ask/stream")
@@ -287,18 +285,15 @@ async def agent_ask_stream(
     request: Request,
     body: AgentQuestion,
     settings: Annotated[Settings, Depends(get_settings)],
+    logger: Annotated[Logger, Depends(get_logger)],
 ):
     """Stream Knowledge Assistant Responses events as server-sent events."""
     endpoint = _require_knowledge_assistant_endpoint(settings)
-    ai_client = get_user_ai_client(request)
-
+    adapter = KnowledgeAssistantAdapter(get_user_ai_client(request), logger)
     messages: list[Any] = [m.model_dump() for m in body.messages]
 
     async def events() -> AsyncGenerator[str, None]:
-        stream = await ai_client.responses.create(
-            model=endpoint, input=messages, stream=True
-        )
-        async for event in stream:
+        async for event in adapter.ask_stream(endpoint, messages):
             yield f"data: {event.model_dump_json()}\n\n"
 
     return StreamingResponse(events(), media_type="text/event-stream")
