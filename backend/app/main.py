@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import get_args
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -186,7 +186,11 @@ def build_root_app(s: Settings) -> FastAPI:
             if not static_dir.exists():
                 raise HTTPException(status_code=404, detail="Frontend dist not built")
 
-            candidate = (static_dir / full_path).resolve()
+            requested_path = PurePosixPath(full_path)
+            if requested_path.is_absolute() or ".." in requested_path.parts:
+                raise HTTPException(status_code=404)
+
+            candidate = static_dir.joinpath(*requested_path.parts).resolve()
             try:
                 candidate.relative_to(static_dir)
             except ValueError as exc:
