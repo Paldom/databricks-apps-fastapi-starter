@@ -99,9 +99,10 @@ jobs:
       - name: Validate ${{ matrix.target }}
         run: databricks bundle validate --strict -t ${{ matrix.target }}
 
-  all-checks:
-    # Single required status check: fails if any job failed or was cancelled; skipped jobs are fine.
-    name: All checks
+  all-checks-passed:
+    # The single required status check of the main branch ruleset (context: all-checks-passed):
+    # fails if any job failed or was cancelled; skipped jobs are fine.
+    name: all-checks-passed
     if: always()
     needs: [gate, bundle-validate]
     runs-on: ubuntu-latest
