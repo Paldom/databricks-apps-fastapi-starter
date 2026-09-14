@@ -16,7 +16,10 @@ async def test_turn_state_is_shared_with_child_tasks():
     async def tool() -> None:  # LangGraph runs tools in their own tasks
         record_turn(genie_conversation_id="conv-1")
 
-    await asyncio.create_task(tool())
+    task = asyncio.create_task(
+        tool()
+    )  # kept in a variable so it is not collected early
+    await task
     assert state == {"genie_conversation_id": "conv-1"}
 
 

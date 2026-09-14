@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator
+from typing import Any
 from types import SimpleNamespace
 
 import pytest
@@ -113,7 +115,8 @@ async def test_heartbeat_while_the_producer_is_quiet(monkeypatch):
         await asyncio.sleep(0.12)
         yield {"type": "text-delta", "delta": "hi"}
 
-    events = [e async for e in _with_heartbeat(slow(), deadline=5)]
+    stream: AsyncIterator[dict[str, Any]] = _with_heartbeat(slow(), deadline=5)
+    events = [e async for e in stream]
     assert events[-1] == {"type": "text-delta", "delta": "hi"}
     assert events[0] == {"type": "heartbeat"}
 
@@ -127,6 +130,7 @@ async def test_deadline_raises_timeout(monkeypatch):
         yield {"type": "done"}
 
     with pytest.raises(_TurnError) as info:
-        async for _ in _with_heartbeat(never(), deadline=0.1):
+        stream: AsyncIterator[dict[str, Any]] = _with_heartbeat(never(), deadline=0.1)
+        async for _ in stream:
             pass
     assert info.value.code == "timeout"
