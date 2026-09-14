@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import uuid4
 
-from mlflow.types.responses import ResponsesAgentRequest, ResponsesAgentResponse
+from mlflow.types.responses import ResponsesAgentResponse
 
 
 def normalize_response(resp: Any) -> ResponsesAgentResponse:
@@ -59,20 +59,12 @@ def text_to_response(
     )
 
 
-def last_user_text(request: ResponsesAgentRequest) -> str:
-    """Return the text content of the last user message in *request*."""
-    for item in reversed(request.input or []):
-        obj = _to_dict(item) if not isinstance(item, dict) else item
-        if obj.get("role") == "user":
-            content = obj.get("content", "")
-            if isinstance(content, str):
-                return content
-            if isinstance(content, list):
-                parts = []
-                for block in content:
-                    if isinstance(block, str):
-                        parts.append(block)
-                    elif isinstance(block, dict) and block.get("text"):
-                        parts.append(block["text"])
-                return " ".join(parts)
+def response_to_text(response: ResponsesAgentResponse) -> str:
+    """Extract the first text block from a ``ResponsesAgentResponse``."""
+    for item in response.output or []:
+        obj = _to_dict(item)
+        for content_block in obj.get("content", []):
+            block = _to_dict(content_block)
+            if block.get("type") == "output_text" and block.get("text"):
+                return str(block["text"])
     return ""

@@ -46,6 +46,10 @@ router = APIRouter(
 )
 
 
+class ExampleMessage(BaseModel):
+    text: str = Field(..., min_length=1, max_length=4096)
+
+
 class ExampleRow(BaseModel):
     id: str = Field(..., max_length=255)
     data: str = Field(..., max_length=65_536)

@@ -12,7 +12,8 @@ from typing import Any
 from mlflow.types.responses import ResponsesAgentRequest
 
 from app.agents.contracts import AgentInvocationResult
-from app.agents.response_utils import last_user_text, text_to_response
+from app.agents.request_utils import last_user_text
+from app.agents.response_utils import text_to_response
 from app.core.databricks.genie import GenieClient
 
 

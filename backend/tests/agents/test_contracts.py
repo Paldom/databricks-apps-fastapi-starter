@@ -1,4 +1,4 @@
-"""Tests for agent contracts and response_utils."""
+"""Tests for agent contracts, request_utils, and response_utils."""
 
 from __future__ import annotations
 
@@ -26,14 +26,29 @@ class TestResponseUtils:
         resp = text_to_response("SQL result", custom_outputs={"sql": "SELECT 1"})
         assert resp.custom_outputs == {"sql": "SELECT 1"}
 
+    def test_response_to_text_roundtrip(self):
+        from app.agents.response_utils import response_to_text, text_to_response
 
-class TestLastUserText:
-    """last_user_text helper tests."""
+        resp = text_to_response("Roundtrip test")
+        text = response_to_text(resp)
+        assert text == "Roundtrip test"
+
+    def test_response_to_text_empty(self):
+        from mlflow.types.responses import ResponsesAgentResponse
+
+        from app.agents.response_utils import response_to_text
+
+        resp = ResponsesAgentResponse(output=[])
+        assert response_to_text(resp) == ""
+
+
+class TestRequestUtils:
+    """request_utils helper tests."""
 
     def test_last_user_text_basic(self):
         from mlflow.types.responses import ResponsesAgentRequest
 
-        from app.agents.response_utils import last_user_text
+        from app.agents.request_utils import last_user_text
 
         req = ResponsesAgentRequest(
             input=[
@@ -46,7 +61,7 @@ class TestLastUserText:
     def test_last_user_text_multiple_messages(self):
         from mlflow.types.responses import ResponsesAgentRequest
 
-        from app.agents.response_utils import last_user_text
+        from app.agents.request_utils import last_user_text
 
         req = ResponsesAgentRequest(
             input=[
@@ -60,7 +75,7 @@ class TestLastUserText:
     def test_last_user_text_no_user_messages(self):
         from mlflow.types.responses import ResponsesAgentRequest
 
-        from app.agents.response_utils import last_user_text
+        from app.agents.request_utils import last_user_text
 
         req = ResponsesAgentRequest(
             input=[{"role": "system", "content": "System only"}]

@@ -10,6 +10,7 @@ import type {
   ChatStreamMessage,
 } from '@/shared/api/generated/models'
 import { parseNDJSON } from './ndjson-parser'
+import { getAuthHeaders } from './get-auth-headers'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
@@ -44,7 +45,7 @@ export function createChatModelAdapter(
       }
       const res = await fetch(`${API_BASE}/chat/stream`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(body),
         signal: abortSignal,
       })
