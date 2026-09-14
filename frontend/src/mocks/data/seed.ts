@@ -1,6 +1,7 @@
 import { faker } from '@faker-js/faker'
 import type {
   Project,
+  ChatMessage,
   Chat,
   CurrentUser,
   Document,
@@ -14,11 +15,12 @@ export function paginateArray<T extends { id: string }>(
   cursor: string | null | undefined,
   limit: number
 ): { items: T[]; nextCursor: string | null; hasMore: boolean } {
-  const idx = cursor ? items.findIndex((item) => item.id === cursor) : -1
-  if (cursor && idx === -1) {
+  const startIndex = cursor
+    ? items.findIndex((item) => item.id === cursor) + 1
+    : 0
+  if (startIndex < 0) {
     return { items: [], nextCursor: null, hasMore: false }
   }
-  const startIndex = idx + 1
   const slice = items.slice(startIndex, startIndex + limit)
   const hasMore = startIndex + limit < items.length
   const nextCursor = hasMore ? (slice[slice.length - 1]?.id ?? null) : null
@@ -63,7 +65,7 @@ function createDocument(index: number): Document {
     md: 'text/markdown',
     txt: 'text/plain',
   }
-  const ext = extensions[index % extensions.length]!
+  const ext = extensions[index % extensions.length]
   const statuses: DocumentStatus[] = [
     'ingested',
     'ingested',
@@ -74,8 +76,8 @@ function createDocument(index: number): Document {
     id: faker.string.uuid(),
     name: faker.system.commonFileName(ext),
     size: faker.number.int({ min: 1024, max: 10 * 1024 * 1024 }),
-    type: mimeTypes[ext]!,
-    status: statuses[index % statuses.length]!,
+    type: mimeTypes[ext],
+    status: statuses[index % statuses.length],
     projectId: null,
     addedAt: faker.date.recent({ days: index + 1 }).toISOString(),
   }
@@ -85,6 +87,7 @@ class MockDb {
   projects: Project[] = []
   chats: Map<string, Chat[]> = new Map()
   allChats: Chat[] = []
+  messages = new Map<string, ChatMessage[]>()
   documents: Document[] = []
   currentUser: CurrentUser = {
     id: 'john-doe',
@@ -106,6 +109,7 @@ class MockDb {
     this.projects = []
     this.chats = new Map()
     this.allChats = []
+    this.messages = new Map()
     this.documents = []
     this.currentUser = {
       id: 'john-doe',

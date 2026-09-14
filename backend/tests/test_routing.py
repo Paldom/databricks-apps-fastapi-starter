@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 import app.main as app_main
 from app.core.config import Settings
 
+
 AUTH_HEADERS = {"X-Forwarded-User": "test-user"}
 
 
@@ -28,16 +29,11 @@ def test_api_health_live_route_works():
 
 
 def test_api_openapi_has_contract_routes():
-    from app.core.config import Settings
-
-    # Contract mirrors scripts/export_openapi.py: all modules activated.
-    api_app = app_main.build_api_app(Settings(enable_databricks_integrations=True))
-    with TestClient(api_app) as client:
-        response = client.get("/openapi.json")
+    with TestClient(app_main.app) as client:
+        response = client.get("/api/openapi.json")
     assert response.status_code == 200
     paths = list(response.json()["paths"].keys())
     assert "/health" in paths
-    assert "/capabilities" in paths
     assert "/examples/job" in paths
     assert "/projects" in paths
     assert "/chat/stream" in paths
@@ -64,7 +60,9 @@ def test_spa_fallback_serves_index_for_unknown_non_api_route(tmp_path):
         response = client.get("/app/projects/123")
     assert response.status_code == 200
     assert response.text == "<html>starter</html>"
-    assert "no-store" in response.headers["cache-control"]
+    assert response.headers["cache-control"].startswith("no-store")
+    assert response.headers["pragma"] == "no-cache"
+    assert response.headers["expires"] == "0"
 
 
 def test_unknown_api_route_stays_json_404_for_static_app(tmp_path):

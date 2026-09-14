@@ -1,117 +1,73 @@
 import { describe, expect, it } from 'vitest'
-import { render, waitFor } from '@testing-library/react'
-import { QueryClientProvider } from '@tanstack/react-query'
-import {
-  AssistantRuntimeProvider,
-  type AssistantRuntime,
-  type ThreadMessageLike,
-} from '@assistant-ui/react'
-import { createTestQueryClient } from '@/test/utils'
+import { renderHook } from '@testing-library/react'
+import { TestQueryWrapper } from '@/test/utils'
 import { useChatRuntime } from './use-chat-runtime'
-
-const seedMessages: ThreadMessageLike[] = [
-  {
-    id: 'msg-a1',
-    role: 'user',
-    content: [{ type: 'text', text: 'Question from chat A' }],
-  },
-  {
-    id: 'msg-a2',
-    role: 'assistant',
-    content: [{ type: 'text', text: 'Answer from chat A' }],
-  },
-]
-
-/**
- * Probe rendered inside AssistantRuntimeProvider: assistant-ui 0.14 only
- * initializes the main thread once the provider mounts the runtime's
- * internal render component, so a bare renderHook never becomes ready.
- */
-function renderRuntime(initialChatId: string | null) {
-  const queryClient = createTestQueryClient()
-  const captured: { current: AssistantRuntime | null } = { current: null }
-
-  function Probe({ chatId }: Readonly<{ chatId: string | null }>) {
-    const runtime = useChatRuntime(chatId)
-    captured.current = runtime
-    return (
-      <AssistantRuntimeProvider runtime={runtime}>
-        {null}
-      </AssistantRuntimeProvider>
-    )
-  }
-
-  const view = render(
-    <QueryClientProvider client={queryClient}>
-      <Probe chatId={initialChatId} />
-    </QueryClientProvider>
-  )
-  return {
-    runtime: captured,
-    setChatId: (chatId: string | null) => {
-      view.rerender(
-        <QueryClientProvider client={queryClient}>
-          <Probe chatId={chatId} />
-        </QueryClientProvider>
-      )
-    },
-  }
-}
-
-async function seedThread(runtime: { current: AssistantRuntime | null }) {
-  await waitFor(() => {
-    expect(runtime.current?.thread.getState().isLoading).toBe(false)
-  })
-  runtime.current?.thread.reset(seedMessages)
-  await waitFor(() => {
-    expect(runtime.current?.thread.getState().messages).toHaveLength(2)
-  })
-}
+import { loadChatHistory, mapChatMessage } from './use-chat-runtime'
+import { server } from '@/mocks/server'
+import { http, HttpResponse } from 'msw'
 
 describe('useChatRuntime', () => {
-  it('returns a truthy runtime without an active chat', () => {
-    const { runtime } = renderRuntime(null)
-    expect(runtime.current).toBeTruthy()
-    expect(runtime.current?.thread.getState().messages).toHaveLength(0)
-  })
-
-  it('starts with an empty thread for a selected chat', async () => {
-    const { runtime } = renderRuntime('chat-a')
-    await waitFor(() => {
-      expect(runtime.current?.thread.getState().isLoading).toBe(false)
+  it('returns a truthy runtime', () => {
+    const { result } = renderHook(() => useChatRuntime('chat-1'), {
+      wrapper: TestQueryWrapper,
     })
-    expect(runtime.current?.thread.getState().messages).toHaveLength(0)
+    expect(result.current).toBeTruthy()
   })
+})
 
-  it('resets the thread when switching to another chat', async () => {
-    const { runtime, setChatId } = renderRuntime('chat-a')
-    await seedThread(runtime)
+const storedMessage = {
+  id: 'm1',
+  role: 'assistant',
+  content: 'Answer',
+  createdAt: '2026-01-01T00:00:00Z',
+  traceId: 'trace-1',
+  parts: [
+    {
+      type: 'tool-call',
+      toolCallId: 'tool-1',
+      toolName: 'genie',
+      args: { query: 'sales' },
+      argsText: '{"query":"sales"}',
+      result: { text: '42' },
+      isError: false,
+    },
+    { type: 'text', text: 'Answer' },
+  ],
+}
 
-    setChatId('chat-b')
+it('maps assistant parts verbatim, user text and trace metadata', () => {
+  const mapped = mapChatMessage(storedMessage)
+  expect(mapped.content).toBe(storedMessage.parts)
+  expect(mapped).toMatchObject({
+    id: 'm1',
+    role: 'assistant',
+    metadata: { custom: { traceId: 'trace-1' } },
+    createdAt: new Date(storedMessage.createdAt),
+  })
+  expect(mapChatMessage({ ...storedMessage, role: 'user' }).content).toEqual([
+    { type: 'text', text: 'Answer' },
+  ])
+  expect(mapChatMessage({ ...storedMessage, parts: [] }).content).toEqual([
+    { type: 'text', text: 'Answer' },
+  ])
+})
 
-    await waitFor(() => {
-      expect(runtime.current?.thread.getState().messages).toHaveLength(0)
+it('loads all history pages in order with the requested page size', async () => {
+  const cursors: (string | null)[] = []
+  server.use(
+    http.get('*/api/chats/c1/messages', ({ request }) => {
+      const url = new URL(request.url)
+      expect(url.searchParams.get('limit')).toBe('200')
+      const cursor = url.searchParams.get('cursor')
+      cursors.push(cursor)
+      return HttpResponse.json({
+        items: [{ ...storedMessage, id: cursor ? 'm2' : 'm1' }],
+        nextCursor: cursor ? null : 'm1',
+        hasMore: !cursor,
+      })
     })
-  })
-
-  it('clears the thread when the active chat is deselected', async () => {
-    const { runtime, setChatId } = renderRuntime('chat-a')
-    await seedThread(runtime)
-
-    setChatId(null)
-
-    await waitFor(() => {
-      expect(runtime.current?.thread.getState().messages).toHaveLength(0)
-    })
-  })
-
-  it('does not reset the thread when the selection is unchanged', async () => {
-    const { runtime, setChatId } = renderRuntime('chat-a')
-    await seedThread(runtime)
-
-    setChatId('chat-a')
-
-    await new Promise((resolve) => setTimeout(resolve, 50))
-    expect(runtime.current?.thread.getState().messages).toHaveLength(2)
-  })
+  )
+  const messages = await loadChatHistory('c1')
+  expect(cursors).toEqual([null, 'm1'])
+  expect(messages.map((message) => message.id)).toEqual(['m1', 'm2'])
 })

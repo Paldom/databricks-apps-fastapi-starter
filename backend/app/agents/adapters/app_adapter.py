@@ -2,25 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
-from mlflow.types.responses import (
-    ResponsesAgentRequest,
-)
 from openai import AsyncOpenAI
+
+from mlflow.types.responses import ResponsesAgentRequest
 
 from app.agents.contracts import AgentInvocationResult
 from app.agents.response_utils import normalize_response
 from app.core.mlflow_runtime import extract_trace_id
 
 
-def _serialize_input(request: ResponsesAgentRequest) -> list[dict[str, Any]]:
-    return [
-        item.model_dump(exclude_none=True)
-        if hasattr(item, "model_dump")
-        else cast(dict[str, Any], item)
-        for item in request.input
-    ]
+def _serialize_input(request: ResponsesAgentRequest) -> list[Any]:
+    return [item.model_dump(exclude_none=True) for item in request.input]
 
 
 class DatabricksAppAdapter:

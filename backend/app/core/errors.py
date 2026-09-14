@@ -1,6 +1,8 @@
 from http import HTTPStatus
+from typing import Optional
 
 from fastapi import HTTPException
+
 
 # ---------------------------------------------------------------------------
 # Application-level exception hierarchy
@@ -21,6 +23,11 @@ class AppError(Exception):
         self.detail = detail
         self.cause = cause
         super().__init__(detail)
+
+
+class BadRequestError(AppError):
+    def __init__(self, detail: str = "Bad request", **kw):
+        super().__init__(status_code=400, detail=detail, **kw)
 
 
 class NotFoundError(AppError):
@@ -72,6 +79,11 @@ class PathValidationError(AppError):
         super().__init__(400, detail, **kw)
 
 
+class ResourceNotFoundError(AppError):
+    def __init__(self, detail: str = "Resource not found", **kw):
+        super().__init__(404, detail, **kw)
+
+
 # ---------------------------------------------------------------------------
 # Backward-compatible HTTP error helper
 # ---------------------------------------------------------------------------
@@ -79,7 +91,7 @@ class PathValidationError(AppError):
 DEFAULT_ERROR_MESSAGES = {status.value: status.phrase for status in HTTPStatus}
 
 
-def http_error(status_code: int, detail: str | None = None) -> HTTPException:
+def http_error(status_code: int, detail: Optional[str] = None) -> HTTPException:
     """Return an :class:`HTTPException` with a standardized message."""
     message = detail or DEFAULT_ERROR_MESSAGES.get(status_code, "Unknown Error")
     return HTTPException(status_code=status_code, detail=message)

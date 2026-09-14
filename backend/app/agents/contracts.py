@@ -9,20 +9,21 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
+from pydantic import BaseModel, Field
+
 from mlflow.types.responses import (
     ResponsesAgentRequest,
     ResponsesAgentResponse,
     ResponsesAgentStreamEvent,
 )
-from pydantic import BaseModel, Field
 
 # Re-export so callers only need to import from contracts
 __all__ = [
-    "AgentAdapter",
-    "AgentInvocationResult",
     "ResponsesAgentRequest",
     "ResponsesAgentResponse",
     "ResponsesAgentStreamEvent",
+    "AgentInvocationResult",
+    "AgentAdapter",
 ]
 
 
@@ -33,6 +34,7 @@ class AgentInvocationResult(BaseModel):
     response: ResponsesAgentResponse
     text: str = ""
     downstream_trace_id: str | None = None
+    downstream_experiment_id: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

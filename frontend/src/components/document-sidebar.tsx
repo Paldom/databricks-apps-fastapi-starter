@@ -1,4 +1,3 @@
-import * as React from 'react'
 import {
   CheckCircle2,
   Clock,
@@ -8,7 +7,7 @@ import {
   FileText,
   Loader2,
 } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from '@/i18n/client'
 import { useUIStore } from '@/shared/store/ui'
 import { Button } from '@/components/ui/button'
 import { Dropzone } from '@/components/ui/dropzone'
@@ -19,9 +18,11 @@ import {
   useListDocuments,
   useDeleteDocument,
   getListDocumentsQueryKey,
+  useGetDocumentStatus,
 } from '@/shared/api/generated/documents/documents'
 import type { Document, DocumentStatus } from '@/shared/api/generated/models'
-import { useQueryClient, useMutation } from '@tanstack/react-query'
+import { useUploadKnowledgeFileKnowledgeFilesPost } from '@/shared/api/generated/knowledge/knowledge'
+import { useQueryClient } from '@tanstack/react-query'
 
 function formatFileSize(bytes: number, t: TFunction): string {
   if (bytes === 0) return `0 ${t('common.units.byte')}`
@@ -52,7 +53,6 @@ function StatusIcon({ status }: StatusIconProps) {
 type DocumentItemProps = Readonly<{
   document: Document
   formatSize: (bytes: number) => string
-  statusLabel: string
   removeLabel: string
   onRemove: (documentId: string) => void
 }>
@@ -60,10 +60,23 @@ type DocumentItemProps = Readonly<{
 function DocumentItem({
   document,
   formatSize,
-  statusLabel,
   removeLabel,
   onRemove,
 }: DocumentItemProps) {
+  const { t } = useTranslation()
+  const statusQuery = useGetDocumentStatus(document.id, {
+    query: {
+      enabled: document.status === 'pending',
+      refetchInterval: (query) =>
+        (query.state.data?.data.status ?? document.status) === 'pending'
+          ? 10_000
+          : false,
+    },
+  })
+  const status =
+    document.status === 'pending'
+      ? (statusQuery.data?.data.status ?? document.status)
+      : document.status
   return (
     <div className="group flex items-center gap-3 rounded-md border bg-card p-3">
       <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
@@ -73,8 +86,10 @@ function DocumentItem({
           {formatSize(document.size)}
         </p>
       </div>
-      <StatusIcon status={document.status} />
-      <span className="sr-only">{statusLabel}</span>
+      <span className="flex items-center gap-1 rounded border px-2 py-1 text-xs">
+        <StatusIcon status={status} />
+        {t(`document.${status}`)}
+      </span>
       <Button
         variant="ghost"
         size="icon"
@@ -88,69 +103,21 @@ function DocumentItem({
   )
 }
 
-async function uploadKnowledgeFile(file: File): Promise<unknown> {
-  const formData = new FormData()
-  formData.append('file', file)
-
-  const response = await fetch('/api/knowledge/files', {
-    method: 'POST',
-    body: formData,
-    credentials: 'include',
-  })
-
-  if (!response.ok) {
-    const error = (await response
-      .json()
-      .catch(() => ({ detail: 'Upload failed' }))) as { detail?: string }
-    throw new Error(error.detail ?? 'Upload failed')
-  }
-
-  return (await response.json()) as unknown
-}
-
 export function DocumentSidebar() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const documentSidebarOpen = useUIStore((s) => s.documentSidebarOpen)
-  const setDocumentSidebarOpen = useUIStore((s) => s.setDocumentSidebarOpen)
+  const { documentSidebarOpen, setDocumentSidebarOpen } = useUIStore()
   const formatSize = (bytes: number) => formatFileSize(bytes, t)
 
   const documentsQuery = useListDocuments()
   const documents = documentsQuery.data?.data.items ?? []
-  const hasPending = documents.some((d) => d.status === 'pending')
-
-  // Poll while any document is pending
-  React.useEffect(() => {
-    if (!hasPending) return
-    const interval = setInterval(() => {
-      void queryClient.invalidateQueries({
-        queryKey: getListDocumentsQueryKey(),
-      })
-    }, 3000)
-    return () => clearInterval(interval)
-  }, [hasPending, queryClient])
-
-  const [uploadStatus, setUploadStatus] = React.useState<
-    'idle' | 'uploading' | 'success' | 'error'
-  >('idle')
-  const [uploadError, setUploadError] = React.useState<string | null>(null)
-
-  const knowledgeUpload = useMutation({
-    mutationFn: uploadKnowledgeFile,
-    onMutate: () => {
-      setUploadStatus('uploading')
-      setUploadError(null)
-    },
-    onSuccess: () => {
-      setUploadStatus('success')
-      void queryClient.invalidateQueries({
-        queryKey: getListDocumentsQueryKey(),
-      })
-      setTimeout(() => setUploadStatus('idle'), 4000)
-    },
-    onError: (err: Error) => {
-      setUploadStatus('error')
-      setUploadError(err.message)
+  const knowledgeUpload = useUploadKnowledgeFileKnowledgeFilesPost({
+    mutation: {
+      onSuccess: () => {
+        void queryClient.invalidateQueries({
+          queryKey: getListDocumentsQueryKey(),
+        })
+      },
     },
   })
 
@@ -166,7 +133,7 @@ export function DocumentSidebar() {
 
   const handleFilesAdded = (files: File[]) => {
     files.forEach((file) => {
-      knowledgeUpload.mutate(file)
+      knowledgeUpload.mutate({ data: { file } })
     })
   }
 
@@ -211,9 +178,6 @@ export function DocumentSidebar() {
                   key={doc.id}
                   document={doc}
                   formatSize={formatSize}
-                  statusLabel={t(
-                    ('document.' + doc.status) as 'document.pending'
-                  )}
                   removeLabel={t('document.removeDocument')}
                   onRemove={handleRemove}
                 />
@@ -222,29 +186,29 @@ export function DocumentSidebar() {
           </div>
         )}
 
-        {uploadStatus === 'uploading' && (
+        {knowledgeUpload.isPending && (
           <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Uploading to knowledge base...
+            {t('document.uploading')}
           </div>
         )}
 
-        {uploadStatus === 'success' && (
+        {knowledgeUpload.isSuccess && (
           <div className="mb-4 flex items-center gap-2 text-sm text-green-600">
             <CheckCircle2 className="h-4 w-4" />
-            Uploaded. Available in chat after ingestion completes.
+            {t('document.uploaded')}
           </div>
         )}
 
-        {uploadStatus === 'error' && (
-          <div className="mb-4 text-sm text-destructive">
+        {knowledgeUpload.isError && (
+          <div role="alert" className="mb-4 text-sm text-destructive">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-4 w-4" />
-              Upload failed
+              {t('document.uploadFailed')}
             </div>
-            {uploadError && (
-              <p className="mt-1 text-xs opacity-80">{uploadError}</p>
-            )}
+            <p className="mt-1 text-xs opacity-80">
+              {t('document.uploadError')}
+            </p>
           </div>
         )}
 
@@ -258,7 +222,7 @@ export function DocumentSidebar() {
             {t('document.uploadNew')}
           </h3>
           <p className="mb-2 text-xs text-muted-foreground">
-            PDF, DOC/DOCX, PPT/PPTX, JPG/JPEG, PNG. Max 50 MB.
+            {t('document.fileRequirements')}
           </p>
           <Dropzone
             onFilesAdded={handleFilesAdded}

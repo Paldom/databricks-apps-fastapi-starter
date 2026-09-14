@@ -1,0 +1,12 @@
+resources:
+  postgres_projects:
+    app_db:
+      project_id: fastapi-starter-${var.resource_name_suffix}
+      display_name: fastapi-starter ${var.resource_name_suffix}
+      pg_version: 17
+      default_endpoint_settings: ${var.lakebase_endpoint_settings}
+      custom_tags:
+        - key: bundle
+          value: ${bundle.name}
+        - key: target
+          value: ${bundle.target}

@@ -14,10 +14,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
-# The Python `lib/` pattern above must not swallow frontend source code
-!frontend/src/lib/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -203,9 +201,18 @@ cython_debug/
 
 # Local notes
 .local/
+# Per-agent skill directories are symlinks to .agents/skills (tracked)
+.claude/skills/
+.cursor/skills/
+.github/skills/
+.gemini/skills/
+.opencode/skills/
 
-# Claude Code personal settings (machine-local; project settings are committed)
+# Per-machine agent state
+.claude/projects/
 .claude/settings.local.json
-.bundle-vars.*.sh
-
+.vscode/settings.json
+*.bak
+.agent/skills/
+!frontend/src/lib/
 .playwright-mcp/

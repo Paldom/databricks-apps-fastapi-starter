@@ -1,19 +1,21 @@
 from __future__ import annotations
 
+import logging
+
+from databricks.sdk.errors import NotFound
 from sqlalchemy import text
 
 from app.core.config import Settings
-from app.core.integrations import (
-    ensure_ai_client,
-    ensure_vector_index,
-    ensure_workspace_client,
-)
+from app.core.integrations import ensure_ai_client, ensure_workspace_client
 from app.core.runtime import AppRuntime
 from app.models.health_dto import (
     DependencyCheck,
     DetailedHealthResponse,
     HealthStatus,
 )
+
+_logger = logging.getLogger(__name__)
+_FAILED = "Health check failed: %s"  # details stay in the log; the response is public
 
 
 async def check_database(runtime: AppRuntime) -> DependencyCheck:
@@ -23,8 +25,9 @@ async def check_database(runtime: AppRuntime) -> DependencyCheck:
         async with runtime.engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
         return DependencyCheck(status=HealthStatus.OK)
-    except Exception as exc:
-        return DependencyCheck(status=HealthStatus.FAIL, reason=str(exc))
+    except Exception as exc:  # details stay in the log; the response is public
+        _logger.warning(_FAILED, exc)
+        return DependencyCheck(status=HealthStatus.FAIL, reason="Unavailable")
 
 
 def check_workspace(runtime: AppRuntime, settings: Settings) -> DependencyCheck:
@@ -33,8 +36,9 @@ def check_workspace(runtime: AppRuntime, settings: Settings) -> DependencyCheck:
     try:
         ensure_workspace_client(runtime, settings)
         return DependencyCheck(status=HealthStatus.OK)
-    except Exception as exc:
-        return DependencyCheck(status=HealthStatus.FAIL, reason=str(exc))
+    except Exception as exc:  # details stay in the log; the response is public
+        _logger.warning(_FAILED, exc)
+        return DependencyCheck(status=HealthStatus.FAIL, reason="Unavailable")
 
 
 def check_ai(runtime: AppRuntime, settings: Settings) -> DependencyCheck:
@@ -45,8 +49,9 @@ def check_ai(runtime: AppRuntime, settings: Settings) -> DependencyCheck:
     try:
         ensure_ai_client(runtime, settings)
         return DependencyCheck(status=HealthStatus.OK)
-    except Exception as exc:
-        return DependencyCheck(status=HealthStatus.FAIL, reason=str(exc))
+    except Exception as exc:  # details stay in the log; the response is public
+        _logger.warning(_FAILED, exc)
+        return DependencyCheck(status=HealthStatus.FAIL, reason="Unavailable")
 
 
 def check_vector_search(runtime: AppRuntime, settings: Settings) -> DependencyCheck:
@@ -55,10 +60,16 @@ def check_vector_search(runtime: AppRuntime, settings: Settings) -> DependencyCh
     if not settings.has_vector_search_config():
         return DependencyCheck(status=HealthStatus.OK, reason="Not configured")
     try:
-        ensure_vector_index(runtime, settings)
+        workspace = ensure_workspace_client(runtime, settings)
+        workspace.vector_search_indexes.get_index(
+            settings.vector_search_index_name or ""
+        )
         return DependencyCheck(status=HealthStatus.OK)
-    except Exception as exc:
-        return DependencyCheck(status=HealthStatus.FAIL, reason=str(exc))
+    except NotFound:  # the ingestion job creates the index on its first run
+        return DependencyCheck(status=HealthStatus.OK, reason="Index not created yet")
+    except Exception as exc:  # details stay in the log; the response is public
+        _logger.warning(_FAILED, exc)
+        return DependencyCheck(status=HealthStatus.FAIL, reason="Unavailable")
 
 
 async def build_detailed_health(
@@ -74,6 +85,7 @@ async def build_detailed_health(
     )
     return DetailedHealthResponse(
         ok=all_ok,
+        version=settings.app_version,
         database=database,
         workspace=workspace,
         ai=ai,

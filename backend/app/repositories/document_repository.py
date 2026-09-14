@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import NotFoundError
+from app.core.pagination import decode_uuid_cursor, encode_cursor
 from app.models.file_record_model import FileRecord
+from app.models.project_model import Project
 
 
 class DocumentRepository:
@@ -23,7 +26,7 @@ class DocumentRepository:
         query = (
             select(FileRecord)
             .where(FileRecord.user_id == owner_user_id)
-            .order_by(FileRecord.created_at.desc())
+            .order_by(FileRecord.created_at.desc(), FileRecord.id.desc())
         )
 
         if status:
@@ -31,7 +34,10 @@ class DocumentRepository:
         if project_id:
             query = query.where(FileRecord.project_id == project_id)
         if cursor:
-            query = query.where(FileRecord.id < uuid.UUID(cursor))
+            stamp, row_uuid = decode_uuid_cursor(cursor)
+            query = query.where(
+                tuple_(FileRecord.created_at, FileRecord.id) < (stamp, row_uuid)
+            )
 
         query = query.limit(limit + 1)
         result = await self._session.execute(query)
@@ -39,7 +45,11 @@ class DocumentRepository:
 
         has_more = len(rows) > limit
         items = rows[:limit]
-        next_cursor = str(items[-1].id) if has_more and items else None
+        next_cursor = (
+            encode_cursor(items[-1].created_at, items[-1].id)
+            if has_more and items
+            else None
+        )
 
         return items, next_cursor, has_more
 
@@ -52,8 +62,18 @@ class DocumentRepository:
         storage_path: str,
         project_id: str | None = None,
         status: str = "pending",
+        document_id: uuid.UUID | None = None,
     ) -> FileRecord:
+        if project_id:
+            owned = await self._session.execute(
+                select(Project.id).where(
+                    Project.id == project_id, Project.owner_user_id == owner_user_id
+                )
+            )
+            if owned.scalar_one_or_none() is None:
+                raise NotFoundError("Project not found")
         doc = FileRecord(
+            id=document_id or uuid.uuid4(),
             user_id=owner_user_id,
             project_id=project_id,
             storage_path=storage_path,
@@ -75,7 +95,19 @@ class DocumentRepository:
                 FileRecord.user_id == owner_user_id,
             )
         )
-        return result.rowcount > 0
+        return getattr(result, "rowcount", 0) > 0
+
+    async def set_status(
+        self, owner_user_id: str, document_id: str, status: str
+    ) -> None:
+        await self._session.execute(
+            update(FileRecord)
+            .where(
+                FileRecord.id == uuid.UUID(document_id),
+                FileRecord.user_id == owner_user_id,
+            )
+            .values(status=status, updated_by=owner_user_id)
+        )
 
     async def get_document(
         self, owner_user_id: str, document_id: str

@@ -5,7 +5,7 @@ from typing import cast
 from databricks.sdk import WorkspaceClient
 
 from app.core.databricks._async_bridge import run_sync
-from app.core.errors import NotFoundError, UcFilesError
+from app.core.errors import ResourceNotFoundError, UcFilesError
 from app.core.security.path_validation import validate_volume_path
 
 
@@ -39,6 +39,12 @@ class UcFilesAdapter:
         )
         return len(data)
 
+    async def delete(self, full_path: str) -> None:
+        """Delete one file by its /Volumes path."""
+        await run_sync(
+            self._ws.files.delete, file_path=full_path, error_cls=UcFilesError
+        )
+
     async def download(self, volume_root: str, relative_path: str) -> bytes:
         """Download file contents from a UC volume."""
         uri = self._vol_uri(volume_root, relative_path)
@@ -49,5 +55,5 @@ class UcFilesAdapter:
             error_cls=UcFilesError,
         )
         if resp.contents is None:
-            raise NotFoundError(f"File not found: {relative_path}")
+            raise ResourceNotFoundError(f"File not found: {relative_path}")
         return cast(bytes, resp.contents)

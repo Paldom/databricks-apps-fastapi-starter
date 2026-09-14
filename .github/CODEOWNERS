@@ -1,22 +1,9 @@
-# CODEOWNERS — the LAST matching rule wins, so the catch-all comes first and
-# security-sensitive paths follow (they override the catch-all).
-#
-# NOTE: this file enforces nothing until "Require review from Code Owners" is
-# enabled in branch protection / rulesets; until then it is documentation.
-
-# Default owner for everything.
-*                          @Paldom
-
-# Automation-defining paths: whoever edits workflows, dependabot.yml, or the
-# dependency set can bypass every other supply-chain control, so these paths
-# get explicit ownership.
-/.github/                  @Paldom
-/.github/CODEOWNERS        @Paldom
-/.github/dependabot.yml    @Paldom
-/backend/pyproject.toml    @Paldom
-/backend/uv.lock           @Paldom
-
-# Agent instruction files (define what coding agents are told to do).
-/AGENTS.md                 @Paldom
-/CLAUDE.md                 @Paldom
-/.claude/                  @Paldom
+/.claude/ @Paldom
+/.agents/ @Paldom
+/resources/ @Paldom
+/.github/ @Paldom
+/databricks.yml @Paldom
+/.pre-commit-config.yaml @Paldom
+/backend/uv.lock @Paldom
+/frontend/package-lock.json @Paldom
+/scripts/ @Paldom

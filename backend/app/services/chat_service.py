@@ -70,6 +70,54 @@ class ChatService:
     async def delete_chat(self, chat_id: str) -> bool:
         return await self._repo.delete_chat(self._user_id, chat_id)
 
+    async def get_owned_chat(self, chat_id: str) -> dict | None:
+        chat = await self._repo.get_owned_chat(self._user_id, chat_id)
+        if chat is None:
+            return None
+        return {
+            "id": str(chat.id),
+            "title": chat.title or "",
+            "project_id": chat.project_id or "",
+            "genie_conversation_id": chat.genie_conversation_id,
+        }
+
+    async def list_messages(self, chat_id: str, cursor: str | None, limit: int) -> dict:
+        rows, next_cursor, has_more = await self._repo.list_messages(
+            self._user_id, chat_id, cursor, limit
+        )
+        items = [
+            {
+                "id": str(m.id),
+                "role": m.role,
+                "content": m.content,
+                "parts": m.parts or [],
+                "trace_id": m.trace_id,
+                "created_at": m.created_at,
+            }
+            for m in rows
+        ]
+        return {"items": items, "next_cursor": next_cursor, "has_more": has_more}
+
+    async def recent_transcript(self, chat_id: str, limit: int) -> list[dict]:
+        rows = await self._repo.list_recent_messages(self._user_id, chat_id, limit)
+        return [{"role": m.role, "content": m.content} for m in rows]
+
+    async def add_message(
+        self,
+        chat_id: str,
+        role: str,
+        content: str,
+        parts: list[dict] | None = None,
+        trace_id: str | None = None,
+    ) -> str:
+        message = await self._repo.add_message(
+            self._user_id, chat_id, role, content, parts or [], trace_id
+        )
+        return str(message.id)
+
+    async def set_genie_conversation(self, chat_id: str, conversation_id: str) -> None:
+        await self._repo.set_genie_conversation(self._user_id, chat_id, conversation_id)
+
     async def search_chats(self, q: str, cursor: str | None, limit: int) -> dict:
         items, next_cursor, has_more = await self._repo.search_chats(
             self._user_id,

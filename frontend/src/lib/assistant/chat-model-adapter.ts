@@ -2,7 +2,6 @@ import type {
   ChatModelAdapter,
   ChatModelRunOptions,
   TextMessagePart,
-  ThreadAssistantMessagePart,
   ToolCallMessagePart,
 } from '@assistant-ui/react'
 import type {
@@ -11,139 +10,130 @@ import type {
   ChatStreamMessage,
 } from '@/shared/api/generated/models'
 import { parseNDJSON } from './ndjson-parser'
+import { getAuthHeaders } from './get-auth-headers'
 
-/** Strip trailing slashes without regex backtracking (sonar S8786). */
-function stripTrailingSlashes(value: string): string {
-  let end = value.length
-  while (end > 0 && value[end - 1] === '/') end--
-  return value.slice(0, end)
-}
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
-const API_BASE = stripTrailingSlashes(
-  import.meta.env.VITE_API_BASE_URL ?? '/api'
-)
+type ContentPart = TextMessagePart | ToolCallMessagePart
 
-/**
- * Best-effort parse of streamed tool-call argument text.
- * Returns {} while the JSON is still partial or is not an object.
- */
-function parseArgs(argsText: string): ToolCallMessagePart['args'] {
-  try {
-    const parsed: unknown = JSON.parse(argsText)
-    if (
-      parsed !== null &&
-      typeof parsed === 'object' &&
-      !Array.isArray(parsed)
-    ) {
-      return parsed as ToolCallMessagePart['args']
-    }
-  } catch {
-    // partial JSON during streaming
-  }
-  return {}
-}
-
-/**
- * Serialize assistant-ui ThreadMessage[] to the wire format.
- * V1: extract text content only. Images/files/tool-calls are dropped.
- */
+/** The backend keeps the transcript; only the new user message travels. */
 function serializeMessages(
   messages: ChatModelRunOptions['messages']
 ): ChatStreamMessage[] {
-  return messages.map((msg) => ({
-    role: msg.role,
-    content: msg.content
-      .filter((part): part is TextMessagePart => part.type === 'text')
-      .map((part) => part.text)
-      .join(''),
-  }))
+  const last = [...messages].reverse().find((msg) => msg.role === 'user')
+  if (!last) return []
+  return [
+    {
+      role: 'user',
+      content: last.content
+        .filter((part): part is TextMessagePart => part.type === 'text')
+        .map((part) => part.text)
+        .join(''),
+    },
+  ]
 }
 
-export const chatModelAdapter: ChatModelAdapter = {
-  async *run({ messages, abortSignal, unstable_threadId }) {
-    const body: ChatStreamRequest = {
-      thread_id: unstable_threadId,
-      messages: serializeMessages(messages),
-    }
-
-    // Auth is handled server-side via Databricks forwarded headers; the
-    // same-origin fetch needs no browser-managed credentials (matches
-    // src/shared/api/client.ts).
-    const res = await fetch(`${API_BASE}/chat/stream`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: abortSignal,
-    })
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => 'Unknown error')
-      throw new Error(`Chat stream failed (${res.status}): ${text}`)
-    }
-
-    if (!res.body) {
-      throw new Error('Chat stream response has no body')
-    }
-
-    // Accumulate state across events
-    let textContent = ''
-    const toolCalls = new Map<string, { toolName: string; argsText: string }>()
-
-    const buildContent = (): ThreadAssistantMessagePart[] => {
-      const parts: ThreadAssistantMessagePart[] = []
-      if (textContent) {
-        parts.push({ type: 'text', text: textContent })
+export function createChatModelAdapter(
+  chatId: string,
+  onDone?: () => void
+): ChatModelAdapter {
+  return {
+    async *run({ messages, abortSignal }) {
+      const body: ChatStreamRequest = {
+        thread_id: chatId,
+        messages: serializeMessages(messages),
       }
-      for (const [toolCallId, { toolName, argsText }] of toolCalls) {
-        parts.push({
-          type: 'tool-call',
-          toolCallId,
-          toolName,
-          args: parseArgs(argsText),
-          argsText,
-        })
+      const res = await fetch(`${API_BASE}/chat/stream`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(body),
+        signal: abortSignal,
+      })
+      if (!res.ok) {
+        const text = await res.text().catch(() => 'Unknown error')
+        throw new Error(`Chat stream failed (${res.status}): ${text}`)
       }
-      return parts
-    }
+      if (!res.body) throw new Error('Chat stream response has no body')
 
-    for await (const event of parseNDJSON<ChatStreamEvent>(
-      res.body,
-      abortSignal
-    )) {
-      switch (event.type) {
-        case 'text-delta':
-          textContent += event.delta
-          yield { content: buildContent() }
-          break
-
-        case 'tool-call-begin':
-          toolCalls.set(event.tool_call_id, {
-            toolName: event.tool_name,
-            argsText: '',
-          })
-          yield { content: buildContent() }
-          break
-
-        case 'tool-call-delta': {
-          const toolCall = toolCalls.get(event.tool_call_id)
-          // Deltas for unknown tool calls (no preceding begin) are dropped
-          if (toolCall) {
-            toolCall.argsText += event.args_delta
-            yield { content: buildContent() }
+      let parts: ContentPart[] = []
+      for await (const event of parseNDJSON<ChatStreamEvent>(
+        res.body,
+        abortSignal
+      )) {
+        switch (event.type) {
+          case 'heartbeat':
+            continue
+          case 'text-delta': {
+            const last = parts[parts.length - 1]
+            if (last?.type === 'text') {
+              parts = [
+                ...parts.slice(0, -1),
+                { ...last, text: last.text + event.delta },
+              ]
+            } else {
+              parts = [...parts, { type: 'text', text: event.delta }]
+            }
+            break
           }
-          break
+          case 'tool-call-begin':
+            parts = [
+              ...parts,
+              {
+                type: 'tool-call',
+                toolCallId: event.tool_call_id,
+                toolName: event.tool_name,
+                args: {},
+                argsText: '',
+              },
+            ]
+            break
+          case 'tool-call-delta':
+            parts = parts.map((part) => {
+              if (
+                part.type !== 'tool-call' ||
+                part.toolCallId !== event.tool_call_id
+              )
+                return part
+              const argsText = part.argsText + event.args_delta
+              let args = part.args
+              try {
+                const parsed: unknown = JSON.parse(argsText)
+                if (
+                  parsed !== null &&
+                  typeof parsed === 'object' &&
+                  !Array.isArray(parsed)
+                ) {
+                  args = parsed as ToolCallMessagePart['args']
+                }
+              } catch {
+                // Arguments arrive in fragments; retain the last complete object.
+              }
+              return { ...part, argsText, args }
+            })
+            break
+          case 'tool-result':
+            parts = parts.map((part) =>
+              part.type === 'tool-call' &&
+              part.toolCallId === event.tool_call_id
+                ? { ...part, result: event.result, isError: event.is_error }
+                : part
+            )
+            break
+          case 'error':
+            throw new Error(`${event.message} (trace ${event.trace_id})`)
+          case 'done':
+            onDone?.()
+            yield {
+              content: [...parts],
+              metadata: { custom: { traceId: event.trace_id } },
+            }
+            return
+          default:
+            continue
         }
-
-        case 'error':
-          throw new Error(event.message)
-
-        case 'done':
-          break
-
-        default:
-          // Forward-compatible: ignore unknown event types
-          break
+        yield { content: [...parts] }
       }
-    }
-  },
+      throw new Error('stream ended without a terminal event')
+    },
+  }
 }

@@ -1,26 +1,25 @@
-"""Adapter for Databricks Model Serving endpoints (Responses API)."""
+"""Adapter for Databricks Model Serving endpoints.
+
+Speaks the Responses API only.
+"""
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
-from mlflow.types.responses import ResponsesAgentRequest
 from openai import AsyncOpenAI
 
+from mlflow.types.responses import ResponsesAgentRequest
+
 from app.agents.contracts import AgentInvocationResult
-from app.agents.response_utils import normalize_response, response_to_text
+from app.agents.response_utils import normalize_response
 from app.core.mlflow_runtime import extract_trace_id
 
 _DATABRICKS_OPTIONS = {"databricks_options": {"return_trace": True}}
 
 
-def _serialize_input(request: ResponsesAgentRequest) -> list[dict[str, Any]]:
-    return [
-        item.model_dump(exclude_none=True)
-        if hasattr(item, "model_dump")
-        else cast(dict[str, Any], item)
-        for item in request.input
-    ]
+def _serialize_input(request: ResponsesAgentRequest) -> list[Any]:
+    return [item.model_dump(exclude_none=True) for item in request.input]
 
 
 class ServingEndpointAdapter:
@@ -39,11 +38,10 @@ class ServingEndpointAdapter:
             extra_body=_DATABRICKS_OPTIONS,
         )
 
-        normalized = normalize_response(resp)
         return AgentInvocationResult(
             source=self.source,
-            response=normalized,
-            text=getattr(resp, "output_text", "") or response_to_text(normalized),
+            response=normalize_response(resp),
+            text=getattr(resp, "output_text", "") or "",
             downstream_trace_id=extract_trace_id(resp),
             metadata={"endpoint": self._endpoint},
         )

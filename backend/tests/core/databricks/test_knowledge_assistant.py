@@ -1,62 +1,62 @@
-from unittest.mock import AsyncMock, MagicMock
+"""KnowledgeAssistantClient calls the Responses API and maps failures."""
+
+from __future__ import annotations
+
+import logging
+from types import SimpleNamespace
 
 import pytest
-from httpx import AsyncClient, HTTPStatusError, Request, Response
 
-from app.core.databricks.knowledge_assistant import KnowledgeAssistantAdapter
-from app.core.errors import ExternalServiceError
+from app.core.databricks.knowledge_assistant import KnowledgeAssistantClient
+from app.core.errors import DatabricksAPIError
 
 
-@pytest.mark.asyncio
-async def test_ask_success():
-    mock_response = MagicMock()
-    mock_response.raise_for_status = MagicMock()
-    mock_response.json.return_value = {
-        "output": [{"type": "message", "content": [{"text": "Hello!"}]}],
-        "output_text": "Hello!",
-    }
+class _Responses:
+    def __init__(self, fail: bool = False) -> None:
+        self.fail = fail
+        self.calls: list[dict] = []
 
-    client = AsyncMock(spec=AsyncClient)
-    client.post = AsyncMock(return_value=mock_response)
+    async def create(self, **kwargs):
+        self.calls.append(kwargs)
+        if self.fail:
+            raise RuntimeError("endpoint down")
+        if kwargs.get("stream"):
 
-    adapter = KnowledgeAssistantAdapter(client, MagicMock())
-    result = await adapter.ask("my-assistant", [{"role": "user", "content": "Hi"}])
+            async def events():
+                yield SimpleNamespace(type="response.output_text.delta", delta="hi")
 
-    assert result["output_text"] == "Hello!"
-    client.post.assert_called_once_with(
-        "/serving-endpoints/responses",
-        json={
-            "model": "my-assistant",
-            "input": [{"role": "user", "content": "Hi"}],
-        },
-    )
+            return events()
+        return SimpleNamespace(output_text="answer")
+
+
+def _adapter(fail: bool = False):
+    responses = _Responses(fail)
+    client = SimpleNamespace(responses=responses)
+    return KnowledgeAssistantClient(client, logging.getLogger("test")), responses
 
 
 @pytest.mark.asyncio
-async def test_ask_wraps_http_error():
-    error_response = Response(
-        status_code=500,
-        request=Request("POST", "http://test/serving-endpoints/responses"),
-    )
-    mock_resp = MagicMock()
-    mock_resp.raise_for_status.side_effect = HTTPStatusError(
-        "Server Error", request=error_response.request, response=error_response
-    )
-    mock_resp.response = error_response
-
-    client = AsyncMock(spec=AsyncClient)
-    client.post = AsyncMock(return_value=mock_resp)
-
-    adapter = KnowledgeAssistantAdapter(client, MagicMock())
-    with pytest.raises(ExternalServiceError, match="500"):
-        await adapter.ask("my-assistant", [{"role": "user", "content": "Hi"}])
+async def test_ask_text_returns_the_output_text():
+    adapter, responses = _adapter()
+    assert await adapter.ask_text("ka-endpoint", "what?") == "answer"
+    assert responses.calls[0]["model"] == "ka-endpoint"
+    assert responses.calls[0]["input"] == [{"role": "user", "content": "what?"}]
 
 
 @pytest.mark.asyncio
-async def test_ask_wraps_generic_error():
-    client = AsyncMock(spec=AsyncClient)
-    client.post = AsyncMock(side_effect=RuntimeError("connection lost"))
+async def test_ask_stream_yields_events():
+    adapter, _ = _adapter()
+    events = [
+        e
+        async for e in adapter.ask_stream(
+            "ka-endpoint", [{"role": "user", "content": "x"}]
+        )
+    ]
+    assert events[0].delta == "hi"
 
-    adapter = KnowledgeAssistantAdapter(client, MagicMock())
-    with pytest.raises(ExternalServiceError, match="connection lost"):
-        await adapter.ask("my-assistant", [{"role": "user", "content": "Hi"}])
+
+@pytest.mark.asyncio
+async def test_failures_map_to_databricks_api_error():
+    adapter, _ = _adapter(fail=True)
+    with pytest.raises(DatabricksAPIError):
+        await adapter.ask("ka-endpoint", [])

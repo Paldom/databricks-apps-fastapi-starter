@@ -1,6 +1,9 @@
 import uuid
 
-from sqlalchemy import ForeignKey, Index, String, Text, Uuid
+from typing import Any
+
+from sqlalchemy import JSON, ForeignKey, Index, String, Text, Uuid, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import AuditMixin, Base
@@ -21,10 +24,18 @@ class Message(AuditMixin, Base):
         nullable=False,
     )
     role: Mapped[str] = mapped_column(String(50), nullable=False)
-    content: Mapped[str] = mapped_column(Text, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)  # plain text
+    # assistant-ui content parts (text, tool-call with result), rendered verbatim
+    parts: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"),
+        nullable=False,
+        default=list,
+        server_default=text("'[]'"),
+    )
+    trace_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     __table_args__ = (
         Index("ix_messages_session_id", "session_id"),
         Index("ix_messages_user_id", "user_id"),
-        Index("ix_messages_session_created", "session_id", "created_at"),
+        Index("ix_messages_session_created_id", "session_id", "created_at", "id"),
     )

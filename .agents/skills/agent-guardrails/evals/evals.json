@@ -1,0 +1,94 @@
+{
+  "skill": "agent-guardrails",
+  "cases": [
+    { "type": "should_trigger", "prompt": "add a claude code hook that runs ruff on every file it edits" },
+    { "type": "should_trigger", "prompt": "my PreToolUse hook exits 1 but claude still runs the command??" },
+    { "type": "should_trigger", "prompt": "set up guardrails so claude can't rm -rf or force push main" },
+    { "type": "should_trigger", "prompt": "make claude keep working until the tests pass" },
+    { "type": "should_trigger", "prompt": "why does my Edit|Write hook never fire" },
+    { "type": "should_trigger", "prompt": "claude keeps ignoring the rules in CLAUDE.md, how do I actually enforce them" },
+    { "type": "should_trigger", "prompt": "make this repo agent-ready — hooks, settings, the works" },
+    { "type": "should_trigger", "prompt": "write an AGENTS.md for this python project" },
+    { "type": "should_trigger", "prompt": "claude keeps using pip instead of uv, make it stop" },
+    { "type": "should_trigger", "prompt": "should linting run in a claude hook, pre-commit, or CI? feels like we're running ruff three times" },
+    { "type": "should_trigger", "prompt": "is it safe to install this claude code plugin from a marketplace?" },
+    { "type": "should_trigger", "prompt": "my stop hook loops forever when the tests fail" },
+    { "type": "should_trigger", "prompt": "block the agent from reading .env files" },
+    { "type": "should_trigger", "prompt": "claude says its done but when I git commit, the pre-commit hooks reformat files and the commit fails" },
+    { "type": "should_trigger", "prompt": "make the agent leave the tree in a state our git hooks would accept before it stops" },
+    { "type": "should_not_trigger", "prompt": "set up pre-commit for this repo" },
+    { "type": "should_not_trigger", "prompt": "add git hooks that run ruff before every commit" },
+    { "type": "should_not_trigger", "prompt": "add guardrails so claude's output gets validated with pydantic before we use it" },
+    { "type": "should_not_trigger", "prompt": "set up ruff and pick sensible lint rules for this package" },
+    { "type": "should_not_trigger", "prompt": "make the checks required on main with branch protection" },
+    { "type": "should_not_trigger", "prompt": "set up CI so pull requests run lint and tests" },
+    { "type": "should_not_trigger", "prompt": "enable secret scanning and dependabot on this repo" },
+    { "type": "should_not_trigger", "prompt": "how do I stop my agent from executing destructive SQL against the prod db" },
+    { "type": "should_not_trigger", "prompt": "enforce conventional commits with a commit-msg hook" },
+    { "type": "should_not_trigger", "prompt": "write a github actions workflow that runs mypy on every PR" },
+    { "type": "should_not_trigger", "prompt": "help me write a better system prompt for my support chatbot" },
+    { "type": "should_not_trigger", "prompt": "the prettier pre-commit hook errors with a node download failure when I commit by hand" },
+    {
+      "type": "quality",
+      "prompt": "install agent guardrails in this python repo - hooks, settings.json, AGENTS.md, the works",
+      "expected_behavior": [
+        "audits what already exists (.claude/settings.json, hook scripts, AGENTS.md/CLAUDE.md, installed plugins) before writing anything",
+        "wires hooks in .claude/settings.json with correct nesting and a thin-JSON/heavy-script split: a PreToolUse bash guard, a PostToolUse just-edited-file check scoped to the single file, and a Stop verification gate",
+        "every blocking hook uses exit 2 with the reason on stderr (never exit 1), and the Stop hook checks stop_hook_active before blocking",
+        "writes a concise, hand-curated AGENTS.md (uv not pip, verify-before-done, never weaken CI) and states that rules files are context while hooks/CI are enforcement",
+        "tells the user hooks are a convenience layer, not a security boundary — CI and server-side rules stay the authoritative gate"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "my pretooluse hook isn't blocking anything even though it exits 1",
+      "expected_behavior": [
+        "identifies the exit-code contract as the cause: only exit 2 blocks; exit 1 and any other non-zero are logged as non-blocking and the action proceeds",
+        "also checks the matcher for case-sensitivity mistakes (e.g. 'bash' never matches Bash) and the settings.json nesting",
+        "has the user test the hook script standalone in a shell with sample stdin JSON to verify exit code and stderr output",
+        "puts the block reason on stderr (or in a JSON decision reason) and notes that plain stdout text is not shown; stdout JSON is still read on exit 2"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "make claude keep working until the tests pass",
+      "expected_behavior": [
+        "implements a Stop hook that runs the verification command and exits 2 with the failure output on stderr",
+        "includes the stop_hook_active guard (exit 0 when set) and explains the loop risk plus the built-in cap on consecutive blocks",
+        "keeps the verification scoped/fast and warns against putting a slow full suite in a hook that fires every turn",
+        "notes that an agent-writable verification environment can be gamed, so the authoritative gate stays in CI"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "claude keeps using pip instead of uv, make it stop",
+      "expected_behavior": [
+        "adds an explicit rules-file line (use uv, never pip) but states that prose alone decays in long sessions",
+        "adds a deterministic layer: a PreToolUse hook on Bash that blocks bare pip/python invocations and tells the agent the uv equivalent in the error message",
+        "the redirect message names the exact replacement command (uv add / uv run) so the agent can self-correct",
+        "avoids breaking legitimate uses (uv run python, grep python) — the guard matches command position, not the substring anywhere"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "the agent keeps finishing work that then fails pre-commit on my machine - it should only sign off if the commit gate would pass",
+      "expected_behavior": [
+        "wires the Stop gate to run the repo's own pre-commit config over changed plus untracked files (pre-commit run --files, which checks the worktree without stashing) instead of re-implementing a subset of the checks",
+        "runs the gate twice so auto-fixing hooks (prettier, ruff --fix, whitespace fixers) converge instead of reading as failures, and treats a clean second run as pass",
+        "keeps the stop_hook_active guard and sets a generous explicit timeout, explaining that a timed-out hook is non-blocking - a silent false sign-off",
+        "handles the edges: no .pre-commit-config.yaml falls back to one fast verify command, a missing pre-commit binary produces an actionable install instruction, and hook environments get pre-built at setup so the first Stop is not a cold multi-minute build",
+        "states that CI remains the authoritative gate since local hooks are bypassable"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "is it safe to commit .claude/settings.json with hooks to an open source repo?",
+      "expected_behavior": [
+        "explains that committed hooks execute for every contributor who clones and runs the agent — they are code with full user permissions and have had real CVEs",
+        "recommends CODEOWNERS on .claude/ and reviewing hook diffs in the web UI before checking out PR branches",
+        "distinguishes committed project scope from personal .claude/settings.local.json (gitignored) and user-global scope",
+        "applies the same vetting standard to third-party skills/plugins: read the manifest, hooks, and skill bodies before install; pin versions"
+      ]
+    }
+  ]
+}

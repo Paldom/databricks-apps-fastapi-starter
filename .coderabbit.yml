@@ -11,13 +11,13 @@ reviews:
     enabled: true
     drafts: false
 tools:
-  ruff: {enabled: true}
-  mypy: {enabled: true}
-  bandit: {enabled: true}
-  markdownlint: {enabled: true}
-  yamllint: {enabled: true}
-  eslint: {enabled: false}
-  gitleaks: {enabled: true}
+  ruff: { enabled: true }
+  mypy: { enabled: true }
+  bandit: { enabled: true }
+  markdownlint: { enabled: true }
+  yamllint: { enabled: true }
+  eslint: { enabled: false }
+  gitleaks: { enabled: true }
 finishing_touches:
-  docstrings: {enabled: true}
-  unit_tests: {enabled: true}
+  docstrings: { enabled: true }
+  unit_tests: { enabled: true }

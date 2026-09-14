@@ -24,6 +24,10 @@ class ChatSession(AuditMixin, Base):
     status: Mapped[str] = mapped_column(
         String(50), default="active", server_default=text("'active'")
     )
+    # Genie keeps the conversation; follow-up questions reuse it
+    genie_conversation_id: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
 
     __table_args__ = (
         Index("ix_chat_sessions_user_id", "user_id"),

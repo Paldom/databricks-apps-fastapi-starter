@@ -1,6 +1,5 @@
-from unittest.mock import MagicMock
-
 import pytest
+from unittest.mock import MagicMock
 
 from app.core.databricks.serving import ServingAdapter
 from app.core.errors import ExternalServiceError

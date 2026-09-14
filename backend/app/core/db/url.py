@@ -6,11 +6,11 @@ so that the connection string is never duplicated or out of sync.
 
 from __future__ import annotations
 
-import os
 
-from sqlalchemy.engine import URL, make_url
+from sqlalchemy.engine import URL
 
 from app.core.config import Settings
+
 
 DATABASE_NOT_CONFIGURED_MESSAGE = "DATABASE_URL or PG* settings are not configured"
 
@@ -41,7 +41,7 @@ def get_database_url(settings: Settings) -> str:
     2. Constructed from ``PG*`` settings (password is optional for
        Lakebase OAuth token flow).
     """
-    explicit = os.environ.get("DATABASE_URL")
+    explicit = getattr(settings, "database_url", None)
     if explicit:
         return explicit
 
@@ -50,7 +50,7 @@ def get_database_url(settings: Settings) -> str:
     pg_user = getattr(settings, "pg_user", None)
     pg_password = getattr(settings, "pg_password", None)
     pg_port = getattr(settings, "pg_port", None) or 5432
-    if all([pg_host, pg_database, pg_user]):
+    if pg_host and pg_database and pg_user:
         return _build_asyncpg_url(
             username=pg_user,
             password=pg_password,
@@ -60,14 +60,3 @@ def get_database_url(settings: Settings) -> str:
         )
 
     raise ValueError(DATABASE_NOT_CONFIGURED_MESSAGE)
-
-
-def get_psycopg_database_url(settings: Settings) -> str:
-    """Build a plain ``postgresql://`` URL for psycopg-based clients.
-
-    Reuses :func:`get_database_url` so the connection parameters stay
-    canonical, then swaps SQLAlchemy's ``postgresql+asyncpg`` driver prefix
-    for the plain ``postgresql`` scheme that libpq/psycopg understands.
-    """
-    url = make_url(get_database_url(settings))
-    return url.set(drivername="postgresql").render_as_string(hide_password=False)

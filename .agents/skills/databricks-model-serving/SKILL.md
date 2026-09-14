@@ -1,291 +1,256 @@
 ---
 name: databricks-model-serving
-description: "Deploy and query Databricks Model Serving endpoints. Use when (1) deploying MLflow models or AI agents to endpoints, (2) creating ChatAgent/ResponsesAgent agents, (3) integrating UC Functions or Vector Search tools, (4) querying deployed endpoints, (5) checking endpoint status. Covers classical ML models, custom pyfunc, and GenAI agents."
+description: "Databricks Model Serving endpoint lifecycle and ops. Use when asked to: CRUD serving endpoints (CLI or MLflow Deployments client); configure traffic routing for A/B / canary deploys and zero-downtime version swaps; retrieve OpenAPI schemas; inspect logs, metrics, or permissions; manage AI Gateway rate limits; discover Foundation Model API endpoints at runtime; integrate endpoints into Databricks Apps; or stream from off-platform clients (Vercel AI SDK v6, standalone Node.js). NOT for: training, MLflow autologging, UC registration, custom PyFunc/ResponsesAgent authoring (databricks-ml-training); Knowledge Assistants/Supervisor Agents (databricks-agent-bricks); MLflow evaluation (databricks-mlflow-evaluation)."
+compatibility: Requires databricks CLI (>= v0.294.0)
+metadata:
+  version: "0.4.0"
+parent: databricks-core
 ---
 
-# Databricks Model Serving
+# Model Serving Endpoints
 
-Deploy MLflow models and AI agents to scalable REST API endpoints.
+**FIRST**: Use the parent `databricks-core` skill for CLI basics, authentication, and profile selection.
 
-## Quick Decision: What Are You Deploying?
+Model Serving provides managed endpoints for serving LLMs, custom ML models, and external models as scalable REST APIs. Endpoints are identified by **name** (unique per workspace).
 
-| Model Type | Pattern | Reference |
-|------------|---------|-----------|
-| **Traditional ML** (sklearn, xgboost) | `mlflow.sklearn.autolog()` | [1-classical-ml.md](1-classical-ml.md) |
-| **Custom Python model** | `mlflow.pyfunc.PythonModel` | [2-custom-pyfunc.md](2-custom-pyfunc.md) |
-| **GenAI Agent** (LangGraph, tool-calling) | `ResponsesAgent` | [3-genai-agents.md](3-genai-agents.md) |
+## Endpoint Types
 
-## Prerequisites
+| Type | When to Use | Key Detail |
+|------|-------------|------------|
+| Pay-per-token | Foundation Model APIs (Llama, GPT-5, Claude, Gemini, etc.) | Uses `system.ai.*` catalog models, pre-provisioned in every workspace. Discover at runtime — see [Foundation Model API endpoints](#foundation-model-api-endpoints) below. |
+| Provisioned throughput | Dedicated GPU capacity | Guaranteed throughput, higher cost |
+| Custom model | Your own MLflow models or containers | Deploy any model with an MLflow signature |
 
-- **DBR 16.1+** recommended (pre-installed GenAI packages)
-- Unity Catalog enabled workspace
-- Model Serving enabled
+## Endpoint Structure
 
-## Foundation Model API Endpoints
+```
+Serving Endpoint (top-level, identified by NAME)
+  ├── Config
+  │     ├── Served Entities (model references + scaling config)
+  │     └── Traffic Config (routing percentages across entities)
+  ├── AI Gateway (rate limits, usage tracking)
+  └── State (READY / NOT_READY, config_update status)
+```
 
-ALWAYS use exact endpoint names from this table. NEVER guess or abbreviate.
+- **Served Entities**: Each entity references a model (from Unity Catalog or MLflow) with scaling parameters. Get the entity name from `served_entities[].name` in the `get` output — needed for `build-logs` and `logs` commands.
+- **Traffic Config**: Routes requests across served entities by percentage (for A/B testing, canary deployments).
+- **State**: Endpoints transition `NOT_READY` → `READY` after creation or config update. Poll via `get` to check `state.ready`.
 
-### Chat / Instruct Models
+## CLI Discovery — ALWAYS Do This First
 
-| Endpoint Name | Provider | Notes |
-|--------------|----------|-------|
-| `databricks-gpt-5-2` | OpenAI | Latest GPT, 400K context |
-| `databricks-gpt-5-1` | OpenAI | Instant + Thinking modes |
-| `databricks-gpt-5-1-codex-max` | OpenAI | Code-specialized (high perf) |
-| `databricks-gpt-5-1-codex-mini` | OpenAI | Code-specialized (cost-opt) |
-| `databricks-gpt-5` | OpenAI | 400K context, reasoning |
-| `databricks-gpt-5-mini` | OpenAI | Cost-optimized reasoning |
-| `databricks-gpt-5-nano` | OpenAI | High-throughput, lightweight |
-| `databricks-gpt-oss-120b` | OpenAI | Open-weight, 128K context |
-| `databricks-gpt-oss-20b` | OpenAI | Lightweight open-weight |
-| `databricks-claude-opus-4-6` | Anthropic | Most capable, 1M context |
-| `databricks-claude-sonnet-4-6` | Anthropic | Hybrid reasoning |
-| `databricks-claude-sonnet-4-5` | Anthropic | Hybrid reasoning |
-| `databricks-claude-opus-4-5` | Anthropic | Deep analysis, 200K context |
-| `databricks-claude-sonnet-4` | Anthropic | Hybrid reasoning |
-| `databricks-claude-opus-4-1` | Anthropic | 200K context, 32K output |
-| `databricks-claude-haiku-4-5` | Anthropic | Fastest, cost-effective |
-| `databricks-claude-3-7-sonnet` | Anthropic | Retiring April 2026 |
-| `databricks-meta-llama-3-3-70b-instruct` | Meta | 128K context, multilingual |
-| `databricks-meta-llama-3-1-405b-instruct` | Meta | Retiring May 2026 (PT) |
-| `databricks-meta-llama-3-1-8b-instruct` | Meta | Lightweight, 128K context |
-| `databricks-llama-4-maverick` | Meta | MoE architecture |
-| `databricks-gemini-3-1-pro` | Google | 1M context, hybrid reasoning |
-| `databricks-gemini-3-pro` | Google | 1M context, hybrid reasoning |
-| `databricks-gemini-3-flash` | Google | Fast, cost-efficient |
-| `databricks-gemini-2-5-pro` | Google | 1M context, Deep Think |
-| `databricks-gemini-2-5-flash` | Google | 1M context, hybrid reasoning |
-| `databricks-gemma-3-12b` | Google | 128K context, multilingual |
-| `databricks-qwen3-next-80b-a3b-instruct` | Alibaba | Efficient MoE |
+**Do NOT guess command syntax.** Discover available commands and their usage dynamically:
 
-### Embedding Models
+```bash
+# List all serving-endpoints subcommands
+databricks serving-endpoints -h
 
-| Endpoint Name | Dimensions | Max Tokens | Notes |
-|--------------|-----------|------------|-------|
-| `databricks-gte-large-en` | 1024 | 8192 | English, not normalized |
-| `databricks-bge-large-en` | 1024 | 512 | English, normalized |
-| `databricks-qwen3-embedding-0-6b` | up to 1024 | ~32K | 100+ languages, instruction-aware |
+# Get detailed usage for any subcommand (flags, args, JSON fields)
+databricks serving-endpoints <subcommand> -h
+```
 
-### Common Defaults
+Run `databricks serving-endpoints -h` before constructing any command. Run `databricks serving-endpoints <subcommand> -h` to discover exact flags, positional arguments, and JSON spec fields for that subcommand.
 
-- **Agent LLM**: `databricks-meta-llama-3-3-70b-instruct` (good balance of quality/cost)
-- **Embedding**: `databricks-gte-large-en`
-- **Code tasks**: `databricks-gpt-5-1-codex-mini` or `databricks-gpt-5-1-codex-max`
+## Create an Endpoint
 
-> These are pay-per-token endpoints available in every workspace. For production, consider provisioned throughput mode. See [supported models](https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/supported-models).
+> **Do NOT list endpoints before creating.**
 
-## Reference Files
+```bash
+databricks serving-endpoints create <ENDPOINT_NAME> \
+  --json '{
+    "served_entities": [{
+      "entity_name": "<MODEL_CATALOG_PATH>",
+      "entity_version": "<VERSION>",
+      "min_provisioned_throughput": 0,
+      "max_provisioned_throughput": 0,
+      "workload_size": "Small",
+      "scale_to_zero_enabled": true
+    }],
+    "traffic_config": {
+      "routes": [{
+        "served_entity_name": "<ENTITY_NAME>",
+        "traffic_percentage": 100
+      }]
+    }
+  }' --profile <PROFILE>
+```
 
-| Topic | File | When to Read |
-|-------|------|--------------|
-| Classical ML | [1-classical-ml.md](1-classical-ml.md) | sklearn, xgboost, autolog |
-| Custom PyFunc | [2-custom-pyfunc.md](2-custom-pyfunc.md) | Custom preprocessing, signatures |
-| GenAI Agents | [3-genai-agents.md](3-genai-agents.md) | ResponsesAgent, LangGraph |
-| Tools Integration | [4-tools-integration.md](4-tools-integration.md) | UC Functions, Vector Search |
-| Development & Testing | [5-development-testing.md](5-development-testing.md) | MCP workflow, iteration |
-| Logging & Registration | [6-logging-registration.md](6-logging-registration.md) | mlflow.pyfunc.log_model |
-| Deployment | [7-deployment.md](7-deployment.md) | Job-based async deployment |
-| Querying Endpoints | [8-querying-endpoints.md](8-querying-endpoints.md) | SDK, REST, MCP tools |
-| Package Requirements | [9-package-requirements.md](9-package-requirements.md) | DBR versions, pip |
+- Discover available Foundation Models: see [Foundation Model API endpoints](#foundation-model-api-endpoints) below for the runtime-list snippet and default-picking rules. You can also check the `system.ai` catalog in Unity Catalog, or run `databricks serving-endpoints list --profile <PROFILE>` to see what's deployed in the workspace. Use `databricks serving-endpoints get-open-api <ENDPOINT_NAME> --profile <PROFILE>` to inspect a specific endpoint's API schema.
+- Long-running operation; the CLI waits for completion by default. Use `--no-wait` to return immediately, then poll:
+  ```bash
+  databricks serving-endpoints get <ENDPOINT_NAME> --profile <PROFILE>
+  # Check: state.ready == "READY"
+  ```
+- For provisioned throughput or custom model endpoints, run `databricks serving-endpoints create -h` to discover the required JSON fields for your endpoint type.
 
----
+### MLflow Deployments client (Python alternative)
 
-## Quick Start: Deploy a GenAI Agent
+`mlflow.deployments.get_deploy_client("databricks").create_endpoint(name=..., config={...})` takes the same JSON shape as the CLI. Two gotchas:
 
-### Step 1: Install Packages (in notebook or via MCP)
+- **`tags=` is a top-level kwarg**, NOT a field inside `config`. Same `[{key, value}]` shape as `serving-endpoints patch --add-tags`.
+- **`traffic_config.routes[].served_model_name` = `"<model>-<version>"`** (e.g. `"turbine_failure-3"`). The API auto-derives this from the entity, but you reference the exact string in `traffic_config` — get the format wrong and the route silently doesn't match.
+
+### Zero-downtime version swap
+
+To roll an endpoint to a new model version: repoint the alias **and** call `update_endpoint` with the new `served_entities` + matching `traffic_config`. Missing either half is the common bug — alias-only doesn't update the endpoint; `update_endpoint`-only leaves the alias pointing at the old version.
 
 ```python
-%pip install -U mlflow==3.6.0 databricks-langchain langgraph==0.3.4 databricks-agents pydantic
-dbutils.library.restartPython()
+from mlflow.tracking import MlflowClient
+from mlflow.deployments import get_deploy_client
+
+registry = MlflowClient(registry_uri="databricks-uc")
+deploy   = get_deploy_client("databricks")
+
+registry.set_registered_model_alias(FULL_NAME, "prod", new_version)
+deploy.update_endpoint(endpoint=ENDPOINT_NAME, config={
+    "served_entities": [{"entity_name": FULL_NAME, "entity_version": new_version,
+                         "workload_size": "Small", "scale_to_zero_enabled": True}],
+    "traffic_config": {"routes": [
+        {"served_model_name": f"{NAME}-{new_version}", "traffic_percentage": 100}
+    ]},
+})
 ```
 
-Or via MCP:
-```
-execute_databricks_command(code="%pip install -U mlflow==3.6.0 databricks-langchain langgraph==0.3.4 databricks-agents pydantic")
-```
+The CLI equivalent is `databricks serving-endpoints update-config <NAME> --json '...'`. Either way, poll both `state.ready` and `state.config_update` afterward — see Endpoint Readiness below.
 
-### Step 2: Create Agent File
+### Endpoint Readiness
 
-Create `agent.py` locally with `ResponsesAgent` pattern (see [3-genai-agents.md](3-genai-agents.md)).
+After `create` or `update-config`, the endpoint provisions compute and loads the model. **Do not query the endpoint until it is ready.** Two state fields matter and they mean different things:
 
-### Step 3: Upload to Workspace
+- `state.ready` — `READY` once the endpoint has any working config. Stays `READY` during a version swap.
+- `state.config_update` — `NOT_UPDATING` once the *current* config update finishes; `IN_PROGRESS` during a version swap.
 
-```
-upload_folder(
-    local_folder="./my_agent",
-    workspace_folder="/Workspace/Users/you@company.com/my_agent"
-)
-```
+A loop watching only `state.ready` will say "ready" mid version-swap while the old version is still serving. **Poll both:**
 
-### Step 4: Test Agent
-
-```
-run_python_file_on_databricks(
-    file_path="./my_agent/test_agent.py",
-    cluster_id="<cluster_id>"
-)
+```bash
+databricks serving-endpoints get <ENDPOINT_NAME> --profile <PROFILE> \
+  | jq '{ready: .state.ready, config_update: .state.config_update}'
+# Fully ready when ready == "READY" AND config_update == "NOT_UPDATING"
 ```
 
-### Step 5: Log Model
+Provisioning may take several minutes. Provisioned throughput endpoints take the longest (GPU allocation). Queries to endpoints that are not yet `READY` return 404 or 503.
 
-```
-run_python_file_on_databricks(
-    file_path="./my_agent/log_model.py",
-    cluster_id="<cluster_id>"
-)
-```
+## Query an Endpoint
 
-### Step 6: Deploy (Async via Job)
+Chat / agent endpoints use the `messages` array:
 
-See [7-deployment.md](7-deployment.md) for job-based deployment that doesn't timeout.
-
-### Step 7: Query Endpoint
-
-```
-query_serving_endpoint(
-    name="my-agent-endpoint",
-    messages=[{"role": "user", "content": "Hello!"}]
-)
+```bash
+databricks serving-endpoints query <ENDPOINT_NAME> \
+  --json '{"messages": [{"role": "user", "content": "Hello"}]}' --profile <PROFILE>
 ```
 
----
+Classical-ML endpoints use `dataframe_records` (one record per row):
 
-## Quick Start: Deploy a Classical ML Model
-
-```python
-import mlflow
-import mlflow.sklearn
-from sklearn.linear_model import LogisticRegression
-
-# Enable autolog with auto-registration
-mlflow.sklearn.autolog(
-    log_input_examples=True,
-    registered_model_name="main.models.my_classifier"
-)
-
-# Train - model is logged and registered automatically
-model = LogisticRegression()
-model.fit(X_train, y_train)
+```bash
+databricks serving-endpoints query <ENDPOINT_NAME> \
+  --json '{"dataframe_records": [{"vibration": 0.42, "rpm": 18.3, "temp_c": 71.2}]}'
 ```
 
-Then deploy via UI or SDK. See [1-classical-ml.md](1-classical-ml.md).
+- Use `--stream` for streaming responses on chat endpoints.
+- For embeddings or other custom schemas: use `get-open-api <ENDPOINT_NAME>` first to discover the request/response shape.
 
----
+## Get Endpoint Schema (OpenAPI)
 
-## MCP Tools
+Returns the OpenAPI 3.1 JSON schema describing what each served model accepts and returns. Use this to understand an endpoint's input/output format before querying it.
 
-> **If MCP tools are not available**, use the SDK/CLI examples in the reference files below.
-
-### Development & Testing
-
-| Tool | Purpose |
-|------|---------|
-| `upload_folder` | Upload agent files to workspace |
-| `run_python_file_on_databricks` | Test agent, log model |
-| `execute_databricks_command` | Install packages, quick tests |
-
-### Deployment
-
-| Tool | Purpose |
-|------|---------|
-| `manage_jobs` (action="create") | Create deployment job (one-time) |
-| `manage_job_runs` (action="run_now") | Kick off deployment (async) |
-| `manage_job_runs` (action="get") | Check deployment job status |
-
-### Querying
-
-| Tool | Purpose |
-|------|---------|
-| `get_serving_endpoint_status` | Check if endpoint is READY |
-| `query_serving_endpoint` | Send requests to endpoint |
-| `list_serving_endpoints` | List all endpoints |
-
----
-
-## Common Workflows
-
-### Check Endpoint Status After Deployment
-
-```
-get_serving_endpoint_status(name="my-agent-endpoint")
+```bash
+databricks serving-endpoints get-open-api <ENDPOINT_NAME> --profile <PROFILE>
 ```
 
-Returns:
-```json
-{
-    "name": "my-agent-endpoint",
-    "state": "READY",
-    "served_entities": [...]
-}
+The schema shows paths per served model (e.g., `/served-models/<model-name>/invocations`) with full request/response definitions including parameter types, enums, and nullable fields.
+
+## Other Commands
+
+Run `databricks serving-endpoints <subcommand> -h` for usage details.
+
+| Task | Command | Notes |
+|------|---------|-------|
+| List all endpoints | `list` | |
+| Get endpoint details | `get <NAME>` | Shows state, config, served entities |
+| Delete endpoint | `delete <NAME>` | |
+| Update served entities or traffic | `update-config <NAME> --json '...'` | Zero-downtime: old config serves until new is ready |
+| Rate limits & usage tracking | `put-ai-gateway <NAME> --json '...'` | |
+| Update tags | `patch <NAME> --json '...'` | |
+| Build logs | `build-logs <NAME> <SERVED_MODEL>` | Get `SERVED_MODEL` from `get` output: `served_entities[].name` |
+| Runtime logs | `logs <NAME> <SERVED_MODEL>` | |
+| Metrics (Prometheus format) | `export-metrics <NAME>` | |
+| Permissions | `get-permissions <ENDPOINT_ID>` | ⚠️ Uses endpoint **ID** (hex string), not name. Find ID via `get`. |
+
+## What's Next
+
+### Integrate with a Databricks App
+
+After creating a serving endpoint, wire it into a Databricks App.
+
+**Step 1 — Check if the `serving` plugin is available** in the AppKit template:
+
+```bash
+databricks apps manifest --profile <PROFILE>
 ```
 
-### Query a Chat/Agent Endpoint
+If the output includes a `serving` plugin, scaffold with:
 
-```
-query_serving_endpoint(
-    name="my-agent-endpoint",
-    messages=[
-        {"role": "user", "content": "What is Databricks?"}
-    ],
-    max_tokens=500
-)
+```bash
+databricks apps init --name <APP_NAME> \
+  --features serving \
+  --set "serving.serving-endpoint.name=<ENDPOINT_NAME>" \
+  --run none --profile <PROFILE>
 ```
 
-### Query a Traditional ML Endpoint
+**Step 2 — If no `serving` plugin**, add the endpoint resource manually to an existing app's `databricks.yml`:
 
+```yaml
+resources:
+  apps:
+    my_app:
+      resources:
+        - name: my-model-endpoint
+          serving_endpoint:
+            name: <ENDPOINT_NAME>
+            permission: CAN_QUERY
 ```
-query_serving_endpoint(
-    name="sklearn-classifier",
-    dataframe_records=[
-        {"age": 25, "income": 50000, "credit_score": 720}
-    ]
-)
+
+And inject the endpoint name as an environment variable in `app.yaml`:
+
+```yaml
+env:
+  - name: SERVING_ENDPOINT
+    valueFrom: serving-endpoint
 ```
 
----
+Then wire the endpoint into your app via the `serving()` plugin or a custom route in `onPluginsReady`. For the full app integration pattern, use the **`databricks-apps`** skill and read the [Model Serving Guide](../databricks-apps/references/appkit/model-serving.md).
 
-## Common Issues
+### Develop & deploy new models
 
-| Issue | Solution |
+This skill is ops-focused (manage existing endpoints). For the dev-side flow — training, MLflow tracking, UC registration, custom PyFunc authoring, and hand-rolled `ResponsesAgent` code — see **[databricks-ml-training](../databricks-ml-training/SKILL.md)** (experimental).
+
+## Foundation Model API endpoints
+
+Pay-per-token, pre-provisioned in every workspace. New models land regularly and a static skill list goes stale fast — **always list at runtime instead of hard-coding names**. Filter by the `databricks-` name prefix AND by the served entity being in `system.ai.*` (other endpoints like `databricks-app-template-serving` share the prefix but aren't FM API endpoints).
+
+```bash
+# FM API endpoints in this workspace, grouped by task (chat / embeddings / etc.)
+databricks serving-endpoints list \
+  | jq -r '.[]
+      | select(.name | startswith("databricks-"))
+      | select((.config.served_entities[0].entity_name // "") | startswith("system.ai."))
+      | "\(.task)\t\(.name)"' \
+  | sort
+```
+
+**Defaults when the user doesn't specify**: pick the highest-numbered Claude Sonnet for agents, the highest-numbered `-codex-max` for code, `databricks-gte-large-en` for embeddings — resolve actual names from the live list above.
+
+## Off-platform streaming
+
+For apps deployed **outside** Databricks Apps (Vercel, AWS, standalone Node.js) hitting Databricks AI Gateway with Vercel AI SDK v6, see [references/off-platform-streaming.md](references/off-platform-streaming.md). For AppKit-based apps, use the `databricks-apps` skill's built-in serving plugin instead.
+
+## Troubleshooting
+
+| Error | Solution |
 |-------|----------|
-| **Invalid output format** | Use `self.create_text_output_item(text, id)` - NOT raw dicts! |
-| **Endpoint NOT_READY** | Deployment takes ~15 min. Use `get_serving_endpoint_status` to poll. |
-| **Package not found** | Specify exact versions in `pip_requirements` when logging model |
-| **Tool timeout** | Use job-based deployment, not synchronous calls |
-| **Auth error on endpoint** | Ensure `resources` specified in `log_model` for auto passthrough |
-| **Model not found** | Check Unity Catalog path: `catalog.schema.model_name` |
-
-### Critical: ResponsesAgent Output Format
-
-**WRONG** - raw dicts don't work:
-```python
-return ResponsesAgentResponse(output=[{"role": "assistant", "content": "..."}])
-```
-
-**CORRECT** - use helper methods:
-```python
-return ResponsesAgentResponse(
-    output=[self.create_text_output_item(text="...", id="msg_1")]
-)
-```
-
-Available helper methods:
-- `self.create_text_output_item(text, id)` - text responses
-- `self.create_function_call_item(id, call_id, name, arguments)` - tool calls
-- `self.create_function_call_output_item(call_id, output)` - tool results
-
----
-
-## Related Skills
-
-- **[databricks-agent-bricks](../databricks-agent-bricks/SKILL.md)** - Pre-built agent tiles that deploy to model-serving endpoints
-- **[databricks-vector-search](../databricks-vector-search/SKILL.md)** - Create vector indexes used as retriever tools in agents
-- **[databricks-genie](../databricks-genie/SKILL.md)** - Genie Spaces can serve as agents in multi-agent setups
-- **[databricks-mlflow-evaluation](../databricks-mlflow-evaluation/SKILL.md)** - Evaluate model and agent quality before deployment
-- **[databricks-jobs](../databricks-jobs/SKILL.md)** - Job-based async deployment used for agent endpoints
-
-## Resources
-
-- [Model Serving Documentation](https://docs.databricks.com/machine-learning/model-serving/)
-- [MLflow 3 ResponsesAgent](https://mlflow.org/docs/latest/llms/responses-agent-intro/)
-- [Agent Framework](https://docs.databricks.com/generative-ai/agent-framework/)
+| `cannot configure default credentials` | Use `--profile` flag or authenticate first |
+| `PERMISSION_DENIED` | Check workspace permissions; for apps, ensure `serving_endpoint` resource declared with `CAN_QUERY` |
+| Endpoint stuck in `NOT_READY` | Wait up to 30 min for provisioned throughput. Check build logs: `build-logs <NAME> <ENTITY_NAME>` (get entity name from `get` output → `served_entities[].name`) |
+| `RESOURCE_DOES_NOT_EXIST` | Verify endpoint name with `list` |
+| Query returns 404 | Endpoint may still be provisioning; check `state.ready` via `get` |
+| `RATE_LIMIT_EXCEEDED` (429) | AI Gateway rate limit; check `put-ai-gateway` config or retry after backoff |
+| Endpoint missing from the Serving UI after deploy | UI filter defaults to "Owned by me". Deploy jobs run as a service principal, so the endpoint is hidden until you switch to "All". `databricks serving-endpoints list` always shows it. |

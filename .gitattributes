@@ -1,0 +1,18 @@
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.pdf binary
+*.zip binary
+
+*.lock linguist-generated
+frontend/src/shared/api/generated/** linguist-generated
+backend/openapi.yaml linguist-generated
+*.sh text eol=lf
+.agents/skills/** linguist-vendored

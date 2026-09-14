@@ -1,23 +1,16 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "enabledPlugins": {
+    "databricks@claude-plugins-official": true
+  },
   "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash /Users/dpal/.ai-dev-kit/repo/.claude-plugin/check_update.sh",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
     "PreToolUse": [
       {
         "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-bash.sh",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-bash.sh\"",
             "timeout": 10
           }
         ]
@@ -25,11 +18,11 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|NotebookEdit",
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/lint-edited-file.sh",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/lint-edited-file.sh\"",
             "timeout": 15
           }
         ]
@@ -40,14 +33,42 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/stop-verify.sh",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop-verify.sh\"",
             "timeout": 300
           }
         ]
       }
     ]
   },
-  "enabledPlugins": {
-    "databricks@claude-plugins-official": true
+  "permissions": {
+    "allow": [
+      "Bash(make check)",
+      "Bash(make lint)",
+      "Bash(make typecheck)",
+      "Bash(make test)",
+      "Bash(make precommit)",
+      "Bash(make generate)",
+      "Bash(uv run --frozen --project backend pre-commit run --all-files)",
+      "Bash(uv run --frozen --project backend pre-commit run --all-files --hook-stage pre-push)",
+      "Bash(uv run --frozen --directory backend pytest:*)",
+      "Bash(uv run --frozen --directory backend ruff:*)",
+      "Bash(uv run --frozen --directory backend mypy app)",
+      "Bash(npm --prefix frontend run lint)",
+      "Bash(npm --prefix frontend run typecheck)",
+      "Bash(npm --prefix frontend run test -- --run)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./backend/.env)",
+      "Read(./.env.mcp)",
+      "Edit(./.env)",
+      "Edit(./backend/.env)",
+      "Edit(./backend/uv.lock)",
+      "Edit(./frontend/package-lock.json)",
+      "Edit(./frontend/src/shared/api/generated/**)"
+    ]
   }
 }

@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from pathlib import Path
+import logging
+
+from typing import Any, get_args
+
+from pathlib import Path, PurePosixPath
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,7 +14,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api.router import build_api_router
 from app.core.bootstrap import lifespan
 from app.core.config import Settings, settings
-from app.core.errors import AppError
+from app.core.errors import AppError, ExternalServiceError
+from app.core.mlflow_runtime import get_active_trace_id
 from app.middlewares.request_context import request_context_middleware
 from app.middlewares.request_size import RequestSizeMiddleware
 from app.middlewares.security_headers import security_headers_middleware
@@ -18,15 +23,26 @@ from app.middlewares.user_info import user_info_middleware
 from app.middlewares.workspace_client import workspace_client_middleware
 
 
+_logger = logging.getLogger(__name__)
+
+
 def _app_error_response(exc: AppError) -> JSONResponse:
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": exc.detail},
-    )
+    """Map an AppError to JSON; upstream failures never carry provider text to clients."""
+    content: dict[str, Any] = {"detail": exc.detail}
+    if isinstance(exc, ExternalServiceError):
+        _logger.warning("External service error: %s", exc.detail, exc_info=exc.cause)
+        content = {
+            "detail": "An upstream Databricks service failed.",
+            "trace_id": get_active_trace_id(),
+        }
+    return JSONResponse(status_code=exc.status_code, content=content)
 
 
-# index.html must never be cached, or users keep stale asset hashes after a deploy.
-_NO_CACHE_HEADERS = {"Cache-Control": "no-store, max-age=0"}
+def no_cache(response: Response) -> Response:
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 def _patch_openapi_schema(schema: dict) -> None:
@@ -50,11 +66,10 @@ def _patch_openapi_schema(schema: dict) -> None:
         "discriminator": {
             "propertyName": "type",
             "mapping": {
-                "text-delta": "#/components/schemas/TextDeltaEvent",
-                "tool-call-begin": "#/components/schemas/ToolCallBeginEvent",
-                "tool-call-delta": "#/components/schemas/ToolCallDeltaEvent",
-                "done": "#/components/schemas/DoneEvent",
-                "error": "#/components/schemas/ErrorEvent",
+                get_args(m.model_fields["type"].annotation)[0]: (
+                    f"#/components/schemas/{m.__name__}"
+                )
+                for m in STREAMING_EVENT_MODELS
             },
         },
     }
@@ -101,7 +116,7 @@ def build_api_app(s: Settings) -> FastAPI:
     async def api_app_error_handler(request: Request, exc: AppError):
         return _app_error_response(exc)
 
-    api_app.include_router(build_api_router(s))
+    api_app.include_router(build_api_router())
 
     # Custom OpenAPI hook to inject streaming event schemas
     _default_openapi = api_app.openapi
@@ -138,10 +153,10 @@ def build_root_app(s: Settings) -> FastAPI:
     application.middleware("http")(security_headers_middleware)
     application.middleware("http")(request_context_middleware)
 
-    if s.environment == "development":
+    if s.cors_allow_origins:
         application.add_middleware(
             CORSMiddleware,
-            allow_origins=["*"],
+            allow_origins=s.cors_allow_origins,
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
@@ -155,7 +170,9 @@ def build_root_app(s: Settings) -> FastAPI:
     )
 
     api_app = build_api_app(s)
-    api_app.dependency_overrides_provider = application
+    setattr(
+        api_app, "dependency_overrides_provider", application
+    )  # nested app shares overrides
     application.mount("/api", api_app)
 
     if s.serve_static:
@@ -172,18 +189,19 @@ def build_root_app(s: Settings) -> FastAPI:
                 and not request.url.path.startswith("/api")
                 and index_file.exists()
             ):
-                return FileResponse(index_file, headers=_NO_CACHE_HEADERS)
+                return no_cache(FileResponse(index_file))
             return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
 
-        # Deliberately hand-rolled instead of StaticFiles(html=True): the SPA
-        # needs split cache semantics (no-cache index.html, immutable hashed
-        # assets) which StaticFiles cannot express without a subclass.
         @application.get("/{full_path:path}", include_in_schema=False)
         async def serve_frontend(full_path: str) -> Response:
             if not static_dir.exists():
                 raise HTTPException(status_code=404, detail="Frontend dist not built")
 
-            candidate = (static_dir / full_path).resolve()
+            requested_path = PurePosixPath(full_path)
+            if requested_path.is_absolute() or ".." in requested_path.parts:
+                raise HTTPException(status_code=404)
+
+            candidate = static_dir.joinpath(*requested_path.parts).resolve()
             try:
                 candidate.relative_to(static_dir)
             except ValueError as exc:
@@ -191,7 +209,7 @@ def build_root_app(s: Settings) -> FastAPI:
 
             if candidate.is_file():
                 if candidate.name == "index.html":
-                    return FileResponse(candidate, headers=_NO_CACHE_HEADERS)
+                    return no_cache(FileResponse(candidate))
                 return FileResponse(
                     candidate,
                     headers={"Cache-Control": "public, max-age=31536000, immutable"},
@@ -207,16 +225,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-
-
-if __name__ == "__main__":
-    import os
-
-    import uvicorn
-
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=int(os.environ.get("DATABRICKS_APP_PORT", "8000")),
-        log_level=os.environ.get("UVICORN_LOG_LEVEL", "info"),
-    )

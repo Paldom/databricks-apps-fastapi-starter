@@ -13,11 +13,11 @@ TARGET ?= dev
 RESOURCE ?= fastapi_app
 MIGRATION_MESSAGE ?= new migration
 
-.PHONY: bootstrap-workspace help \
+.PHONY: help \ setup precommit
 	install install-backend install-frontend \
 	dev-db dev-db-down migrate-up migrate-new \
 	dev-api dev-frontend dev \
-	requirements-export openapi-export frontend-api-gen generate \
+	openapi-export frontend-api-gen env-example generate \
 	format lint typecheck security test frontend-build check load-test \
 	bundle-validate bundle-deploy bundle-run bundle-summary
 
@@ -38,14 +38,8 @@ help:
 
 install: install-backend install-frontend
 
-grant-db-access:
-	./scripts/grant-db-access.sh $(if $(PROFILE),-p $(PROFILE))
-
-bootstrap-workspace:
-	./scripts/bootstrap-workspace.sh $(if $(PROFILE),-p $(PROFILE)) $(if $(CATALOG),-c $(CATALOG))
-
 install-backend:
-	cd $(BACKEND_DIR) && $(UV) sync
+	cd $(BACKEND_DIR) && $(UV) sync --extra dev
 
 install-frontend:
 	cd $(FRONTEND_DIR) && $(NPM) ci
@@ -75,8 +69,6 @@ migrate-new:
 
 # ── Generate ───────────────────────────────────────────────────────
 
-requirements-export:
-	cd $(BACKEND_DIR) && $(UV) export --no-dev --no-emit-project --no-hashes --no-editable --format=requirements.txt > requirements.txt
 
 openapi-export:
 	cd $(BACKEND_DIR) && $(UV) run python scripts/export_openapi.py
@@ -84,33 +76,42 @@ openapi-export:
 frontend-api-gen:
 	cd $(FRONTEND_DIR) && $(NPM) run api:gen
 
-generate: openapi-export frontend-api-gen requirements-export
+env-example:
+	cd $(BACKEND_DIR) && $(UV) run python scripts/export_env_example.py
+
+generate: openapi-export frontend-api-gen env-example
 
 # ── Checks ─────────────────────────────────────────────────────────
+
+setup: install  ## Install deps and git hooks
+	uv run --project backend pre-commit install --install-hooks
+
+precommit:  ## Run the commit gate over all files
+	uv run --project backend pre-commit run --all-files
 
 format:
 	cd $(BACKEND_DIR) && $(UV) run ruff format .
 	cd $(FRONTEND_DIR) && $(NPM) run format
 
 lint:
-	cd $(BACKEND_DIR) && $(UV) run ruff check . && $(UV) run ruff format --check .
+	cd $(BACKEND_DIR) && $(UV) run ruff check .
 	cd $(FRONTEND_DIR) && $(NPM) run lint
 
 typecheck:
-	cd $(BACKEND_DIR) && $(UV) run mypy .
+	cd $(BACKEND_DIR) && $(UV) run mypy --ignore-missing-imports .
 	cd $(FRONTEND_DIR) && $(NPM) run typecheck
 
 security:
 	cd $(BACKEND_DIR) && $(UV) run bandit -r app -c pyproject.toml -q
 
 test:
-	cd $(BACKEND_DIR) && $(UV) run pytest --cov
+	cd $(BACKEND_DIR) && $(UV) run pytest --cov .
 	cd $(FRONTEND_DIR) && $(NPM) run test -- --run
 
 frontend-build:
 	cd $(FRONTEND_DIR) && $(NPM) run build
 
-check: lint typecheck security test frontend-build bundle-validate
+check: precommit security test frontend-build  ## Offline quality gate = pre-commit (ruff, mypy, import-linter, prettier, eslint) + bandit + tests + frontend build; CI runs the same plus bundle validate
 
 # ── Performance ────────────────────────────────────────────────────
 

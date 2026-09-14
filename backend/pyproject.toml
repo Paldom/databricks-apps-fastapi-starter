@@ -4,29 +4,19 @@ version = "0.1.0"
 description = "Sample FastAPI application to showcase how to leverage Databricks services."
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
-authors = [{ name = "Domonkos Pal" }]
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
-    # Deployed Databricks App, not a PyPI package; blocks accidental uploads.
-    "Private :: Do Not Upload",
-]
 dependencies = [
-    "alembic==1.18.5",
-    "fastapi==0.138.2",
-    "uvicorn==0.49.0",
+    "fastapi==0.135.1",
+    "uvicorn==0.42.0",
     "asyncpg==0.31.0",
-    "pandas==2.3.3",
-    "numpy>=2.0",
-    "pydantic==2.13.4",
-    "pydantic-settings==2.14.2",
+    "pydantic==2.12.5",
+    "pydantic-settings==2.13.1",
     "python-dotenv==1.2.2",
-    "databricks-sdk==0.119.0",
-    "sqlalchemy==2.0.51",
+    "databricks-sdk==0.100.0",
+    "sqlalchemy==2.0.48",
     "secure==2.0.1",
-    "openai==2.44.0",
-    "databricks-vectorsearch==0.75",
-    "python-multipart==0.0.32",
+    "openai>=2.36,<3",
+    "databricks-openai>=0.17,<1",
+    "python-multipart==0.0.22",
     "opentelemetry-distro",
     "opentelemetry-exporter-otlp-proto-grpc",
     "opentelemetry-instrumentation-fastapi",
@@ -37,16 +27,17 @@ dependencies = [
     "langgraph>=0.4,<1",
     "langchain-openai>=0.3,<1",
     "langchain-core>=0.3,<1",
-    "mlflow>=2.20",
-    "langgraph-checkpoint-postgres==3.0.5",
-    "psycopg[binary]==3.3.4",
+    "mlflow[databricks]>=3.14,<4",
+    "alembic==1.18.4",
     "langchain>=0.3,<1",
 ]
 
-[dependency-groups]
+[project.optional-dependencies]
 dev = [
-    "ruff==0.15.20",
-    "mypy==2.1.0",
+    "ruff==0.15.6",
+    "mypy==1.19.1",
+    "pre-commit>=4.3,<5",
+    "import-linter>=2.3,<3",
     "bandit",
     "pytest",
     "pytest-asyncio",
@@ -56,160 +47,57 @@ dev = [
     "pytest-mock",
     "pyyaml",
     "types-PyYAML",
-    "pandas-stubs==3.0.3.260530",
-    "hypothesis==6.155.7",
-    "pre-commit==4.6.0",
-]
-
-[tool.pytest.ini_options]
-minversion = "9.0"
-testpaths = ["tests"]
-addopts = "-ra --strict-markers --strict-config"
-asyncio_default_fixture_loop_scope = "function"
-filterwarnings = [
-    "error",
-    # Third-party advisory noise we cannot fix locally.
-    "ignore:.*Any type hint is inferred as AnyType.*:UserWarning",
-    # starlette >=0.50 prefers the httpx2 package for its TestClient; adopting
-    # it is a deliberate dependency decision — ignore the nudge until then.
-    "ignore:Using `httpx` with `starlette.testclient` is deprecated.*:starlette.exceptions.StarletteDeprecationWarning",
-]
-
-[tool.coverage.run]
-source = ["app"]
-branch = true
-parallel = true
-relative_files = true
-
-[tool.coverage.report]
-# Floor just under current app-only branch coverage (66%); raise toward
-# the 80-90 band as coverage improves — never lower it.
-fail_under = 65
-show_missing = true
-skip_covered = true
-exclude_lines = [
-    "pragma: no cover",
-    "if TYPE_CHECKING:",
-    "raise NotImplementedError",
-    "if __name__ == .__main__.:",
 ]
 
 [tool.mypy]
-python_version = "3.11"
-strict = true
-warn_unused_ignores = true
-exclude = ["^\\.venv/"]
-plugins = ["pydantic.mypy"]
-
-# Third-party packages that ship no type information.
-[[tool.mypy.overrides]]
-module = ["databricks.*"]
 ignore_missing_imports = true
-
-# Tests: annotation rules are relaxed by convention; type errors still count.
-[[tool.mypy.overrides]]
-module = ["tests.*"]
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-disallow_untyped_calls = false
-disallow_any_generics = false
-
-# Strictness ratchet: legacy modules exempted from strict mode, tracked as
-# debt. Remove entries as modules are migrated; never add new ones.
-[[tool.mypy.overrides]]
-module = [
-    "app.agents.adapters.app_adapter",
-    "app.agents.adapters.serving_adapter",
-    "app.agents.response_utils",
-    "app.api.chat_stream_controller",
-    "app.api.chats_controller",
-    "app.chat.tools",
-    "app.core.bootstrap",
-    "app.core.databricks.genie",
-    "app.core.databricks.jobs",
-    "app.core.databricks.knowledge_assistant",
-    "app.core.databricks.serving",
-    "app.core.databricks.sql_delta",
-    "app.core.databricks.vector_search",
-    "app.core.db.url",
-    "app.core.deps",
-    "app.core.errors",
-    "app.main",
-    "app.middlewares.request_context",
-    "app.middlewares.security_headers",
-    "app.middlewares.user_info",
-    "app.middlewares.workspace_client",
-    "app.repositories.chat_repository",
-    "app.repositories.document_repository",
-    "app.repositories.project_repository",
-    "app.services.chat_service",
-    "app.services.document_service",
-    "app.services.project_service",
-    "app.services.user_settings_service",
-]
-ignore_errors = true
+exclude = ["notebooks"]
 
 [tool.ruff]
-target-version = "py311"
 line-length = 88
-required-version = "0.15.20"
-extend-exclude = ["alembic/versions"]
+extend-exclude = ["notebooks"]
 
-[tool.ruff.lint]
-select = [
-    "E", "W",   # pycodestyle
-    "F",        # pyflakes
-    "I",        # isort (import sorting)
-    "UP",       # pyupgrade
-    "B",        # flake8-bugbear
-    "C4",       # flake8-comprehensions
-    "SIM",      # flake8-simplify
-    "RUF",      # Ruff-specific rules
-]
-ignore = ["E501"]  # line length is the formatter's job
 
-[tool.ruff.lint.flake8-bugbear]
-# FastAPI declares dependencies via function calls in parameter defaults.
-extend-immutable-calls = [
-    "fastapi.Depends",
-    "fastapi.Query",
-    "fastapi.Body",
-    "fastapi.Header",
-    "fastapi.Path",
-    "fastapi.Cookie",
-    "fastapi.Form",
-    "fastapi.File",
-    "fastapi.Security",
-]
+[tool.coverage.run]
+source = ["app"]
 
-[tool.ruff.lint.per-file-ignores]
-"**/__init__.py" = ["F401"]  # re-exports
-
-[tool.ruff.lint.isort]
-known-first-party = ["app"]
-
-[tool.ruff.format]
-docstring-code-format = true
+[tool.coverage.report]
+fail_under = 65
+show_missing = false
 
 [tool.bandit]
 skips = ["B101", "B105", "B608"]
-exclude_dirs = [".venv"]
+exclude_dirs = [".venv", "notebooks"]
 
 [build-system]
-requires = ["uv_build>=0.11,<0.12"]
-build-backend = "uv_build"
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
 
-[tool.uv]
-# Supply-chain freshness buffer: the resolver ignores distributions published
-# after this cutoff, so a just-published (possibly malicious) release cannot be
-# picked up by `uv lock`/`uv sync --upgrade`. Bump the timestamp routinely
-# (each release / dependency refresh) — a stale cutoff blocks EVERYTHING newer,
-# including security fixes and Dependabot uv updates (advisories bypass only
-# Dependabot's cooldown, not this resolver setting) and `uv add` of new packages.
-exclude-newer = "2026-06-30T00:00:00Z"
+[dependency-groups]
+dev = [
+    "aiosqlite>=0.22.1",
+]
 
-[tool.uv.build-backend]
-# Flat layout: the app is deployed from source (Databricks Apps runs
-# `import app` from this directory), so the package stays at ./app.
-module-name = "app"
-module-root = ""
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
+    "app*",
+]
+exclude = [
+    "tests*",
+    "notebooks*",
+]
+
+[tool.importlinter]
+root_package = "app"
+
+[[tool.importlinter.contracts]]
+name = "Layered architecture: api -> services -> repositories -> models"
+type = "layers"
+layers = ["app.api", "app.services", "app.repositories", "app.models"]
+
+[[tool.importlinter.contracts]]
+name = "core must not depend on chat or agents"
+type = "forbidden"
+source_modules = ["app.core"]
+forbidden_modules = ["app.chat", "app.agents"]

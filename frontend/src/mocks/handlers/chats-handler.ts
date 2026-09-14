@@ -7,6 +7,19 @@ import type {
 import { faker } from '@faker-js/faker'
 
 export const chatHandlers = [
+  http.get('*/api/chats/:chatId/messages', ({ params, request }) => {
+    const chatId = String(params.chatId)
+    if (!db.allChats.some((chat) => chat.id === chatId))
+      return new HttpResponse(null, { status: 404 })
+    const url = new URL(request.url)
+    return HttpResponse.json(
+      paginateArray(
+        db.messages.get(chatId) ?? [],
+        url.searchParams.get('cursor'),
+        Number(url.searchParams.get('limit') ?? '200')
+      )
+    )
+  }),
   http.get('*/api/projects/:projectId/chats', ({ params, request }) => {
     const { projectId } = params as { projectId: string }
     const url = new URL(request.url)
@@ -24,7 +37,7 @@ export const chatHandlers = [
     const now = new Date().toISOString()
     const newChat = {
       id: faker.string.uuid(),
-      title: body.title,
+      title: body.title ?? '',
       projectId,
       createdAt: now,
       updatedAt: now,

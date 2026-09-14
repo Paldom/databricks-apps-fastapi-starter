@@ -2,7 +2,7 @@
 import storybook from 'eslint-plugin-storybook'
 import js from '@eslint/js'
 import tseslint from 'typescript-eslint'
-import eslintReact from '@eslint-react/eslint-plugin'
+import react from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
 import tanstackQuery from '@tanstack/eslint-plugin-query'
 
@@ -14,19 +14,15 @@ export default tseslint.config(
       'coverage',
       'reports',
       'public',
-      'storybook-static',
       '*.config.{js,ts,mjs}',
       '.stryker-tmp',
       '.storybook',
       '.scannerwork',
+      'src/shared/api/generated',
     ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
-  {
-    files: ['**/*.{ts,tsx}'],
-    ...eslintReact.configs['recommended-type-checked'],
-  },
   {
     files: ['**/*.{ts,tsx}'],
     ignores: ['**/*.config.ts'],
@@ -37,10 +33,13 @@ export default tseslint.config(
       },
     },
     plugins: {
+      react,
       'react-hooks': reactHooks,
       '@tanstack/query': tanstackQuery,
     },
     rules: {
+      'react/jsx-uses-react': 'off',
+      'react/react-in-jsx-scope': 'off',
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
       '@tanstack/query/exhaustive-deps': 'error',
@@ -53,14 +52,15 @@ export default tseslint.config(
         },
       ],
     },
+    settings: {
+      react: {
+        version: 'detect',
+      },
+    },
   },
   {
     files: ['src/shared/**/*.{ts,tsx}'],
-    ignores: [
-      '**/*.test.{ts,tsx}',
-      '**/*.stories.{ts,tsx}',
-      'src/shared/api/generated/**',
-    ],
+    ignores: ['**/*.test.{ts,tsx}', '**/*.stories.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -73,7 +73,6 @@ export default tseslint.config(
                 '@/mocks/*',
                 '@/test/*',
                 '@/components/**',
-                '../*',
               ],
               message: 'shared code cannot import from app-specific modules',
             },

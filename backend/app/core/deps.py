@@ -3,19 +3,16 @@ from __future__ import annotations
 from logging import Logger
 from typing import TYPE_CHECKING, Annotated, Any
 
-import httpx
 from databricks.sdk import WorkspaceClient
 from fastapi import Depends, Request
 from openai import AsyncOpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, settings
-from app.core.db.deps import get_async_session, get_engine  # noqa: F401 - re-export
+from app.core.db.deps import get_async_session, get_engine  # noqa: F401 – re-export
 from app.core.errors import AuthenticationError
 from app.core.integrations import (
-    DatabricksBearerAuth,
     ensure_ai_client,
-    ensure_vector_index,
     ensure_workspace_client,
 )
 from app.core.logging import get_logger as _get_logger
@@ -23,7 +20,6 @@ from app.core.runtime import AppRuntime, get_app_runtime
 from app.models.user_dto import CurrentUser, UserInfo
 
 if TYPE_CHECKING:
-    from app.chat.orchestrator import ChatOrchestrator
     from app.repositories.chat_repository import ChatRepository
     from app.repositories.document_repository import DocumentRepository
     from app.repositories.project_repository import ProjectRepository
@@ -58,22 +54,48 @@ def get_runtime(request: Request) -> AppRuntime:
 
 
 def get_workspace_client(request: Request) -> WorkspaceClient:
-    request_client = getattr(request.state, "w", None)
-    if request_client is not None:
-        return request_client
-
+    """The app's own (service principal) workspace client."""
     runtime = get_runtime(request)
     return ensure_workspace_client(runtime, _get_request_settings(request))
 
 
+def get_user_workspace_client(request: Request) -> WorkspaceClient:
+    """Workspace client acting as the calling user (OBO).
+
+    Fails closed: with ENABLE_OBO on, a request without a forwarded user token
+    gets 401 rather than silently falling back to the service principal.
+    With OBO off, user-scoped operations run as the app identity.
+    """
+    settings = _get_request_settings(request)
+    user_client = getattr(request.state, "w", None)
+    if user_client is not None:
+        return user_client
+    if settings.enable_obo:
+        raise AuthenticationError("User authorization is required for this operation")
+    return get_workspace_client(request)
+
+
 def get_ai_client(request: Request) -> AsyncOpenAI:
+    """Model client bound to the app identity (token-refreshing)."""
     runtime = get_runtime(request)
     return ensure_ai_client(runtime, _get_request_settings(request))
 
 
-def get_vector_index(request: Request) -> Any:
-    runtime = get_runtime(request)
-    return ensure_vector_index(runtime, _get_request_settings(request))
+def get_user_ai_client(request: Request) -> AsyncOpenAI:
+    """Model client acting as the calling user when OBO is on, else the app client."""
+    user_client = getattr(request.state, "w", None)
+    if user_client is None:
+        if _get_request_settings(request).enable_obo:
+            raise AuthenticationError(
+                "User authorization is required for this operation"
+            )
+        return get_ai_client(request)
+    from databricks_openai import AsyncDatabricksOpenAI
+
+    return AsyncDatabricksOpenAI(
+        workspace_client=user_client,
+        timeout=float(_get_request_settings(request).openai_timeout_seconds),
+    )
 
 
 def get_current_user(request: Request) -> CurrentUser:
@@ -174,86 +196,3 @@ def get_user_settings_service(
         default_name=user.name or user.id,
         default_email=user.email,
     )
-
-
-def _try_get_workspace_client(request: Request) -> Any:
-    """Return the workspace client or ``None`` if not available."""
-    try:
-        return get_workspace_client(request)
-    except Exception:
-        return None
-
-
-def _try_get_vector_index(request: Request) -> Any:
-    """Return the vector index or ``None`` if not available."""
-    try:
-        return get_vector_index(request)
-    except Exception:
-        return None
-
-
-def get_chat_orchestrator(
-    request: Request,
-) -> ChatOrchestrator:
-    from langchain_openai import ChatOpenAI
-
-    from app.chat.agent import build_agent
-    from app.chat.memory import create_checkpointer
-    from app.chat.orchestrator import ChatOrchestrator
-    from app.chat.registry import build_supervisor_prompt, get_enabled_specs
-    from app.chat.tools import build_tools
-    from app.modules import active_modules
-
-    runtime = get_runtime(request)
-    s = _get_request_settings(request)
-    ai_client = get_ai_client(request)
-    log = _get_logger()
-
-    # Checkpointer (from runtime if initialized at startup)
-    checkpointer = getattr(runtime, "langgraph_checkpointer", None)
-    if checkpointer is None:
-        checkpointer = create_checkpointer(s)
-
-    # Registry → enabled specs (core + active modules) → tools + prompt
-    modules = active_modules(s)
-    enabled_specs = get_enabled_specs(s) + [
-        m.specialist for m in modules if m.specialist
-    ]
-    module_builders = {
-        m.specialist.kind: m.tool_builder
-        for m in modules
-        if m.specialist and m.tool_builder
-    }
-    tools = build_tools(
-        enabled_specs,
-        s,
-        ai_client=ai_client,
-        workspace_client=_try_get_workspace_client(request),
-        vector_index=_try_get_vector_index(request),
-        logger=log,
-        extra_builders=module_builders,
-    )
-    prompt = build_supervisor_prompt(enabled_specs)
-
-    # Build agent
-    model_name = (
-        s.supervisor_model
-        or s.serving_endpoint_name
-        or "databricks-meta-llama-3-1-70b-instruct"
-    )
-    # Same auth pattern as ensure_ai_client: langchain builds its own openai
-    # clients, so each needs the per-request Databricks credential hook (a
-    # static api_key would be None under OAuth M2M and expire under PAT).
-    llm_auth = DatabricksBearerAuth(get_workspace_client(request).config)
-    timeout = float(s.openai_timeout_seconds)
-    supervisor_llm = ChatOpenAI(
-        model=model_name,
-        api_key="no-token",
-        base_url=str(ai_client.base_url),
-        timeout=timeout,
-        http_client=httpx.Client(auth=llm_auth, timeout=timeout),
-        http_async_client=httpx.AsyncClient(auth=llm_auth, timeout=timeout),
-    )
-    agent = build_agent(supervisor_llm, tools, prompt, checkpointer)
-
-    return ChatOrchestrator(agent, checkpointer, log)

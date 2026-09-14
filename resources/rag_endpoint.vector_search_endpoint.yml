@@ -1,0 +1,5 @@
+resources:
+  vector_search_endpoints:
+    rag_endpoint:
+      name: fastapi-starter-${var.resource_name_suffix}
+      endpoint_type: STANDARD

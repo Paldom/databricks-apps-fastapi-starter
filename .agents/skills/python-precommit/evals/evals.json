@@ -1,0 +1,89 @@
+{
+  "skill": "python-precommit",
+  "cases": [
+    { "type": "should_trigger", "prompt": "set up pre-commit for this repo" },
+    { "type": "should_trigger", "prompt": "add pre-commit hooks with ruff and mypy to this python project" },
+    { "type": "should_trigger", "prompt": "pre-commit passes locally but ruff fails in CI on the same files, why?" },
+    { "type": "should_trigger", "prompt": "enforce conventional commit messages with a git hook" },
+    { "type": "should_trigger", "prompt": "can u add somthing that formats the yaml and markdown files before commit" },
+    { "type": "should_trigger", "prompt": "the ruff hook auto-fixes files but the commit still goes through - make it block" },
+    { "type": "should_trigger", "prompt": "run mypy and pytest only on push, not on every commit" },
+    { "type": "should_trigger", "prompt": "should we switch from pre-commit to prek?" },
+    { "type": "should_trigger", "prompt": "devs keep skipping the hooks with --no-verify, how do we make the checks stick" },
+    { "type": "should_trigger", "prompt": "validate pyproject.toml and the github workflow files before every commit" },
+    { "type": "should_trigger", "prompt": "mirrors-prettier is archived, what should our pre-commit config use now" },
+    { "type": "should_trigger", "prompt": "the prettier hook keeps erroring when pre-commit tries to install node" },
+    { "type": "should_trigger", "prompt": "block commits with trailing whitespace and leftover merge conflict markers" },
+    { "type": "should_not_trigger", "prompt": "set up ruff and pick which lint rule sets to enable in pyproject.toml" },
+    { "type": "should_not_trigger", "prompt": "add a Claude Code hook that runs ruff after every file edit" },
+    { "type": "should_not_trigger", "prompt": "set up a GitHub Actions workflow that runs lint, mypy and pytest on every PR" },
+    { "type": "should_not_trigger", "prompt": "fix these mypy errors in the parser module" },
+    { "type": "should_not_trigger", "prompt": "set up dependabot to keep our dependencies updated" },
+    { "type": "should_not_trigger", "prompt": "cut a release - bump the version and generate the changelog from the conventional commits" },
+    { "type": "should_not_trigger", "prompt": "write an AGENTS.md so coding agents stop bypassing our checks" },
+    { "type": "should_not_trigger", "prompt": "make the lint and test checks required before merging to main" },
+    { "type": "should_not_trigger", "prompt": "enable secret scanning and push protection on the github repo" },
+    { "type": "should_not_trigger", "prompt": "undo my last commit but keep the changes staged" },
+    { "type": "should_not_trigger", "prompt": "make the agent only sign off work when the pre-commit gate would accept it" },
+    {
+      "type": "quality",
+      "prompt": "Set up pre-commit for this Python project",
+      "expected_behavior": [
+        "checks the repo first (existing config, ruff/mypy versions in dev dependencies, whether GitHub workflows exist) and pins a rev for every hook repo it writes",
+        "includes hygiene hooks from pre-commit/pre-commit-hooks plus ruff-check --fix ordered before ruff-format",
+        "runs pre-commit run --all-files after installing and gets the existing tree clean rather than leaving hooks that fail on untouched files",
+        "states that hooks are bypassable with --no-verify and wires or recommends the CI mirror (pre-commit run --all-files in CI or pre-commit.ci)",
+        "gives install commands that cover every stage used (default_install_hook_types or pre-commit install --hook-type)"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "the ruff pre-commit hook auto-fixed my files but the commit went through anyway - I want it to block so the fix gets reviewed",
+      "expected_behavior": [
+        "explains that pre-commit itself fails a hook that modified files, so the auto-fix is never silently committed; --exit-non-zero-on-fix only matters when the same command runs outside pre-commit",
+        "explains that fixes are left unstaged and the fail, re-add, re-commit loop is expected pre-commit behavior",
+        "keeps the lint/fix hook ordered before ruff-format",
+        "does not touch ruff rule selection in pyproject.toml"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "add formatting and validation for the yaml, markdown and toml files in this python repo",
+      "expected_behavior": [
+        "scopes the Markdown/YAML/JSON formatter with types_or so it never touches Python files",
+        "picks the formatter route by toolchain: Prettier via the maintained rbubley/mirrors-prettier fork (never the archived pre-commit/mirrors-prettier) when Node/package.json is already present, the Node-free stack (mdformat, taplo, yamllint) for a pure-Python repo — trade-off stated either way",
+        "pairs formatters with validators (validate-pyproject, check-jsonschema for GitHub workflows) because formatting does not catch structural errors",
+        "pins a rev for every hook repo added"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "pre-commit takes about 30 seconds so everyone here commits with --no-verify, fix it",
+      "expected_behavior": [
+        "profiles the hooks (pre-commit run --verbose or equivalent) to find the slow ones instead of guessing",
+        "moves slow checks like mypy or tests to the pre-push stage or CI, keeping the commit stage to a few seconds",
+        "is honest that --no-verify cannot be blocked locally and confirms the same checks run in CI as the real gate",
+        "mentions SKIP=<hook-id> as the narrower escape hatch instead of blanket --no-verify"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "our prettier pre-commit hook fails on half the machines with node download errors, fix it",
+      "expected_behavior": [
+        "identifies the hook-env Node bootstrap as the failure class (first-run download, proxies, unusual architectures) and verifies the config points at the maintained rbubley fork, not the archived pre-commit/mirrors-prettier",
+        "offers the two durable fixes: language_version: system on the prettier hook to reuse an installed Node, or switching a pure-Python repo to the Node-free stack (mdformat, taplo, yamllint)",
+        "keeps the formatter scoped with types_or and every rev pinned in whatever config it rewrites",
+        "confirms the CI mirror runs the same updated config so the fix is proven, not assumed"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "pre-commit passes on my machine but the ruff job in CI fails on the same files",
+      "expected_behavior": [
+        "diagnoses version skew between the ruff-pre-commit rev and the ruff version installed in CI or the dev dependency group",
+        "aligns the versions and proposes a sync mechanism (Dependabot pre-commit ecosystem, pre-commit.ci autoupdate, or a scheduled reviewed autoupdate)",
+        "recommends CI run the identical config via pre-commit run --all-files rather than invoking the tools separately"
+      ]
+    }
+  ]
+}

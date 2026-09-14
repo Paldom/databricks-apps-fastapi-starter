@@ -1,194 +1,134 @@
 ---
 name: databricks-unstructured-pdf-generation
-description: "Generate synthetic PDF documents for RAG and unstructured data use cases. Use when creating test PDFs, demo documents, or evaluation datasets for retrieval systems."
+description: "Build RAG / unstructured-document evaluation datasets and demo documents (e.g. for Knowledge Assistant) on Databricks: generate synthetic PDFs locally, upload to Unity Catalog volumes, and pair each document with test questions for retrieval evaluation."
+compatibility: Requires databricks CLI (>= v1.0.0)
+metadata:
+  version: "0.1.0"
+parent: databricks-core
 ---
 
-# Unstructured PDF Generation
+# Unstructured-Document for Demos and Eval Datasets on Databricks
 
-Generate realistic synthetic PDF documents using LLM for RAG (Retrieval-Augmented Generation) and unstructured data use cases.
-
-## Overview
-
-This skill uses the `generate_pdf_documents` MCP tool to create professional PDF documents with:
-- LLM-generated content based on your description
-- Accompanying JSON files with questions and evaluation guidelines (for RAG testing)
-- Automatic upload to Unity Catalog Volumes
-
-## Quick Start
-
-Use the `generate_pdf_documents` MCP tool:
-- `catalog`: "my_catalog"
-- `schema`: "my_schema"
-- `description`: "Technical documentation for a cloud infrastructure platform including setup guides, troubleshooting procedures, and API references."
-- `count`: 10
-
-This generates 10 PDF documents and saves them to `/Volumes/my_catalog/my_schema/raw_data/pdf_documents/` (using default volume and folder).
-
-### With Custom Location
-
-Use the `generate_pdf_documents` MCP tool:
-- `catalog`: "my_catalog"
-- `schema`: "my_schema"
-- `description`: "HR policy documents..."
-- `count`: 10
-- `volume`: "custom_volume"
-- `folder`: "hr_policies"
-- `overwrite_folder`: true
-
-## Parameters
-
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `catalog` | string | Yes | - | Unity Catalog name |
-| `schema` | string | Yes | - | Schema name |
-| `description` | string | Yes | - | Detailed description of what PDFs should contain |
-| `count` | int | Yes | - | Number of PDFs to generate |
-| `volume` | string | No | `raw_data` | Volume name (created if not exists) |
-| `folder` | string | No | `pdf_documents` | Folder within volume for output files |
-| `doc_size` | string | No | `MEDIUM` | Document size: `SMALL` (~1 page), `MEDIUM` (~5 pages), `LARGE` (~10+ pages) |
-| `overwrite_folder` | bool | No | `false` | If true, deletes existing folder contents first |
-
-### Document Size Guide
-
-- **SMALL**: ~1 page, concise content. Best for quick demos or testing.
-- **MEDIUM**: ~4-6 pages, comprehensive coverage. Good balance for most use cases.
-- **LARGE**: ~10+ pages, exhaustive documentation. Use for thorough RAG evaluation.
-
-## Output Files
-
-For each document, the tool creates two files:
-
-1. **PDF file** (`<model_id>.pdf`): The generated document
-2. **JSON file** (`<model_id>.json`): Metadata for RAG evaluation
-
-### JSON Structure
-
-```json
-{
-  "title": "API Authentication Guide",
-  "category": "Technical",
-  "pdf_path": "/Volumes/catalog/schema/volume/folder/doc_001.pdf",
-  "question": "What authentication methods are supported by the API?",
-  "guideline": "Answer should mention OAuth 2.0, API keys, and JWT tokens with their use cases."
-}
-```
-
-## Common Patterns
-
-### Pattern 1: HR Policy Documents
-
-Use the `generate_pdf_documents` MCP tool:
-- `catalog`: "ai_dev_kit"
-- `schema`: "hr_demo"
-- `description`: "HR policy documents for a technology company including employee handbook, leave policies, performance review procedures, benefits guide, and workplace conduct guidelines."
-- `count`: 15
-- `folder`: "hr_policies"
-- `overwrite_folder`: true
-
-### Pattern 2: Technical Documentation
-
-Use the `generate_pdf_documents` MCP tool:
-- `catalog`: "ai_dev_kit"
-- `schema`: "tech_docs"
-- `description`: "Technical documentation for a SaaS analytics platform including installation guides, API references, troubleshooting procedures, security best practices, and integration tutorials."
-- `count`: 20
-- `folder`: "product_docs"
-- `overwrite_folder`: true
-
-### Pattern 3: Financial Reports
-
-Use the `generate_pdf_documents` MCP tool:
-- `catalog`: "ai_dev_kit"
-- `schema`: "finance_demo"
-- `description`: "Financial documents for a retail company including quarterly reports, expense policies, budget guidelines, and audit procedures."
-- `count`: 12
-- `folder`: "reports"
-- `overwrite_folder`: true
-
-### Pattern 4: Training Materials
-
-Use the `generate_pdf_documents` MCP tool:
-- `catalog`: "ai_dev_kit"
-- `schema`: "training"
-- `description`: "Training materials for new software developers including onboarding guides, coding standards, code review procedures, and deployment workflows."
-- `count`: 8
-- `folder`: "courses"
-- `overwrite_folder`: true
+Workflow for producing **synthetic PDF documents + paired test questions** as a Unity Catalog-resident dataset for Demos and RAG / unstructured-document retrieval evaluation on Databricks. The PDF-generation step uses standard local HTML → PDF tooling; the Databricks-specific value is the workflow shape — UC volume layout, paired question files, and integration with downstream Databricks retrieval / `ai_extract` / `ai_parse_document` evaluation.
 
 ## Workflow
 
-1. **Ask for destination**: Default to `ai_dev_kit` catalog, ask user for schema name
-2. **Get description**: Ask what kind of documents they need
-3. **Generate PDFs**: Call `generate_pdf_documents` MCP tool with appropriate parameters
-4. **Verify output**: Check the volume path for generated files
+1. Write HTML files to `./raw_data/html/` (write multiple files in parallel for speed) — domain-shaped to match the documents your retrieval pipeline will see in production.
+2. Convert HTML → PDF using `<SKILL_ROOT>/scripts/pdf_generator.py` (parallel conversion, wraps `plutoprint`).
+3. Upload PDFs to a Unity Catalog volume via `databricks fs cp` — same volume shape your production pipeline will read from.
+4. Generate `./raw_data/pdf/pdf_eval_questions.json` pairing each document with retrieval-eval questions; this becomes the gold dataset for `mlflow.genai.evaluate()` or comparable retrieval-quality scorers.
 
-## Best Practices
+> If you only need ad-hoc PDFs (no Databricks workflow), any HTML → PDF tool (`weasyprint`, `wkhtmltopdf`, `playwright pdf`, `plutoprint`) works directly — this skill exists for the synthetic-dataset-on-UC end-to-end shape, not as a general PDF generator.
 
-1. **Detailed descriptions**: The more specific your description, the better the generated content
-   - BAD: "Generate some HR documents"
-   - GOOD: "HR policy documents for a technology company including employee handbook covering remote work policies, leave policies with PTO and sick leave details, performance review procedures with quarterly and annual cycles, and workplace conduct guidelines"
+> **Path convention:** `<SKILL_ROOT>` below = the directory containing this SKILL.md. Resolve to the absolute install path (e.g. `~/.claude/skills/databricks-unstructured-pdf-generation`). `./raw_data/...` paths are relative to your own project cwd.
 
-2. **Appropriate count**:
-   - For demos: 5-10 documents
-   - For RAG testing: 15-30 documents
-   - For comprehensive evaluation: 50+ documents
-
-3. **Folder organization**: Use descriptive folder names that indicate content type
-   - `hr_policies/`
-   - `technical_docs/`
-   - `training_materials/`
-
-4. **Use overwrite_folder**: Set to `true` when regenerating to ensure clean state
-
-## Integration with RAG Pipelines
-
-The generated JSON files are designed for RAG evaluation:
-
-1. **Ingest PDFs**: Use the PDF files as source documents for your vector database
-2. **Test retrieval**: Use the `question` field to query your RAG system
-3. **Evaluate answers**: Use the `guideline` field to assess if the RAG response is correct
-
-Example evaluation workflow:
-```python
-# Load questions from JSON files
-questions = load_json_files(f"/Volumes/{catalog}/{schema}/{volume}/{folder}/*.json")
-
-for q in questions:
-    # Query RAG system
-    response = rag_system.query(q["question"])
-
-    # Evaluate using guideline
-    is_correct = evaluate_response(response, q["guideline"])
-```
-
-## Environment Configuration
-
-The tool requires LLM configuration via environment variables:
+## Dependencies
 
 ```bash
-# Databricks Foundation Models (default)
-LLM_PROVIDER=DATABRICKS
-DATABRICKS_MODEL=databricks-meta-llama-3-3-70b-instruct
-
-# Or Azure OpenAI
-LLM_PROVIDER=AZURE
-AZURE_OPENAI_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
-AZURE_OPENAI_API_KEY=your-api-key
-AZURE_OPENAI_DEPLOYMENT=gpt-4o
+uv pip install plutoprint
 ```
 
-## Common Issues
+## Step 1: Write HTML Files
+
+```bash
+mkdir -p ./raw_data/html
+```
+
+Write HTML documents to `./raw_data/html/filename.html`. Use subdirectories to organize (structure is preserved).
+
+## Step 2: Convert to PDF
+
+```bash
+# Convert entire folder (parallel, 4 workers)
+python <SKILL_ROOT>/scripts/pdf_generator.py convert --input ./raw_data/html --output ./raw_data/pdf
+```
+
+Skips files where PDF exists and is newer than HTML. Use `--force` to reconvert all.
+
+## Step 3: Upload to Volume
+
+`databricks fs` requires the `dbfs:` scheme prefix even for UC Volume paths. `-r` copies the *contents* of the source directory into the target (the source directory name is not preserved), so name the target `raw_data/pdf` explicitly to keep the PDFs in their own folder on the volume. They land under `raw_data/pdf/` — i.e. `dbfs:/Volumes/my_catalog/my_schema/raw_data/pdf/report.pdf` — so a Knowledge Assistant or ingest pipeline can point at that single folder.
+
+```bash
+databricks fs cp -r --overwrite ./raw_data/pdf dbfs:/Volumes/my_catalog/my_schema/raw_data/pdf
+```
+
+## Step 4: Generate Test Questions
+
+Create `./raw_data/pdf/pdf_eval_questions.json` with questions for Knowledge Assistant (KA) or Multi-Agent Supervisor (MAS) evaluation. It's fine for this file to be uploaded to the volume alongside the PDFs — downstream agents can use it:
+
+```json
+{
+  "api_errors_guide.pdf": {
+    "question": "What is the solution for error ERR-4521?",
+    "expected_fact": "Call /api/v2/auth/refresh with refresh_token before the 3600s TTL expires"
+  },
+  "installation_manual.pdf": {
+    "question": "What port does the service use by default?",
+    "expected_fact": "Port 8443 for HTTPS, configurable via CONFIG_PORT environment variable"
+  }
+}
+```
+
+This JSON can be used to build KA test cases and validate retrieval accuracy.
+
+## Document Content Guidelines
+
+When generating documents for Knowledge Assistant testing or demos:
+
+- **Multi-page documents**: Each PDF should be several pages with substantial content
+- **Specific error codes and solutions**: Include product-specific error codes, causes, and resolution steps
+- **Technical details**: API endpoints, configuration parameters, version numbers, specific commands
+- **Simple CSS**: Keep styling minimal for fast HTML creation and reliable PDF conversion
+- **Queryable facts**: Include details a KA must read the document to answer (not general knowledge)
+
+**Good document types:**
+- Product user manuals with troubleshooting sections
+- API error reference guides (error codes, causes, solutions)
+- Installation/configuration guides with specific steps
+- Technical specifications with version-specific details
+
+**Example content:** Instead of generic "Connection failed" errors, write:
+- "Error ERR-4521: OAuth token expired. Cause: Token TTL exceeded 3600s default. Solution: Call `/api/v2/auth/refresh` with your refresh_token before expiration. See Section 4.2 for token lifecycle management."
+
+## CLI Reference
+
+```
+python <SKILL_ROOT>/scripts/pdf_generator.py convert [OPTIONS]
+
+  --input, -i     Input HTML file or folder (required)
+  --output, -o    Output folder for PDFs (required)
+  --force, -f     Force reconvert (ignore timestamps)
+  --workers, -w   Parallel workers (default: 4)
+```
+
+## Folder Structure
+
+Subfolder structure is preserved:
+
+```
+./raw_data/html/                    ./raw_data/pdf/
+├── report.html             →       ├── report.pdf
+├── quarterly/                      ├── quarterly/
+│   └── q1.html             →       │   └── q1.pdf
+└── legal/                          └── legal/
+    └── terms.html          →           └── terms.pdf
+```
+
+## Bundled Script
+
+This skill ships one helper script:
+
+| File | Description |
+|------|-------------|
+| [scripts/pdf_generator.py](scripts/pdf_generator.py) | HTML → PDF converter (wraps `plutoprint`); parallel folder conversion with timestamp-skip. Referenced by Step 2 and the CLI Reference. |
+
+The script ships at `<SKILL_ROOT>/scripts/pdf_generator.py`. If it is absent, recreate it from the [CLI Reference](#cli-reference) above (a `convert` subcommand taking `--input`/`--output`/`--force`/`--workers`, wrapping `plutoprint` for HTML → PDF).
+
+## Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
-| **"No LLM endpoint configured"** | Set `DATABRICKS_MODEL` or `AZURE_OPENAI_DEPLOYMENT` environment variable |
-| **"Volume does not exist"** | The tool creates volumes automatically; ensure you have CREATE VOLUME permission |
-| **"PDF generation timeout"** | Reduce `count` or check LLM endpoint availability |
-| **Low quality content** | Provide more detailed `description` with specific topics and document types |
-
-## Related Skills
-
-- **[databricks-agent-bricks](../databricks-agent-bricks/SKILL.md)** - Create Knowledge Assistants that ingest the generated PDFs
-- **[databricks-vector-search](../databricks-vector-search/SKILL.md)** - Index generated documents for semantic search and RAG
-- **[databricks-synthetic-data-gen](../databricks-synthetic-data-gen/SKILL.md)** - Generate structured tabular data (complement to unstructured PDFs)
-- **[databricks-mlflow-evaluation](../databricks-mlflow-evaluation/SKILL.md)** - Evaluate RAG systems using the generated question/guideline pairs
+| "plutoprint not installed" | `uv pip install plutoprint` |
+| PDF looks wrong | Check HTML/CSS syntax |
+| "Volume does not exist" | `databricks volumes create CATALOG SCHEMA VOLUME_NAME MANAGED` (four separate positional args, not `catalog.schema.volume`) |

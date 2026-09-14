@@ -30,3 +30,7 @@ export const i18nInit = i18n
     // not needed for React; it already escapes
     interpolation: { escapeValue: false },
   })
+
+// Export for TypeScript
+export const defaultNS = 'common'
+export { default } from 'i18next'

@@ -1,13 +1,5 @@
 {
-  "mcpServers": {
-    "databricks": {
-      "command": "/Users/domonkos.pal/.ai-dev-kit/.venv/bin/python",
-      "args": [
-        "/Users/domonkos.pal/.ai-dev-kit/repo/databricks-mcp-server/run_server.py"
-      ],
-      "env": {
-        "DATABRICKS_CONFIG_PROFILE": "DEFAULT"
-      }
-    }
+  "context": {
+    "fileName": "AGENTS.md"
   }
 }

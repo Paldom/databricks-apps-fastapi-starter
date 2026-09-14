@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -75,33 +77,69 @@ def update_trace_context(
     agent_name: str | None = None,
 ) -> None:
     """Attach metadata to the current MLflow trace (best-effort)."""
+    # MLflow 3 filters sessions/users on these metadata keys; the rest are tags.
     metadata: dict[str, str] = {}
     if session_id:
         metadata["mlflow.trace.session"] = session_id
     if user_id:
-        metadata["user_id"] = user_id
+        metadata["mlflow.trace.user"] = user_id
+    tags: dict[str, str] = {}
     if chat_id:
-        metadata["chat_id"] = chat_id
+        tags["chat_id"] = chat_id
     if backend:
-        metadata["backend"] = backend
+        tags["backend"] = backend
     if agent_kind:
-        metadata["agent.kind"] = agent_kind
+        tags["agent.kind"] = agent_kind
     if agent_name:
-        metadata["agent.name"] = agent_name
-
-    if not metadata:
+        tags["agent.name"] = agent_name
+    if not metadata and not tags:
         return
-
     try:
         import mlflow
 
-        # Skip quietly when no trace is active (e.g. background title
-        # generation) — update_current_trace logs a loud warning otherwise.
-        if mlflow.get_current_active_span() is None:
+        if mlflow.get_current_active_span() is None:  # e.g. background title generation
             return
-        mlflow.update_current_trace(tags=metadata)
+        mlflow.update_current_trace(metadata=metadata or None, tags=tags or None)
     except Exception:
         logger.debug("update_current_trace failed", exc_info=True)
+
+
+@contextmanager
+def root_span(name: str) -> Iterator[Any]:
+    """Open the agent root span so metadata and attributes have a trace to attach to.
+
+    Autologged LangChain/OpenAI spans nest under it. Yields ``None`` when tracing is
+    off; callers use :func:`stamp_span` which tolerates that.
+    """
+    if not _mlflow_enabled:
+        yield None
+        return
+    import mlflow
+    from mlflow.entities import SpanType
+
+    with mlflow.start_span(name=name, span_type=SpanType.AGENT) as span:
+        yield span
+
+
+def stamp_span(
+    span: Any,
+    *,
+    inputs: Any = None,
+    outputs: Any = None,
+    attributes: dict[str, Any] | None = None,
+) -> None:
+    """Best-effort inputs/outputs/attributes on a span (None when tracing is off)."""
+    if span is None:
+        return
+    try:
+        if inputs is not None:
+            span.set_inputs(inputs)
+        if outputs is not None:
+            span.set_outputs(outputs)
+        if attributes:
+            span.set_attributes({k: v for k, v in attributes.items() if v is not None})
+    except Exception:
+        logger.debug("stamping the root span failed", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -114,7 +152,7 @@ def get_active_trace_id() -> str | None:
     try:
         import mlflow
 
-        return mlflow.get_active_trace_id()
+        return mlflow.get_active_trace_id()  # type: ignore[return-value]
     except Exception:
         return None
 

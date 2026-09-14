@@ -1,41 +1,65 @@
 # Lakebase
 
-## The app schema (`starter`)
+The app's state lives in a **Lakebase Autoscaling** project declared by the bundle:
+`resources/app_db.postgres_project.yml` (Postgres 17, compute settings per target), `app_role.postgres_role.yml`
+and `main_database.postgres_database.yml`. The app binds the production branch and the database
+(`postgres` binding, `CAN_CONNECT_AND_CREATE`).
 
-Lakebase runs Postgres 15+, where non-owners cannot `CREATE` in the `public`
-schema. The app therefore keeps all its tables (Alembic models **and**
-LangGraph checkpoints) in its own schema (`Settings.pg_app_schema`, default
-`starter`), wired through the engine's `search_path`, Alembic, and the
-checkpointer. Because the `database` binding grants `CAN_CONNECT_AND_CREATE`
-(Postgres `CREATE` on the database), Alembic creates the schema itself on
-first startup — no owner step needed. If your binding grants CONNECT only,
-create the schema once as the instance owner:
+## Connection
+
+The Apps runtime injects `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGSSLMODE` and `PGAPPNAME`; there is no
+`PGPASSWORD`. The SQLAlchemy engine mints the app's OAuth token in a `do_connect` hook for every new connection
+(tokens expire after an hour), recycles pooled connections before that and pings them before use
+(`backend/app/core/db/engine.py`). Locally, `backend/env.example` points at the Docker Postgres from
+`make dev-db`.
+
+## The app-owned schema
+
+The app's service principal may connect and create but cannot write to `public`, so the app owns its own schema
+(`DB_SCHEMA`, default `app`): migrations create it, the engine sets `search_path` to it, and Alembic keeps its
+version table there. One migration, `backend/alembic/versions/0001_initial.py`, creates the whole schema; new
+migrations come from `make migrate-new MIGRATION_MESSAGE="..."` and run at every app start under a Postgres
+advisory lock with a lock timeout, so several app instances never race.
+
+## Sizing
+
+| Target  | Endpoint                              |
+| ------- | ------------------------------------- |
+| dev     | 0.5 to 2 CU, suspends after 5 minutes |
+| staging | same as dev                           |
+| prod    | 1 to 4 CU, never suspends             |
+
+The values are the `lakebase_endpoint_settings` variable (a complex variable overridden per target). A suspended
+endpoint wakes on the first connection; the app tolerates that with its pool settings.
+
+## Branches for pull requests
+
+Branches are copy-on-write and appear in about a second regardless of size. Declare one as a bundle resource
+(`postgres_branches`, with a TTL) in a scratch target, point the app at it through the `postgres` binding and run
+migrations and tests against production-shaped data; the TTL reaps it. Branches are one-way (no merge back) and
+authenticate with OAuth only.
+
+## Local inspection
 
 ```bash
-make grant-db-access PROFILE=<profile>   # creates the DB + SP-owned schema
+databricks postgres list-branches projects/fastapi-starter-dev --profile "$DATABRICKS_CONFIG_PROFILE"
+databricks psql --project fastapi-starter-dev --profile "$DATABRICKS_CONFIG_PROFILE" -- -c '\dt app.*'
 ```
 
-## Durable chat memory (LangGraph checkpointer)
+The project creator has `databricks_superuser`; the app's tables are readable that way without touching the
+app's identity.
 
-`LANGGRAPH_MEMORY_BACKEND=lakebase` (the deployed default) stores LangGraph
-checkpoints in Lakebase via `AsyncPostgresSaver` on a psycopg connection pool.
-Every new connection authenticates with a freshly minted OAuth token (Lakebase
-tokens expire hourly), mirroring the SQLAlchemy engine's token hook. If the
-database is unreachable the app falls back to in-memory with a warning —
-startup never crashes. Implementation: `backend/app/chat/memory.py`.
+## Resetting a development database
 
-## Branching: per-PR ephemeral databases
-
-Lakebase (Postgres) branches are zero-copy (copy-on-write) and create in ~1s
-regardless of size — "git for databases".
+The app's service principal owns the schema, so the project owner cannot drop it (`must be owner of schema`),
+and `databricks_superuser` membership does not change that. To start over in `dev`, delete the database and let
+the next deploy recreate it (the bundle owns `postgres_databases.main_database`; the app binding re-grants
+`CAN_CONNECT_AND_CREATE` and the migration rebuilds the schema):
 
 ```bash
-# branch off the dev instance for a PR
-databricks database create-database-branch <instance> --name pr-1234 --ttl 4h
-# point the PR's app/test run at the branch (PG* env from the branch endpoint)
-# run migrations + integration tests against real data, then let TTL reap it
+databricks postgres delete-database projects/fastapi-starter-dev/branches/production/databases/app --profile "$DATABRICKS_CONFIG_PROFILE"
+databricks bundle deploy -t dev --profile "$DATABRICKS_CONFIG_PROFILE"
 ```
 
-Uses: schema-migration validation on production-shaped data, per-developer
-sandboxes, agent-provisioned scratch DBs, point-in-time recovery as a branch.
-Gotchas: one-way (no merge back), OAuth-only credentials, watch branch sprawl.
+A database whose `alembic_version` names a revision that no longer exists fails the app at start with
+`Can't locate revision`; this reset is the fix in `dev`. Never do this on a database with data you want.

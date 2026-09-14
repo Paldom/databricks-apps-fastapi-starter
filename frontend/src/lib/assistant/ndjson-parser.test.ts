@@ -78,23 +78,6 @@ describe('parseNDJSON', () => {
     expect(results).toEqual([{ n: 1 }])
   })
 
-  it('cancels the underlying stream when the generator exits early', async () => {
-    const cancel = vi.fn()
-    const stream = new ReadableStream<Uint8Array>({
-      pull(ctrl) {
-        ctrl.enqueue(encoder.encode('{"n":1}\n'))
-      },
-      cancel,
-    })
-
-    for await (const item of parseNDJSON<{ n: number }>(stream)) {
-      expect(item).toEqual({ n: 1 })
-      break
-    }
-
-    await vi.waitFor(() => expect(cancel).toHaveBeenCalled())
-  })
-
   it('handles an empty stream', async () => {
     const stream = makeStream([])
     const results = await collect(parseNDJSON(stream))

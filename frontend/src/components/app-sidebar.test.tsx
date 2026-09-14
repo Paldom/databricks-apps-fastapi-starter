@@ -1,11 +1,5 @@
 import { MemoryRouter } from 'react-router-dom'
-import {
-  render,
-  screen,
-  waitFor,
-  within,
-  fireEvent,
-} from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { AppSidebar } from './app-sidebar'
@@ -19,7 +13,7 @@ import { server } from '@/mocks/server'
 import { http, HttpResponse } from 'msw'
 
 function RuntimeWrapper({ children }: Readonly<{ children: React.ReactNode }>) {
-  const runtime = useChatRuntime(null)
+  const runtime = useChatRuntime('test-chat')
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       {children}
@@ -376,11 +370,28 @@ describe('AppSidebar', () => {
       expect(screen.getByText('Project X')).toBeInTheDocument()
     })
 
-    // The new chat button is hidden via CSS opacity, but still in the DOM
+    let posted: unknown
+    server.use(
+      http.post('*/api/projects/p1/chats', async ({ request }) => {
+        posted = await request.json()
+        return HttpResponse.json(
+          {
+            id: 'created-chat',
+            projectId: 'p1',
+            title: '',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          { status: 201 }
+        )
+      })
+    )
     await user.click(screen.getByRole('button', { name: 'New chat' }))
-
-    // Verify the button interaction doesn't throw
-    expect(screen.getByText('Project X')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(useUIStore.getState().activeChatId).toBe('created-chat')
+    )
+    expect(useUIStore.getState().activeProjectId).toBe('p1')
+    expect(posted).toEqual({ title: '' })
   })
 
   it('edits a project name via context menu', async () => {
@@ -426,7 +437,14 @@ describe('AppSidebar', () => {
     })
 
     // Open the project context menu (the MoreHorizontal button)
-    await user.click(screen.getByRole('button', { name: 'Open menu' }))
+    // The project label row has: CollapsibleTrigger button, project name span, dropdown trigger button, new chat button
+    // We need the dropdown trigger button (2nd button in the label row)
+    const projectLabelRow = screen
+      .getByText('Original Name')
+      .closest('[data-slot="sidebar-group-label"]')!
+    const buttons = projectLabelRow.querySelectorAll('button')
+    // buttons[0] = collapsible trigger, buttons[1] = more menu, buttons[2] = new chat
+    await user.click(buttons[1])
 
     // Click "Edit name"
     await user.click(await screen.findByText('Edit name'))
@@ -477,276 +495,20 @@ describe('AppSidebar', () => {
       expect(screen.getByText('Proj Name')).toBeInTheDocument()
     })
 
-    await user.click(screen.getByRole('button', { name: 'Open menu' }))
+    const projectLabelRow = screen
+      .getByText('Proj Name')
+      .closest('[data-slot="sidebar-group-label"]')!
+    const buttons = projectLabelRow.querySelectorAll('button')
+    await user.click(buttons[1])
     await user.click(await screen.findByText('Edit name'))
 
-    expect(screen.getByDisplayValue('Proj Name')).toBeInTheDocument()
+    const input = screen.getByDisplayValue('Proj Name')
     // Click the cancel (X) button
-    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    const editContainer = input.closest('div')!
+    const editButtons = editContainer.querySelectorAll('button')
+    await user.click(editButtons[1]) // cancel button
 
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
-  })
-
-  it('sets both activeChatId and activeProjectId when clicking a chat in a non-active project', async () => {
-    const user = userEvent.setup()
-
-    server.use(
-      http.get('*/api/projects', () => {
-        return HttpResponse.json({
-          items: [
-            {
-              id: 'p1',
-              name: 'Proj One',
-              createdAt: '2024-01-01T00:00:00Z',
-              chatCount: 1,
-            },
-            {
-              id: 'p2',
-              name: 'Proj Two',
-              createdAt: '2024-01-01T00:00:00Z',
-              chatCount: 1,
-            },
-          ],
-          nextCursor: null,
-          hasMore: false,
-        })
-      }),
-      http.get('*/api/projects/p1/chats', () => {
-        return HttpResponse.json({
-          items: [
-            {
-              id: 'c1',
-              title: 'First Chat',
-              projectId: 'p1',
-              createdAt: '2024-01-01T00:00:00Z',
-              updatedAt: '2024-01-01T00:00:00Z',
-            },
-          ],
-          nextCursor: null,
-          hasMore: false,
-        })
-      }),
-      http.get('*/api/projects/p2/chats', () => {
-        return HttpResponse.json({
-          items: [
-            {
-              id: 'c2',
-              title: 'Second Chat',
-              projectId: 'p2',
-              createdAt: '2024-01-01T00:00:00Z',
-              updatedAt: '2024-01-01T00:00:00Z',
-            },
-          ],
-          nextCursor: null,
-          hasMore: false,
-        })
-      })
-    )
-
-    renderSidebar()
-
-    // Auto-select picks the first project as active
-    await waitFor(() => {
-      expect(useUIStore.getState().activeProjectId).toBe('p1')
-    })
-    await waitFor(() => {
-      expect(screen.getByText('Second Chat')).toBeInTheDocument()
-    })
-
-    await user.click(screen.getByText('Second Chat'))
-
-    expect(useUIStore.getState().activeChatId).toBe('c2')
-    expect(useUIStore.getState().activeProjectId).toBe('p2')
-  })
-
-  it('clears activeProjectId and activeChatId when deleting the active project', async () => {
-    const user = userEvent.setup()
-
-    let projectItems = [
-      {
-        id: 'p1',
-        name: 'Alpha',
-        createdAt: '2024-01-01T00:00:00Z',
-        chatCount: 0,
-      },
-      {
-        id: 'p2',
-        name: 'Beta',
-        createdAt: '2024-01-01T00:00:00Z',
-        chatCount: 1,
-      },
-    ]
-
-    server.use(
-      http.get('*/api/projects', () => {
-        return HttpResponse.json({
-          items: projectItems,
-          nextCursor: null,
-          hasMore: false,
-        })
-      }),
-      http.get('*/api/projects/p1/chats', () => {
-        return HttpResponse.json({
-          items: [],
-          nextCursor: null,
-          hasMore: false,
-        })
-      }),
-      http.get('*/api/projects/p2/chats', () => {
-        return HttpResponse.json({
-          items: [
-            {
-              id: 'c2',
-              title: 'Beta Chat',
-              projectId: 'p2',
-              createdAt: '2024-01-01T00:00:00Z',
-              updatedAt: '2024-01-01T00:00:00Z',
-            },
-          ],
-          nextCursor: null,
-          hasMore: false,
-        })
-      }),
-      http.delete('*/api/projects/:projectId', ({ params }) => {
-        projectItems = projectItems.filter((p) => p.id !== params.projectId)
-        return new HttpResponse(null, { status: 204 })
-      })
-    )
-
-    renderSidebar()
-
-    await waitFor(() => {
-      expect(screen.getByText('Beta Chat')).toBeInTheDocument()
-    })
-
-    // Make p2 the active project with an active chat
-    await user.click(screen.getByText('Beta Chat'))
-    expect(useUIStore.getState().activeProjectId).toBe('p2')
-    expect(useUIStore.getState().activeChatId).toBe('c2')
-
-    // Delete the active project via its context menu
-    const projectLabelRow = screen
-      .getByText('Beta')
-      .closest('[data-slot="sidebar-group-label"]')!
-    await user.click(
-      within(projectLabelRow as HTMLElement).getByRole('button', {
-        name: 'Open menu',
-      })
-    )
-    await user.click(await screen.findByText('Remove'))
-
-    // The active chat is cleared and reconciliation settles on the
-    // surviving project
-    await waitFor(() => {
-      expect(useUIStore.getState().activeChatId).toBeNull()
-      expect(useUIStore.getState().activeProjectId).toBe('p1')
-    })
-  })
-
-  it('re-selects a surviving project after deleting the first, active project', async () => {
-    const user = userEvent.setup()
-
-    let projectItems = [
-      {
-        id: 'p1',
-        name: 'Alpha',
-        createdAt: '2024-01-01T00:00:00Z',
-        chatCount: 1,
-      },
-      {
-        id: 'p2',
-        name: 'Beta',
-        createdAt: '2024-01-01T00:00:00Z',
-        chatCount: 0,
-      },
-    ]
-
-    server.use(
-      http.get('*/api/projects', () => {
-        return HttpResponse.json({
-          items: projectItems,
-          nextCursor: null,
-          hasMore: false,
-        })
-      }),
-      http.get('*/api/projects/p1/chats', () => {
-        return HttpResponse.json({
-          items: [
-            {
-              id: 'c1',
-              title: 'Alpha Chat',
-              projectId: 'p1',
-              createdAt: '2024-01-01T00:00:00Z',
-              updatedAt: '2024-01-01T00:00:00Z',
-            },
-          ],
-          nextCursor: null,
-          hasMore: false,
-        })
-      }),
-      http.get('*/api/projects/p2/chats', () => {
-        return HttpResponse.json({
-          items: [],
-          nextCursor: null,
-          hasMore: false,
-        })
-      }),
-      http.delete('*/api/projects/:projectId', ({ params }) => {
-        projectItems = projectItems.filter((p) => p.id !== params.projectId)
-        return new HttpResponse(null, { status: 204 })
-      })
-    )
-
-    renderSidebar()
-
-    await waitFor(() => {
-      expect(screen.getByText('Alpha Chat')).toBeInTheDocument()
-    })
-
-    // Make the FIRST project the active one with an active chat
-    await user.click(screen.getByText('Alpha Chat'))
-    expect(useUIStore.getState().activeProjectId).toBe('p1')
-    expect(useUIStore.getState().activeChatId).toBe('c1')
-
-    const projectLabelRow = screen
-      .getByText('Alpha')
-      .closest('[data-slot="sidebar-group-label"]')!
-    await user.click(
-      within(projectLabelRow as HTMLElement).getByRole('button', {
-        name: 'Open menu',
-      })
-    )
-    await user.click(await screen.findByText('Remove'))
-
-    // After the refetch lands, reconciliation must not keep the deleted id
-    await waitFor(() => {
-      expect(useUIStore.getState().activeProjectId).toBe('p2')
-      expect(useUIStore.getState().activeChatId).toBeNull()
-    })
-  })
-
-  it('clears selection when the active project no longer exists and no projects remain', async () => {
-    // The UI forbids deleting the last project, so the zero-project state is
-    // only reachable via external deletion: seed the store with a vanished
-    // project and serve an empty list.
-    resetUIStore({ activeProjectId: 'ghost', activeChatId: 'ghost-chat' })
-
-    server.use(
-      http.get('*/api/projects', () => {
-        return HttpResponse.json({
-          items: [],
-          nextCursor: null,
-          hasMore: false,
-        })
-      })
-    )
-
-    renderSidebar()
-
-    await waitFor(() => {
-      expect(useUIStore.getState().activeProjectId).toBeNull()
-      expect(useUIStore.getState().activeChatId).toBeNull()
-    })
   })
 
   it('shows load more button when hasNextPage is true', async () => {

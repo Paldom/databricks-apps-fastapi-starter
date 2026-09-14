@@ -2,10 +2,15 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import delete, or_, select, update
+from typing import Any
+
+from sqlalchemy import delete, or_, select, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import NotFoundError
+from app.core.pagination import decode_uuid_cursor, encode_cursor
 from app.models.chat_session_model import ChatSession
+from app.models.message_model import Message
 from app.models.project_model import Project
 
 
@@ -26,11 +31,14 @@ class ChatRepository:
                 ChatSession.user_id == owner_user_id,
                 ChatSession.project_id == project_id,
             )
-            .order_by(ChatSession.updated_at.desc())
+            .order_by(ChatSession.updated_at.desc(), ChatSession.id.desc())
         )
 
         if cursor:
-            query = query.where(ChatSession.id < uuid.UUID(cursor))
+            stamp, row_uuid = decode_uuid_cursor(cursor)
+            query = query.where(
+                tuple_(ChatSession.updated_at, ChatSession.id) < (stamp, row_uuid)
+            )
 
         query = query.limit(limit + 1)
         result = await self._session.execute(query)
@@ -38,7 +46,11 @@ class ChatRepository:
 
         has_more = len(rows) > limit
         items = rows[:limit]
-        next_cursor = str(items[-1].id) if has_more and items else None
+        next_cursor = (
+            encode_cursor(items[-1].updated_at, items[-1].id)
+            if has_more and items
+            else None
+        )
 
         return items, next_cursor, has_more
 
@@ -48,6 +60,7 @@ class ChatRepository:
         project_id: str,
         title: str,
     ) -> ChatSession:
+        await self._require_owned_project(owner_user_id, project_id)
         chat = ChatSession(
             user_id=owner_user_id,
             project_id=project_id,
@@ -108,7 +121,7 @@ class ChatRepository:
                 ChatSession.user_id == owner_user_id,
             )
         )
-        return result.rowcount > 0
+        return getattr(result, "rowcount", 0) > 0
 
     async def search_chats(
         self,
@@ -126,16 +139,23 @@ class ChatRepository:
                 ChatSession.created_at,
                 ChatSession.updated_at,
             )
-            .outerjoin(Project, ChatSession.project_id == Project.id)
+            .outerjoin(
+                Project,
+                (ChatSession.project_id == Project.id)
+                & (Project.owner_user_id == owner_user_id),
+            )
             .where(
                 ChatSession.user_id == owner_user_id,
                 ChatSession.title.ilike(f"%{q}%"),
             )
-            .order_by(ChatSession.updated_at.desc())
+            .order_by(ChatSession.updated_at.desc(), ChatSession.id.desc())
         )
 
         if cursor:
-            query = query.where(ChatSession.id < uuid.UUID(cursor))
+            stamp, row_uuid = decode_uuid_cursor(cursor)
+            query = query.where(
+                tuple_(ChatSession.updated_at, ChatSession.id) < (stamp, row_uuid)
+            )
 
         query = query.limit(limit + 1)
         result = await self._session.execute(query)
@@ -143,7 +163,11 @@ class ChatRepository:
 
         has_more = len(rows) > limit
         items = rows[:limit]
-        next_cursor = str(items[-1].id) if has_more and items else None
+        next_cursor = (
+            encode_cursor(items[-1].updated_at, items[-1].id)
+            if has_more and items
+            else None
+        )
 
         return (
             [
@@ -175,9 +199,13 @@ class ChatRepository:
                 ChatSession.created_at,
                 ChatSession.updated_at,
             )
-            .outerjoin(Project, ChatSession.project_id == Project.id)
+            .outerjoin(
+                Project,
+                (ChatSession.project_id == Project.id)
+                & (Project.owner_user_id == owner_user_id),
+            )
             .where(ChatSession.user_id == owner_user_id)
-            .order_by(ChatSession.updated_at.desc())
+            .order_by(ChatSession.updated_at.desc(), ChatSession.id.desc())
             .limit(limit)
         )
         result = await self._session.execute(query)
@@ -192,3 +220,114 @@ class ChatRepository:
             }
             for r in result.all()
         ]
+
+    async def get_owned_chat(
+        self, owner_user_id: str, chat_id: str
+    ) -> ChatSession | None:
+        result = await self._session.execute(
+            select(ChatSession).where(
+                ChatSession.id == uuid.UUID(chat_id),
+                ChatSession.user_id == owner_user_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def list_messages(
+        self,
+        owner_user_id: str,
+        chat_id: str,
+        cursor: str | None,
+        limit: int,
+    ) -> tuple[list[Message], str | None, bool]:
+        """Oldest first; the cursor points at the last message already seen."""
+        query = (
+            select(Message)
+            .where(
+                Message.session_id == uuid.UUID(chat_id),
+                Message.user_id == owner_user_id,
+            )
+            .order_by(Message.created_at.asc(), Message.id.asc())
+        )
+        if cursor:
+            stamp, row_uuid = decode_uuid_cursor(cursor)
+            query = query.where(
+                tuple_(Message.created_at, Message.id) > (stamp, row_uuid)
+            )
+        query = query.limit(limit + 1)
+        result = await self._session.execute(query)
+        rows = list(result.scalars().all())
+        has_more = len(rows) > limit
+        items = rows[:limit]
+        next_cursor = (
+            encode_cursor(items[-1].created_at, items[-1].id)
+            if has_more and items
+            else None
+        )
+        return items, next_cursor, has_more
+
+    async def list_recent_messages(
+        self, owner_user_id: str, chat_id: str, limit: int
+    ) -> list[Message]:
+        """The newest ``limit`` messages in chronological order (the model's context)."""
+        query = (
+            select(Message)
+            .where(
+                Message.session_id == uuid.UUID(chat_id),
+                Message.user_id == owner_user_id,
+            )
+            .order_by(Message.created_at.desc(), Message.id.desc())
+            .limit(limit)
+        )
+        result = await self._session.execute(query)
+        return list(reversed(list(result.scalars().all())))
+
+    async def add_message(
+        self,
+        owner_user_id: str,
+        chat_id: str,
+        role: str,
+        content: str,
+        parts: list[dict[str, Any]],
+        trace_id: str | None = None,
+    ) -> Message:
+        message = Message(
+            session_id=uuid.UUID(chat_id),
+            user_id=owner_user_id,
+            role=role,
+            content=content,
+            parts=parts,
+            trace_id=trace_id,
+            created_by=owner_user_id,
+            updated_by=owner_user_id,
+        )
+        self._session.add(message)
+        await (
+            self._session.execute(  # bump updated_at (onupdate) so the chat sorts first
+                update(ChatSession)
+                .where(ChatSession.id == uuid.UUID(chat_id))
+                .values(updated_by=owner_user_id)
+            )
+        )
+        await self._session.flush()
+        return message
+
+    async def set_genie_conversation(
+        self, owner_user_id: str, chat_id: str, conversation_id: str
+    ) -> None:
+        await self._session.execute(
+            update(ChatSession)
+            .where(
+                ChatSession.id == uuid.UUID(chat_id),
+                ChatSession.user_id == owner_user_id,
+            )
+            .values(genie_conversation_id=conversation_id)
+        )
+
+    async def _require_owned_project(self, owner_user_id: str, project_id: str) -> None:
+        result = await self._session.execute(
+            select(Project.id).where(
+                Project.id == project_id, Project.owner_user_id == owner_user_id
+            )
+        )
+        if result.scalar_one_or_none() is None:
+            raise NotFoundError("Project not found")

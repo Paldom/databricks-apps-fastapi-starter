@@ -1,22 +1,28 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    File,
-    Form,
-    HTTPException,
-    Query,
-    Response,
-    UploadFile,
-)
+from logging import Logger
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import ConfigDict
 
 from app.api.common.schemas import ApiModel, CursorPage, DocumentStatus
-from app.core.deps import get_document_service
+from app.core.config import Settings
+from app.core.databricks.jobs import JobsAdapter
+from app.core.databricks.uc_files import UcFilesAdapter
+from app.core.databricks.vector_search import VectorSearchAdapter
+from app.core.deps import (
+    get_document_service,
+    get_logger,
+    get_settings,
+    get_user_workspace_client,
+    get_workspace_client,
+)
+from app.core.errors import ResourceNotFoundError
+from app.models.user_dto import CurrentUser
+from app.core.deps import get_current_user
 from app.services.document_service import DocumentService
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -59,7 +65,7 @@ class DocumentStatusResponse(ApiModel):
     status: DocumentStatus
 
 
-def _to_document(d: dict[str, Any]) -> Document:
+def _to_document(d: dict) -> Document:
     return Document(
         id=d["id"],
         name=d["name"],
@@ -96,29 +102,6 @@ async def list_documents(
     )
 
 
-@router.post(
-    "",
-    operation_id="uploadDocument",
-    response_model=Document,
-    status_code=201,
-)
-async def upload_document(
-    file: UploadFile = File(...),
-    projectId: str | None = Form(default=None),
-    service: DocumentService = Depends(get_document_service),
-) -> Document:
-    content = await file.read()
-    storage_path = f"/uploads/{file.filename}"
-    result = await service.upload_document(
-        filename=file.filename or "unnamed",
-        content_type=file.content_type or "application/octet-stream",
-        size_bytes=len(content),
-        storage_path=storage_path,
-        project_id=projectId,
-    )
-    return _to_document(result)
-
-
 @router.delete(
     "/{documentId}",
     operation_id="deleteDocument",
@@ -126,11 +109,26 @@ async def upload_document(
 )
 async def delete_document(
     documentId: str,
+    request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
+    logger: Annotated[Logger, Depends(get_logger)],
     service: DocumentService = Depends(get_document_service),
 ) -> Response:
-    deleted = await service.delete_document(document_id=documentId)
-    if not deleted:
+    """Remove the file; the ingestion job then drops its chunks and index rows."""
+    doc = await service.get_document(documentId)
+    if doc is None:
         raise HTTPException(status_code=404, detail="Document not found")
+    if settings.databricks_integrations_enabled():
+        files = UcFilesAdapter(get_user_workspace_client(request), logger)
+        try:
+            await files.delete(doc["storage_path"])
+        except ResourceNotFoundError:
+            pass  # a retry after a failed job start: the file is already gone
+        if settings.job_id:  # a failure here keeps the record so the user can retry
+            await JobsAdapter(get_workspace_client(request), logger).run_now(
+                int(settings.job_id)
+            )
+    await service.delete_document(document_id=documentId)
     return Response(status_code=204)
 
 
@@ -141,9 +139,31 @@ async def delete_document(
 )
 async def get_document_status(
     documentId: str,
+    request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
+    logger: Annotated[Logger, Depends(get_logger)],
+    user: Annotated[CurrentUser, Depends(get_current_user)],
     service: DocumentService = Depends(get_document_service),
 ) -> DocumentStatusResponse:
-    result = await service.get_document_status(document_id=documentId)
-    if result is None:
+    """A pending document becomes ``ingested`` once its chunks are in the index."""
+    doc = await service.get_document(documentId)
+    if doc is None:
         raise HTTPException(status_code=404, detail="Document not found")
-    return DocumentStatusResponse(id=result["id"], status=result["status"])
+    if doc["status"] == "pending" and settings.has_vector_search_config():
+        hits = await VectorSearchAdapter(
+            get_workspace_client(request),
+            settings.vector_search_index_name or "",
+            logger,
+        ).similarity_search(
+            ["document_id"],
+            query_text=doc[
+                "id"
+            ],  # the filters select the document; the text is irrelevant
+            filters={"user_id": user.id, "document_id": doc["id"]},
+            num_results=1,
+            timeout=settings.vector_timeout_seconds,
+        )
+        if hits:
+            await service.mark_ingested(doc["id"])
+            doc["status"] = "ingested"
+    return DocumentStatusResponse(id=doc["id"], status=doc["status"])

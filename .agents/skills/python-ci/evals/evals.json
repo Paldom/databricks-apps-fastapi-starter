@@ -1,0 +1,83 @@
+{
+  "skill": "python-ci",
+  "cases": [
+    { "type": "should_trigger", "prompt": "set up github actions CI for my python package with lint, mypy and pytest across 3.10-3.13" },
+    { "type": "should_trigger", "prompt": "add an all-checks-passed job so I only need one required status check" },
+    { "type": "should_trigger", "prompt": "gh actions workflow for lint + typecheck + tests with uv" },
+    { "type": "should_trigger", "prompt": "cache uv in CI, dependency installs are slow" },
+    { "type": "should_trigger", "prompt": "harden our workflows — pin actions to commit SHAs and lock down GITHUB_TOKEN permissions" },
+    { "type": "should_trigger", "prompt": "run zizmor on our workflow files and fix what it finds" },
+    { "type": "should_trigger", "prompt": "make lint and tests required before anything merges to main" },
+    { "type": "should_trigger", "prompt": "shoud we migrate from branch protection to rulesets?" },
+    { "type": "should_trigger", "prompt": "merge queue says waiting for status checks but the PR ran green — whats wrong" },
+    { "type": "should_trigger", "prompt": "add a python version matrix to the ci workflow" },
+    { "type": "should_trigger", "prompt": "PR stuck on 'waiting for status to be reported' after I renamed the test job" },
+    { "type": "should_trigger", "prompt": "combine coverage from all the matrix legs and upload it once in CI" },
+    { "type": "should_trigger", "prompt": "Could you please configure continuous integration quality gates for this repository? We use ruff, pyright and pytest." },
+    { "type": "should_not_trigger", "prompt": "set up the tag-triggered PyPI publish workflow with trusted publishing" },
+    { "type": "should_not_trigger", "prompt": "automate version bumps and changelog generation when we cut a release" },
+    { "type": "should_not_trigger", "prompt": "add a pre-commit config with ruff and mypy and make CI run the same hooks" },
+    { "type": "should_not_trigger", "prompt": "CI is red with a bunch of ruff errors — fix the lint failures" },
+    { "type": "should_not_trigger", "prompt": "set coverage fail_under to 85 and enable branch coverage in pyproject" },
+    { "type": "should_not_trigger", "prompt": "set up tox so I can test across python versions locally" },
+    { "type": "should_not_trigger", "prompt": "enable dependabot updates for our github actions" },
+    { "type": "should_not_trigger", "prompt": "turn on secret scanning and push protection for this repo" },
+    { "type": "should_not_trigger", "prompt": "add CodeQL code scanning to the repository" },
+    { "type": "should_not_trigger", "prompt": "mypy fails in CI with a pile of attr-defined errors, fix them" },
+    { "type": "should_not_trigger", "prompt": "why did the tests fail on the ubuntu runner? summarize the log from the last run" },
+    { "type": "should_not_trigger", "prompt": "rerun the failed workflow jobs on PR #42" },
+    {
+      "type": "quality",
+      "prompt": "set up github actions CI for this python package — ruff, mypy, pytest on 3.10 through 3.13",
+      "expected_behavior": [
+        "creates .github/workflows/ci.yml with separate lint, type-check, and test jobs that run the tools the repo already configures, via uv",
+        "test job uses a matrix with quoted Python version strings so 3.10 is not parsed as the float 3.1",
+        "uses astral-sh/setup-uv with caching enabled and uv sync --locked instead of ad-hoc pip installs",
+        "adds an all-checks-passed aggregator job with if: always() that exits non-zero when any needed job failed or was cancelled",
+        "sets top-level permissions to contents: read and a concurrency group that cancels superseded PR runs"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "make CI checks required so nothing can merge to main when tests fail",
+      "expected_behavior": [
+        "recommends marking only the single aggregator job as required, never individual matrix legs",
+        "provides a concrete gh api or ruleset command rather than only UI click-path instructions",
+        "warns the check must have run at least once before it appears in the required-checks picker",
+        "handles merge queues by ensuring the workflow also triggers on merge_group, or confirms the repo does not use them",
+        "warns that a skipped job counts as success, so required jobs must not be silently skippable"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "harden our github actions workflows",
+      "expected_behavior": [
+        "pins every third-party action to a full 40-character commit SHA with a version comment, and explains the mutable-tag risk",
+        "adds or tightens per-workflow or per-job GITHUB_TOKEN permissions instead of relying on repo-wide write defaults",
+        "runs a pinned version of zizmor and triages its findings",
+        "flags pull_request_target and Actions-cache use as trust boundaries",
+        "stays out of Dependabot, CodeQL, and secret scanning, deferring them to supply-chain work"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "our PR is green but the merge queue is stuck waiting for status checks",
+      "expected_behavior": [
+        "diagnoses a missing merge_group trigger as the most likely cause and adds it to the workflow's on: block",
+        "checks that the required-check name in branch settings still matches an existing job or check name",
+        "explains why matrix or renamed jobs strand required checks and proposes the aggregator job as the durable fix",
+        "does not weaken or bypass protection settings just to unblock the merge"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "coverage upload from our test matrix produces duplicate reports — fix the workflow",
+      "expected_behavior": [
+        "uploads coverage data per matrix leg as artifacts whose names include the matrix values to avoid collisions",
+        "adds a downstream combine job that downloads all legs and produces one combined report",
+        "moves any coverage gate to the combine job instead of per-leg enforcement",
+        "notes that coverage.py settings such as relative_files belong in the repo's coverage config, not the workflow YAML"
+      ]
+    }
+  ]
+}

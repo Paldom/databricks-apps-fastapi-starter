@@ -1,80 +1,54 @@
 name: Snyk Security
 
 on:
-  pull_request:
-    branches: [main]
   push:
     branches: [main]
   schedule:
-    - cron: "0 6 * * 1"    # Weekly Monday 06:00 UTC
+    - cron: '0 6 * * 1' # Weekly Monday 06:00 UTC
   workflow_dispatch:
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   snyk:
+    # Needs the SNYK_TOKEN secret; enable with the repository variable SNYK_ENABLED=true.
+    if: vars.SNYK_ENABLED == 'true'
     runs-on: ubuntu-latest
-    # Requires a Snyk account; forks/clones without the secret skip instead of failing.
-    if: ${{ secrets.SNYK_TOKEN != '' }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@f98e06938123ccabd21905ea5d0069192241f9f1 # v8.3.1
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
 
       - name: Set up Python
         run: uv python install 3.11
 
-      - name: Install dependencies
-        run: cd backend && uv sync --locked
-
       - name: Install Snyk CLI
-        # Pinned global CLI tool; no project lockfile applies here.
-        run: npm install -g snyk@1.1305.2 # zizmor: ignore[adhoc-packages]
+        uses: snyk/actions/setup@12140f4059e244892ae643824a95459a102120dd # master (2026-08-03)
 
       # Failing gate — exits non-zero on high/critical vulnerabilities
       - name: Snyk open-source test
-        run: snyk test --file=backend/requirements.txt --severity-threshold=high --sarif-file-output=snyk-oss.sarif
+        run: |
+          uv export --frozen --no-hashes --no-emit-project --directory backend -o /tmp/requirements.txt
+          snyk test --file=/tmp/requirements.txt --package-manager=pip --severity-threshold=high
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
       - name: Snyk code test (SAST)
-        run: snyk code test --sarif-file-output=snyk-code.sarif || true
+        run: snyk code test
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
       - name: Snyk IaC test
-        run: snyk iac test databricks.yml resources/*.yml --sarif-file-output=snyk-iac.sarif || true
+        run: snyk iac test databricks.yml resources/*.yml
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
-      - name: Upload OSS SARIF
-        uses: github/codeql-action/upload-sarif@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v4.36.3
-        continue-on-error: true
-        with:
-          sarif_file: snyk-oss.sarif
-          category: snyk-oss
-
-      - name: Upload Code SARIF
-        uses: github/codeql-action/upload-sarif@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v4.36.3
-        continue-on-error: true
-        with:
-          sarif_file: snyk-code.sarif
-          category: snyk-code
-
-      - name: Upload IaC SARIF
-        uses: github/codeql-action/upload-sarif@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v4.36.3
-        continue-on-error: true
-        with:
-          sarif_file: snyk-iac.sarif
-          category: snyk-iac
-
       - name: Snyk monitor (main only)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: snyk monitor --file=backend/requirements.txt
+        run: |
+          uv export --frozen --no-hashes --no-emit-project --directory backend -o /tmp/requirements.txt
+          snyk monitor --file=/tmp/requirements.txt --package-manager=pip
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}

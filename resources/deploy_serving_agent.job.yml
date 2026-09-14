@@ -1,0 +1,25 @@
+# Optional serving agent. First enablement: `databricks bundle run deploy_serving_agent`, then set
+# serving_agent_endpoint (and bind it to the app) and redeploy.
+resources:
+  jobs:
+    deploy_serving_agent:
+      name: DeployServingAgent-${var.resource_name_suffix}
+      max_concurrent_runs: 1
+      environments:
+        - environment_key: serverless
+          spec:
+            client: "3"
+            dependencies:
+              - mlflow[databricks]>=3.14,<4
+              - databricks-openai
+              - databricks-sdk
+      tasks:
+        - task_key: deploy_serving_agent
+          environment_key: serverless
+          notebook_task:
+            notebook_path: ../notebooks/serving/deploy.py
+            base_parameters:
+              serving_agent_endpoint: serving-agent-${var.resource_name_suffix}
+              serving_agent_uc_model_name: ${var.rag_catalog_name}.${resources.schemas.rag_schema.name}.serving_agent
+              serving_agent_experiment_id: ${resources.experiments.serving_agent_experiment.id}
+              serving_agent_chat_model: ${var.serving_agent_chat_model}

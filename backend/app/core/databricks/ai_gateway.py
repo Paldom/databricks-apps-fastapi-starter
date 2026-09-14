@@ -5,6 +5,7 @@ from openai import AsyncOpenAI, OpenAIError
 from app.core.errors import ExternalServiceError
 from app.core.observability import get_tracer, safe_attr, tag_exception
 
+
 _tracer = get_tracer()
 
 

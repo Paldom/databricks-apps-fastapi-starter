@@ -1,0 +1,80 @@
+{
+  "skill": "python-supply-chain",
+  "cases": [
+    { "type": "should_trigger", "prompt": "set up dependabot for this repo" },
+    { "type": "should_trigger", "prompt": "harden this python repo against supply chain attacks" },
+    { "type": "should_trigger", "prompt": "audit our dependencies for known vulnerabilities" },
+    { "type": "should_trigger", "prompt": "enable secret scanning and push protection on this repository" },
+    { "type": "should_trigger", "prompt": "dependabot is spamming us with update PRs, group them and add a cooldown" },
+    { "type": "should_trigger", "prompt": "can u add a sbom to our release artifacts" },
+    { "type": "should_trigger", "prompt": "setup codeql scannig for this python package" },
+    { "type": "should_trigger", "prompt": "add openssf scorecard" },
+    { "type": "should_trigger", "prompt": "someone committed an AWS key last month. make sure that never happens again" },
+    { "type": "should_trigger", "prompt": "what's the minimum security setup for a public python repo?" },
+    { "type": "should_trigger", "prompt": "protect .github and our agent config files with CODEOWNERS" },
+    { "type": "should_trigger", "prompt": "should we use renovate or dependabot for a uv project?" },
+    { "type": "should_trigger", "prompt": "hold newly published pypi releases for a week before our builds pull them in" },
+    { "type": "should_not_trigger", "prompt": "pin our github actions to commit SHAs" },
+    { "type": "should_not_trigger", "prompt": "run zizmor on the workflows and fix what it finds" },
+    { "type": "should_not_trigger", "prompt": "set up trusted publishing so we can publish to PyPI without tokens" },
+    { "type": "should_not_trigger", "prompt": "add a gitleaks pre-commit hook" },
+    { "type": "should_not_trigger", "prompt": "set up CI with lint, type check and test jobs" },
+    { "type": "should_not_trigger", "prompt": "make the checks required and add a branch ruleset for main" },
+    { "type": "should_not_trigger", "prompt": "switch this project to uv and commit the lockfile" },
+    { "type": "should_not_trigger", "prompt": "there's a hardcoded password in config.py, refactor it to read from the environment" },
+    { "type": "should_not_trigger", "prompt": "upgrade fastapi to the latest version and fix the breaking changes" },
+    { "type": "should_not_trigger", "prompt": "cut a release, bump the version and update the changelog" },
+    {
+      "type": "quality",
+      "prompt": "harden this repo's supply chain",
+      "expected_behavior": [
+        "audits the current posture first (e.g. runs the bundled check script or inspects .github/) instead of blindly adding files",
+        "creates .github/dependabot.yml with a pip or uv ecosystem entry, a weekly schedule, grouping, and a cooldown",
+        "enables or gives exact commands to enable secret scanning and push protection, and sets up CodeQL scanning",
+        "adds a CODEOWNERS rule covering .github/ and agent config paths",
+        "does not recommend blanket auto-merge of Dependabot/Renovate PRs and says why"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "set up dependabot with a cooldown for our uv project",
+      "expected_behavior": [
+        "uses the uv package ecosystem for a uv.lock project (or pip with a stated reason) rather than only npm-style examples",
+        "configures cooldown with default-days and explains that security-advisory updates bypass the cooldown",
+        "warns about the known cooldown bug where frequently-released dependencies can get stuck because only the latest release is evaluated",
+        "groups minor and patch updates to cut PR noise and sets a sane open-pull-requests-limit",
+        "does not enable auto-merge for the bot's PRs"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "audit our dependencies for vulnerabilities",
+      "expected_behavior": [
+        "audits the project's real dependency set (lockfile or exported pinned requirements), not the tool's own ephemeral environment",
+        "pins the audit tool version when invoking it via uvx or pip",
+        "reports findings with affected versions and available fix versions instead of blind-upgrading everything",
+        "offers a recurring option (scheduled workflow or Dependabot security updates) so the audit is not one-shot"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "generate an SBOM and attach provenance to our releases",
+      "expected_behavior": [
+        "generates a CycloneDX or SPDX SBOM from the lockfile or environment with a pinned tool, or uses GitHub's dependency-graph SBOM export",
+        "wires SBOM/provenance attestation into the release workflow or defers the publish workflow itself to the python-release skill",
+        "states that an attestation proves where an artifact was built, not that it is safe, and shows how consumers verify it",
+        "mentions the permissions the attestation step needs (id-token and attestations write)"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "we found an AWS key in our git history",
+      "expected_behavior": [
+        "instructs rotating/revoking the credential first, before any history rewriting",
+        "explains that rewriting history does not un-leak a secret already cloned, forked, or cached",
+        "enables push protection and secret scanning so the class of incident is blocked going forward",
+        "adds a CI secret-scan backstop (e.g. gitleaks) that fails the build on new findings"
+      ]
+    }
+  ]
+}

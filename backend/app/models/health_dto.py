@@ -26,6 +26,7 @@ class ReadyResponse(BaseModel):
 
 class DetailedHealthResponse(BaseModel):
     ok: bool
+    version: str | None = None
     database: DependencyCheck
     workspace: DependencyCheck
     ai: DependencyCheck

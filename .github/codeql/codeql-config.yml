@@ -1,0 +1,6 @@
+name: CodeQL config
+# Vendored agent skills are documentation and helper scripts for coding agents, not app code.
+paths-ignore:
+  - .agents/**
+  - '**/node_modules/**'
+  - backend/public/**

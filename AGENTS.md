@@ -1,90 +1,138 @@
 # AGENTS.md
 
-Guidance for AI coding assistants. This is the repo-wide rules file; `CLAUDE.md`
-only imports it. Layer-specific guidance: [`backend/AGENTS.md`](backend/AGENTS.md),
-[`frontend/AGENTS.md`](frontend/AGENTS.md). Design contract (mission, golden path,
-module mechanism, intentional dualities): [`DESIGN.md`](DESIGN.md) — read it before
-adding or removing capabilities.
+Rules for coding agents (Claude Code, Codex, Cursor, Gemini, Copilot) working in this repository. `CLAUDE.md`
+imports this file; `.gemini/settings.json` points Gemini at it; Codex, Cursor and Copilot read it natively.
+Hooks and pre-commit entries are bash: on Windows use Git Bash or WSL. Keep it short and specific; anything that must always happen is enforced by hooks,
+pre-commit and CI, not by prose.
 
-## Project overview
+## What this is
 
-A production-shaped **FastAPI + React starter for Databricks Apps**: chat over a
-LangGraph supervisor with pluggable specialist agents (MLflow `ResponsesAgent`
-contract), Lakebase persistence, RAG ingestion jobs, MLflow tracing/evals, deployed
-exclusively via Databricks Asset Bundles.
+A production template for data and AI apps on **Databricks Apps**: FastAPI backend (Python 3.11, SQLAlchemy async,
+Alembic, Pydantic Settings), React 19 + TypeScript + Vite frontend served from `backend/public`, a LangGraph
+supervisor that routes to specialist tools (remote Databricks App, Model Serving endpoint, Genie Agent, Knowledge
+Assistant or direct AI Search retrieval), Lakebase Postgres for app state, MLflow tracing and evaluation, and
+Declarative Automation Bundles (`databricks.yml` + `resources/*.yml`) as the only deployment path.
 
-**Key principle**: everything is resource-based. Databricks resources are bound in
-`resources/*.yml` and injected as env vars — never hardcode resource IDs.
+Principle: **everything is resource-based**. Databricks resources are bound to the app in `resources/fastapi_app.app.yml` and
+arrive as environment variables. Never hardcode resource names or IDs; never read `os.getenv` outside
+`backend/app/core/config.py`.
 
-## Repository structure
+## Layout
 
 ```
-backend/            # Python app (uv) — FastAPI, SQLAlchemy, Alembic; see backend/AGENTS.md
-  app/              # api/ chat/ agents/ services/ repositories/ core/ middlewares/ models/ modules/
-  alembic/ tests/
-frontend/           # React 19 + TS + Vite; see frontend/AGENTS.md
-notebooks/          # evals/ (agent eval job), serving/ (ResponsesAgent + deploy), jobs/ (RAG)
-resources/          # Bundle resource YAML (app, jobs, database, experiments, …)
-resources/modules/  # Optional-capability modules (toggled via databricks.yml include list)
-docs/ # Copy-paste recipes for platform features not in the core path
-databricks.yml      # Bundle config with dev/staging/prod targets
-Makefile            # Root orchestration
+backend/app/
+  api/            FastAPI controllers, mounted at /api      (may import services)
+  services/       business logic                            (may import repositories)
+  repositories/   SQLAlchemy persistence, flush-only        (may import models)
+  models/         ORM models and DTOs
+  core/           config, bootstrap, runtime, deps, db, databricks clients, mlflow, observability, pagination
+  chat/           LangGraph supervisor, tools, registry, parts (stream reduction), title generation
+  agents/         AgentAdapter contract + app/serving/genie adapters
+  middlewares/    auth headers, OBO, security headers, request size
+backend/alembic/  migrations (run at app start)
+backend/tests/    pytest
+frontend/src/     app/ (providers, router), components/, hooks/, lib/assistant/ (NDJSON chat runtime), shared/api/ (Orval client)
+notebooks/        jobs (RAG ingestion), evals (MLflow), serving (optional Model Serving agent)
+resources/        one resource per <resource_key>.<resource_type>.yml (app, postgres_*, schema, volume, vector_search_endpoint, job, experiment, secret_scope)
+scripts/          postdeploy_grants.sh (bundle hook)
+docs/             deep dives (deployment, app resources, Lakebase, capabilities, agents, RAG, evaluation, observability); DESIGN.md holds the design contract
 ```
+
+Layer rules are enforced by import-linter (`backend/pyproject.toml`): `api → services → repositories → models`, and
+`core` never imports `chat` or `agents`.
 
 ## Commands
 
 ```bash
-# Local development
-cp backend/env.example backend/.env
-make install-backend && make dev-db && make migrate-up
-make dev                                  # API + frontend concurrently
-
-# Quality gate — run from backend/ before calling any backend task done
-uv run ruff check . && uv run ruff format --check . && uv run mypy . && uv run pytest --cov
-
-# Regenerate contracts after changing routes/DTOs (openapi + frontend client + requirements)
-make generate
-
-# Deployment
-databricks bundle validate -t dev && databricks bundle deploy -t dev
-databricks bundle run -t dev fastapi_app
+make setup                 # uv sync, npm ci, pre-commit hooks
+make dev-db && make migrate-up && make dev
+make check                 # offline gate: pre-commit, ruff, mypy, bandit, pytest, frontend build (CI runs the same)
+make generate              # export OpenAPI, regenerate the frontend client and env.example (commit the result)
+cd backend && uv run pytest -q            # or: uv run ruff check . ; uv run mypy app
+cd frontend && npm run lint && npm run typecheck && npx vitest run
+databricks bundle validate -t dev --profile "$DATABRICKS_CONFIG_PROFILE"
+databricks bundle deploy -t dev --profile "$DATABRICKS_CONFIG_PROFILE"   # one step: builds the frontend, provisions, starts the app
 ```
 
-## Environment & definition of done
+- Python deps: `uv add` / `uv add --dev` in `backend/`. Never `pip install`. Commit `uv.lock`.
+- Node deps: `npm` in `frontend/`. Commit `package-lock.json`.
+- Migrations: `make migrate-new MIGRATION_MESSAGE="..."`; they run automatically at app start.
 
-- Use `uv` for all backend Python — never `pip install`, `poetry`, or bare
-  `python`. Add deps with `cd backend && uv add <pkg>` (dev: `uv add --dev`).
-  Never edit `uv.lock` by hand. Tool pins: ruff==0.15.20, mypy==2.1.0.
-- The full backend quality gate (above, ~10s) must pass before presenting backend
-  work as complete. Run it; do not assume. Claude Code hooks in `.claude/` enforce
-  this (lint on edit, gate on stop) — hooks are convenience, CI is authoritative.
-- Never weaken a gate to pass it: no lowering coverage thresholds, no skipping or
-  deleting failing tests, no `# type: ignore`/`# noqa` without justification, no
-  `|| true`, no `git commit --no-verify`.
-- Flag — do not silently change — anything touching auth/OBO middleware, dependency
-  declarations, lockfiles, `.github/workflows/`, or `.claude/`. New dependencies
-  need explicit human sign-off; verify a package exists and is established first.
-- Follow `DESIGN.md`'s decision rule for every addition: golden path → core;
-  otherwise a module or a docs/ page. Never add a second way to do something
-  without a duality-register entry.
+## Definition of done
 
-## Bundle targets
+A task is done when `make check` passes, the change is covered by a test where behaviour changed, generated files
+are regenerated (`make generate`), and `git status` is clean. Never make a gate pass by weakening it: no lowering
+coverage thresholds, no new `# type: ignore` / `# noqa` / mypy `disable_error_code` / ruff `ignore` without a
+one-line reason, no `continue-on-error`, `|| true`, `--no-verify` or skipped hooks. If a check cannot pass, say
+so and stop.
 
-| Target | Mode | OBO | Log level |
-|--------|------|-----|-----------|
-| `dev` | development | no | DEBUG |
-| `staging` | default | no | INFO |
-| `prod` | default | yes | INFO |
+## Guardrails (what runs automatically)
 
-## Databricks AI Dev Kit & references
+| Layer       | Where                                      | What                                                                                                                                                                                                 |
+| ----------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rules       | this file                                  | context only; can be forgotten under pressure                                                                                                                                                        |
+| Agent hooks | `.claude/settings.json` → `.claude/hooks/` | PreToolUse denies `--no-verify`, force-push/main push, bare pip, broad `rm -rf`, non-dev bundle deploys; PostToolUse runs ruff/prettier on the edited file; Stop runs pre-commit over the change set |
+| Commit gate | `.pre-commit-config.yaml`                  | ruff, mypy, import-linter, detect-secrets, uv lock check, prettier, eslint, schema checks; tsc + pytest on pre-push                                                                                  |
+| CI          | `.github/workflows/`                       | the same config plus tests with coverage and `bundle validate`; the only real gate                                                                                                                   |
 
-The [AI Dev Kit](https://github.com/databricks-solutions/ai-dev-kit) provides the
-`databricks` MCP server (`.mcp.json`) plus skills in `.claude/skills/`.
+Hooks are a convenience for agents, not a security boundary. Committed hooks execute on every contributor's
+machine, so changes under `.claude/`, `.agents/`, `.github/` and `resources/` need human review (`CODEOWNERS`).
 
-Docs: [Databricks Apps](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/)
-([resources](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/resources),
-[auth](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/auth)) ·
-[Asset Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/resources) ·
-[MLflow tracing](https://docs.databricks.com/aws/en/mlflow3/genai/tracing/) ·
-[Genie Conversation API](https://docs.databricks.com/aws/en/genie/conversation-api) ·
-[LangGraph memory](https://docs.langchain.com/oss/python/langgraph/memory)
+## Working rules
+
+- Read the code you change end to end before editing; fix root causes in the shared function, not the caller.
+- Prefer deleting over adding. No abstractions with one implementation, no config for values that never change.
+  Review every feature with the `ponytail-review` skill (over-engineering hunt) before calling it done.
+- Databricks CLI calls always carry `--profile "$DATABRICKS_CONFIG_PROFILE"`. From an agent session only the `dev`
+  target may be deployed or run; `bundle destroy` and staging/prod deployments are human actions.
+- Never print tokens, client secrets or `.env` contents. Never commit `.env`, machine-specific MCP config or a
+  secrets baseline that contains a real secret.
+- Flag for human review: auth and OBO changes, new dependencies, lockfile changes, migrations, bundle resources.
+- Optional integrations must degrade cleanly: routes return 503 with a clear message when a resource is not
+  configured; startup never crashes because an optional resource is missing.
+
+## Backend conventions
+
+- Settings: one `Settings` class in `core/config.py`; `backend/env.example` is generated from it (`make generate`).
+- Auth: Databricks Apps forward `X-Forwarded-User`/`-Email`; `get_current_user` guards every route that reads or
+  writes user data, including chat streaming and agent invocations. Local dev uses the fallback user while `ENVIRONMENT=development` unless
+  `ENABLE_LOCAL_DEV_AUTH_FALLBACK=false` (the bundle sets it).
+- Databricks clients: use the SDK `WorkspaceClient` and `databricks-openai` / `databricks-langchain` clients that
+  refresh OAuth tokens; never build an OpenAI client from a static token.
+- Chat: `/api/chat/stream` needs an owned chat id; the backend loads the stored transcript, appends the new user
+  message, emits NDJSON events `text-delta`, `tool-call-begin`, `tool-call-delta`, `tool-result`, `heartbeat`,
+  `done`, `error`, and stores the assistant message (text + content parts) before `done`. The schema is exported to
+  `backend/openapi.yaml` and the frontend client is generated from it. Tools raise `ToolException` with a fixed
+  public text; per-tool and per-turn deadlines live in `Settings`. Specialists go through `agents/adapters/*`.
+- Identity in tools: never from tool arguments; read `config["configurable"]` (`ChatContext.configurable()`).
+  Direct AI Search retrieval filters by the caller's `user_id`; a bound Knowledge Assistant is a shared corpus by design.
+- Errors: never send `str(exc)` to clients; log it with the request id and return a generic message plus the
+  MLflow trace id.
+- Tests: `backend/tests` mock external I/O at the adapter boundary only; never stub hard dependencies
+  (`langgraph`, `mlflow`, `sqlalchemy`) with fake modules.
+
+## Frontend conventions
+
+- `frontend/src/lib/assistant/` holds the NDJSON parser, the assistant-ui model adapter and the chat runtime; keep
+  the wire contract in sync with `backend/openapi.yaml` (`npm run api:gen` after backend changes).
+- Data fetching through the generated Orval client and TanStack Query; no raw `fetch` in components.
+- UI: shadcn/ui components under `components/ui`; strings through i18next (`public/locales`); every interactive
+  control has an accessible name. Use the `hallmark` skill for visual work.
+- Tests: vitest + Testing Library + MSW handlers in `src/mocks`; keep coverage thresholds in `vite.config.ts`.
+- Build output goes to `backend/public` (gitignored) and is produced by the bundle `prebuild` script at deploy time.
+
+## Bundle conventions
+
+- One app definition (`resources/fastapi_app.app.yml`); one resource per `<name>.<resource_type>.yml` file (the CLI recommends it); target differences are variables (`environment`, `log_level`, `enable_obo`, `enable_docs`,
+  `enable_examples`). Optional bindings (Knowledge Assistant, serving agent, Genie, remote app) and their env
+  entries live in a target (lists merge by `name`); the Apps API rejects empty env values and empty bindings.
+- Jobs run on serverless `environments` (`client: "3"`); Lakebase is an autoscaling project; the AI Search endpoint
+  and app telemetry destinations are resources; the app and evals experiments store traces in UC (`trace_location`, immutable once set); `lifecycle.started: true` so deploy also starts the app; `experimental.scripts` holds the `prebuild`
+  (frontend) and `postdeploy` (UC grants for the app service principal) hooks.
+- The Delta Sync index is created by the ingestion job, not declared (its source table must exist first).
+- Validate every target before committing bundle changes: `databricks bundle validate --strict -t dev|staging|prod --profile "$DATABRICKS_CONFIG_PROFILE"` (CI runs it strict: one resource per `<key>.<type>.yml`, no warnings).
+
+## Agent tooling
+
+Skills are tracked in `.agents/skills`; per-agent directories (`.claude/skills`, `.cursor/skills`, ...) are gitignored symlinks to it. MCP servers are configured in `.mcp.json`
+(Claude), `.cursor/mcp.json` and `.vscode/mcp.json`; the Databricks MCP server comes from the AI Dev Kit plugin.

@@ -1,0 +1,8 @@
+resources:
+  volumes:
+    rag_upload_volume:
+      catalog_name: ${var.rag_catalog_name}
+      schema_name: ${resources.schemas.rag_schema.name}
+      name: ${var.rag_volume_name}
+      volume_type: MANAGED
+      comment: Uploaded knowledge files for ingestion

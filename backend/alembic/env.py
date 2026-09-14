@@ -1,24 +1,22 @@
 from __future__ import annotations
 
 import asyncio
-from logging.config import fileConfig
+import logging
 
-import app.models  # noqa: F401 - register all models with Base.metadata
 from alembic import context
+from sqlalchemy import text
 from app.core.config import settings
 from app.core.db.base import Base
 from app.core.db.engine import create_async_engine_from_settings
+import app.models  # noqa: F401 – register all models with Base.metadata
 
-# this is the Alembic Config object, which provides
-# access to the values within the .ini file in use.
 config = context.config
-
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
-
 target_metadata = Base.metadata
+
+# Every app instance migrates on start; the transaction-scoped advisory lock serialises
+# them so a second instance waits and then finds the schema already at head.
+MIGRATION_LOCK_KEY = 8_213_047_001
+LOCK_TIMEOUT = "120s"
 
 
 def run_migrations_offline() -> None:
@@ -38,32 +36,26 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection) -> None:  # type: ignore[no-untyped-def]
-    from sqlalchemy import text
-
-    # Lakebase (Postgres 15+) denies CREATE in `public` to non-owners; the
-    # app owns its own schema instead. Idempotent, and safe on local docker.
-    schema = settings.pg_app_schema
-    connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema}"'))
-    connection.execute(text(f'SET search_path TO "{schema}", public'))
-    # The two statements above autobegin a SQLAlchemy transaction. It must be
-    # committed here: otherwise alembic's begin_transaction() joins it as a
-    # nested no-op, nothing ever commits, and the connection close silently
-    # rolls back the entire upgrade. SET search_path is session-scoped and
-    # survives the commit.
-    connection.commit()
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        version_table_schema=settings.db_schema,
+    )
     with context.begin_transaction():
+        connection.execute(text(f"SET LOCAL lock_timeout = '{LOCK_TIMEOUT}'"))
+        connection.execute(
+            text("SELECT pg_advisory_xact_lock(:key)"), {"key": MIGRATION_LOCK_KEY}
+        ).scalar()
+        logging.getLogger("alembic.runtime.migration").info(
+            "Migration advisory lock acquired (key=%s)", MIGRATION_LOCK_KEY
+        )
+        # The connecting identity becomes the owner; search_path points here.
+        connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{settings.db_schema}"'))
         context.run_migrations()
 
 
 async def run_migrations_online() -> None:
-    """Run migrations using the app's engine.
-
-    This reuses ``create_async_engine_from_settings`` which registers the
-    OAuth ``do_connect`` hook when running on Databricks.  Migrations
-    therefore authenticate the same way the app does — no separate password
-    or secret is needed.
-    """
+    """Run migrations through the app's engine (same OAuth hook as the app)."""
     connectable = create_async_engine_from_settings(settings)
 
     async with connectable.connect() as connection:

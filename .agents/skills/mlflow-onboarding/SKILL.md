@@ -21,7 +21,7 @@ Before recommending tutorials or integration steps, determine which use case the
 Search the user's project for imports and usage patterns that indicate the use case:
 
 **GenAI indicators** (any of these suggest GenAI):
-- Imports from LLM client libraries: `openai`, `anthropic`, `google.generativeai`, `langchain`, `langchain_openai`, `langgraph`, `llamaindex`, `litellm`, `autogen`, `crewai`, `dspy`
+- Imports from LLM client libraries: `openai`, `anthropic`, `google.generativeai`, `google.genai`, `langchain`, `langchain_openai`, `langgraph`, `llamaindex`, `litellm`, `autogen`, `crewai`, `dspy`
 - Imports from MLflow GenAI modules: `mlflow.genai`, `mlflow.tracing`, `mlflow.openai`, `mlflow.langchain`
 - Usage of chat completions, embeddings, or agent frameworks
 - Prompt templates or prompt engineering code
@@ -136,6 +136,7 @@ mock_chat("What is MLflow?")
    # Pick the one that matches the user's LLM provider:
    mlflow.openai.autolog()       # OpenAI SDK
    mlflow.anthropic.autolog()    # Anthropic SDK
+   mlflow.gemini.autolog()       # Google Gemini (google-genai SDK)
    mlflow.langchain.autolog()    # LangChain / LangGraph
    mlflow.litellm.autolog()      # LiteLLM
    ```
@@ -162,6 +163,31 @@ mock_chat("What is MLflow?")
    ```
 
 **Where to add it:** Find the application's entry point or initialization module and add the autologging call there. Search for the main LLM client instantiation (e.g., `openai.OpenAI()`, `ChatOpenAI()`) to find the right location.
+
+4. **Prompt Registry** (optional) — MLflow can version, store, and load prompts so application code loads a prompt by URI instead of hard-coding the template.
+
+   ```python
+   import mlflow
+
+   # Register a prompt version
+   prompt_version = mlflow.genai.register_prompt(
+       name="my_prompt",
+       template="Answer the user's question: {{question}}",
+   )
+   print(prompt_version.uri)  # prompts:/my_prompt/1
+
+   # Load it back in application code
+   prompt = mlflow.genai.load_prompt("prompts:/my_prompt/1")
+   ```
+
+   **On Databricks (Unity Catalog):** prompts are stored under a UC `catalog.schema`, so `name` is a three-part `catalog.schema.my_prompt` and the workspace must have the Prompt Registry preview enabled (account admin -> Previews -> "Prompt Registry"). On success `register_prompt` logs a workspace UI link and auto-links the active experiment's Prompts tab to `catalog.schema`. If that tab is empty after registering, the active experiment was not auto-linked (older mlflow versions do not set this tag automatically). Set it manually:
+
+   ```python
+   mlflow.set_experiment_tag(
+       "mlflow.promptRegistryLocation",
+       "catalog.schema",  # two-part: catalog.schema (no prompt name)
+   )
+   ```
 
 ### Traditional ML Integration
 

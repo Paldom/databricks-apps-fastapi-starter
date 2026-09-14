@@ -1,179 +1,115 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
-  merge_group:
+  workflow_call: # Deploy runs this on pushes to main
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  backend-lint:
-    name: Backend lint
+  gate:
+    name: Quality gate
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.sha }} # detached: the no-commit-to-branch hook must not see a local main
           persist-credentials: false
-      - uses: astral-sh/setup-uv@f98e06938123ccabd21905ea5d0069192241f9f1 # v8.3.1
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: true
-          python-version: '3.11'
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
       - name: Install backend (locked)
-        run: cd backend && uv sync --locked
-      - name: Ruff check
-        run: cd backend && uv run ruff check .
-      - name: Ruff format check
-        run: cd backend && uv run ruff format --check .
+        run: uv sync --frozen --no-build --no-install-project --directory backend --extra dev
+
+      - name: Install frontend (locked)
+        run: npm ci --ignore-scripts --prefix frontend
+
+      - name: Commit gate (same config as local pre-commit and the agent Stop hook)
+        run: uv run --frozen --no-sync --no-build --directory backend pre-commit run --all-files --show-diff-on-failure
+
+      - name: Backend tests with coverage
+        run: uv run --frozen --no-sync --no-build --directory backend pytest -q --cov=app --cov-branch --cov-report=xml --cov-report=term
+
       - name: Bandit
-        run: cd backend && uv run bandit -r app -c pyproject.toml -q
+        run: uv run --frozen --no-sync --no-build --directory backend bandit -r app -c pyproject.toml -q
 
-  backend-typecheck:
-    name: Backend typecheck
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@f98e06938123ccabd21905ea5d0069192241f9f1 # v8.3.1
-        with:
-          enable-cache: true
-          python-version: '3.11'
-      - name: Install backend (locked)
-        run: cd backend && uv sync --locked
-      - name: Mypy
-        run: cd backend && uv run mypy .
+      - name: Frontend typecheck
+        run: npm --prefix frontend run typecheck
 
-  backend-test:
-    name: Backend test (Python ${{ matrix.python-version }})
+      - name: Frontend tests with coverage
+        run: npm --prefix frontend run test -- --run --coverage
+
+      - name: Frontend build
+        run: npm --prefix frontend run build
+
+      - name: Generated files are committed
+        run: |
+          uv run --frozen --no-sync --no-build --directory backend python scripts/export_openapi.py
+          npm --prefix frontend run api:gen
+          if [ -n "$(git status --porcelain -- backend/openapi.yaml frontend/src/shared/api/generated)" ]; then
+            git status --porcelain -- backend/openapi.yaml frontend/src/shared/api/generated
+            echo "::error::Generated files are out of sync. Run: make generate"
+            exit 1
+          fi
+
+  bundle-validate:
+    name: Bundle validate (${{ matrix.target }})
+    # Needs a workspace: set repository variables DATABRICKS_HOST and DATABRICKS_CLIENT_ID
+    # (service principal with a GitHub OIDC federation policy). Skipped otherwise.
+    if: vars.DATABRICKS_HOST != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
-        # requires-python is ">=3.11,<3.12"; extend when the range widens.
-        python-version: ['3.11']
+        target: [dev, staging, prod]
+    env:
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_AUTH_TYPE: github-oidc
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@f98e06938123ccabd21905ea5d0069192241f9f1 # v8.3.1
-        with:
-          enable-cache: true
-          python-version: '3.11'
-      - name: Install backend (locked)
-        run: cd backend && uv sync --locked
-      - name: Pytest with coverage gate
-        env:
-          HYPOTHESIS_PROFILE: ci
-        run: cd backend && uv run pytest --cov
 
-  frontend:
-    name: Frontend build (Node 24)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: databricks/setup-cli@fd1d91d9d3b5f1191a2aae9206f7c68a997dc52d # v1.16.0
         with:
-          persist-credentials: false
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with:
-          # Keep in sync with "engines" in frontend/package.json
-          node-version: '24'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install frontend
-        run: cd frontend && npm ci
-      - name: Build frontend
-        run: cd frontend && npm run build
+          version: 1.16.0
 
-  contracts:
-    name: Contract & Frontend checks (Node 24)
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@f98e06938123ccabd21905ea5d0069192241f9f1 # v8.3.1
-        with:
-          enable-cache: true
-          python-version: '3.11'
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with:
-          node-version: '24'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install backend (locked)
-        run: cd backend && uv sync --locked
-      - name: Install frontend
-        run: cd frontend && npm ci
-      - name: Export backend OpenAPI
-        run: cd backend && uv run python scripts/export_openapi.py
-      - name: Regenerate frontend API client
-        run: cd frontend && npm run api:gen
-      - name: Check generated files are committed
-        run: |
-          git diff --exit-code -- backend/requirements.txt backend/openapi.yaml frontend/src/shared/api/generated || {
-            echo "::error::Generated files are out of sync. Run: make generate"
-            exit 1
-          }
-      - name: Frontend typecheck
-        run: cd frontend && npm run typecheck
-      - name: Frontend lint
-        run: cd frontend && npm run lint
-      - name: Frontend test
-        run: cd frontend && npm run test
-      - name: Check requirements.txt is in sync
-        run: |
-          cd backend
-          uv export --no-dev --no-emit-project --no-hashes --no-editable --format=requirements.txt > /tmp/requirements-check.txt
-          diff -u requirements.txt /tmp/requirements-check.txt || {
-            echo "::error::requirements.txt is out of sync. Run: make requirements-export"
-            exit 1
-          }
-
-  bundle-validate:
-    name: Bundle Validate
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
-      - uses: databricks/setup-cli@71b5fa6b2b94c9a543658f65ebb6b477913f8626 # v1.6.0
-      - name: Validate bundle (dev)
-        run: databricks bundle validate -t dev
+      - name: Validate ${{ matrix.target }}
+        run: databricks bundle validate --strict -t ${{ matrix.target }}
 
   all-checks-passed:
+    # The single required status check of the main branch ruleset (context: all-checks-passed):
+    # fails if any job failed or was cancelled; skipped jobs are fine.
     name: all-checks-passed
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs:
-      - backend-lint
-      - backend-typecheck
-      - backend-test
-      - frontend
-      - contracts
-      - bundle-validate
-    # Without this the job is skipped when a dependency fails — and a skipped
-    # required check counts as success.
     if: always()
+    needs: [gate, bundle-validate]
+    runs-on: ubuntu-latest
     steps:
-      - name: Fail if any needed job did not succeed
-        env:
-          ANY_FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}
+      - name: Evaluate job results
         run: |
-          if [[ "$ANY_FAILED" == "true" ]]; then
-            echo "::error::A required job failed, was cancelled, or was skipped."
-            exit 1
-          fi
-          echo "All checks passed."
+          echo "gate=${{ needs.gate.result }} bundle-validate=${{ needs.bundle-validate.result }}"
+          case "${{ needs.gate.result }} ${{ needs.bundle-validate.result }}" in
+            *failure*|*cancelled*) echo "::error::A required job failed"; exit 1 ;;
+          esac

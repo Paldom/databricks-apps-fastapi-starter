@@ -6,10 +6,10 @@ This is a starter template, not a released library. Only the latest state of the
 `main` branch is supported; there are no maintained release lines. If you have
 forked the template, apply fixes from `main` to your fork.
 
-| Version | Supported |
+| Version       | Supported          |
 | ------------- | ------------------ |
 | `main` (HEAD) | :white_check_mark: |
-| anything else | :x: |
+| anything else | :x:                |
 
 ## Reporting a Vulnerability
 
