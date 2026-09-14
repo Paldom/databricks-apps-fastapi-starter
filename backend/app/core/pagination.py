@@ -23,7 +23,7 @@ def decode_cursor(cursor: str) -> tuple[datetime, str]:
         padded = cursor + "=" * (-len(cursor) % 4)
         stamp, row_id = base64.urlsafe_b64decode(padded).decode().split("|", 1)
         return datetime.fromisoformat(stamp), row_id
-    except (ValueError, UnicodeDecodeError) as exc:
+    except ValueError as exc:  # UnicodeDecodeError is a ValueError
         raise BadRequestError("Invalid cursor") from exc
 
 

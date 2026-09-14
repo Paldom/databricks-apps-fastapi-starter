@@ -42,8 +42,6 @@ def mock_lifespan(monkeypatch):
     )
     # No chat_backend setting to override; single LangGraph runtime
 
-    yield
-
 
 def _mock_session_factory():
     """Return a session factory that produces mock sessions.

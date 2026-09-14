@@ -24,11 +24,8 @@ jobs:
       - name: Set up Python
         run: uv python install 3.11
 
-      - name: Install dependencies
-        run: uv sync --frozen --directory backend
-
       - name: Install Snyk CLI
-        run: npm install -g snyk
+        uses: snyk/actions/setup@12140f4059e244892ae643824a95459a102120dd # master (2026-08-03)
 
       # Failing gate — exits non-zero on high/critical vulnerabilities
       - name: Snyk open-source test

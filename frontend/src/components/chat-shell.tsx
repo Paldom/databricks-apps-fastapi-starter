@@ -96,11 +96,7 @@ function PersistedThread({
   const history = useChatHistory(chatId)
   const { refetch: retryHistory } = history
   if (history.isPending || history.isFetching)
-    return (
-      <p role="status" className="p-4">
-        {t('common.loading')}
-      </p>
-    )
+    return <output className="block p-4">{t('common.loading')}</output>
   if (history.isError)
     return (
       <div role="alert" className="p-4">

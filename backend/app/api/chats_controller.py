@@ -10,6 +10,8 @@ from app.api.common.schemas import ApiModel, CursorPage
 from app.core.deps import get_chat_service
 from app.services.chat_service import ChatService
 
+CHAT_NOT_FOUND = "Chat not found"
+
 router = APIRouter(tags=["chats"])
 
 
@@ -170,7 +172,7 @@ async def update_chat(
 ) -> Chat:
     result = await service.update_chat(chat_id=chatId, title=body.title)
     if result is None:
-        raise HTTPException(status_code=404, detail="Chat not found")
+        raise HTTPException(status_code=404, detail=CHAT_NOT_FOUND)
     return _to_chat(result)
 
 
@@ -185,7 +187,7 @@ async def delete_chat(
 ) -> Response:
     deleted = await service.delete_chat(chat_id=chatId)
     if not deleted:
-        raise HTTPException(status_code=404, detail="Chat not found")
+        raise HTTPException(status_code=404, detail=CHAT_NOT_FOUND)
     return Response(status_code=204)
 
 
@@ -202,7 +204,7 @@ async def list_chat_messages(
 ) -> PaginatedChatMessages:
     """Messages of an owned chat, oldest first."""
     if await service.get_owned_chat(chatId) is None:
-        raise HTTPException(status_code=404, detail="Chat not found")
+        raise HTTPException(status_code=404, detail=CHAT_NOT_FOUND)
     result = await service.list_messages(chatId, cursor=cursor, limit=limit)
     return PaginatedChatMessages(
         items=[ChatMessage(**i) for i in result["items"]],

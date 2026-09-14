@@ -15,6 +15,7 @@ from app.models.health_dto import (
 )
 
 _logger = logging.getLogger(__name__)
+_FAILED = "Health check failed: %s"  # details stay in the log; the response is public
 
 
 async def check_database(runtime: AppRuntime) -> DependencyCheck:
@@ -25,7 +26,7 @@ async def check_database(runtime: AppRuntime) -> DependencyCheck:
             await conn.execute(text("SELECT 1"))
         return DependencyCheck(status=HealthStatus.OK)
     except Exception as exc:  # details stay in the log; the response is public
-        _logger.warning("Health check failed: %s", exc)
+        _logger.warning(_FAILED, exc)
         return DependencyCheck(status=HealthStatus.FAIL, reason="Unavailable")
 
 
@@ -36,7 +37,7 @@ def check_workspace(runtime: AppRuntime, settings: Settings) -> DependencyCheck:
         ensure_workspace_client(runtime, settings)
         return DependencyCheck(status=HealthStatus.OK)
     except Exception as exc:  # details stay in the log; the response is public
-        _logger.warning("Health check failed: %s", exc)
+        _logger.warning(_FAILED, exc)
         return DependencyCheck(status=HealthStatus.FAIL, reason="Unavailable")
 
 
@@ -49,7 +50,7 @@ def check_ai(runtime: AppRuntime, settings: Settings) -> DependencyCheck:
         ensure_ai_client(runtime, settings)
         return DependencyCheck(status=HealthStatus.OK)
     except Exception as exc:  # details stay in the log; the response is public
-        _logger.warning("Health check failed: %s", exc)
+        _logger.warning(_FAILED, exc)
         return DependencyCheck(status=HealthStatus.FAIL, reason="Unavailable")
 
 
@@ -67,7 +68,7 @@ def check_vector_search(runtime: AppRuntime, settings: Settings) -> DependencyCh
     except NotFound:  # the ingestion job creates the index on its first run
         return DependencyCheck(status=HealthStatus.OK, reason="Index not created yet")
     except Exception as exc:  # details stay in the log; the response is public
-        _logger.warning("Health check failed: %s", exc)
+        _logger.warning(_FAILED, exc)
         return DependencyCheck(status=HealthStatus.FAIL, reason="Unavailable")
 
 

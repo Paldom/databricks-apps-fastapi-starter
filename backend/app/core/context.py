@@ -11,7 +11,7 @@ from __future__ import annotations
 from contextvars import ContextVar
 from typing import Any
 
-log_fields: ContextVar[dict[str, str]] = ContextVar("log_fields", default={})
+log_fields: ContextVar[dict[str, str] | None] = ContextVar("log_fields", default=None)
 # session_id/user_id of the running chat turn, added to every log line by the logging filter
 
 turn_state: ContextVar[dict[str, Any] | None] = ContextVar("turn_state", default=None)

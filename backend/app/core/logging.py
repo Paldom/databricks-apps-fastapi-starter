@@ -30,7 +30,7 @@ class ContextFilter(Filter):
     def filter(self, record: LogRecord) -> bool:
         from app.middlewares.request_context import get_request_id
 
-        fields = log_fields.get()
+        fields = log_fields.get() or {}
         record.request_id = get_request_id() or "-"  # type: ignore[attr-defined]
         record.session_id = fields.get("session_id") or "-"  # type: ignore[attr-defined]
         record.user_id = fields.get("user_id") or "-"  # type: ignore[attr-defined]

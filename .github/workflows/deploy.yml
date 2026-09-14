@@ -21,7 +21,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   checks:
@@ -34,6 +33,9 @@ jobs:
 
   deploy:
     name: Deploy ${{ inputs.target || 'dev' }}
+    permissions:
+      contents: read
+      id-token: write # GitHub OIDC token for the Databricks CLI and SDK
     needs: checks
     runs-on: ubuntu-latest
     environment: ${{ inputs.target || 'dev' }}
@@ -79,7 +81,7 @@ jobs:
           APP_NAME=$(databricks bundle summary -t "$TARGET" -o json | jq -r '.resources.apps.fastapi_app.name')
           APP_URL=$(databricks apps get "$APP_NAME" -o json | jq -r '.url')
           # Unified auth (github-oidc) through the SDK; the CLI's `auth token` only serves cached user logins.
-          TOKEN=$(uv run --frozen --directory backend python -c 'from databricks.sdk import WorkspaceClient; print(WorkspaceClient().config.oauth_token().access_token)')
+          TOKEN=$(uv run --frozen --no-build --no-install-project --directory backend python -c 'from databricks.sdk import WorkspaceClient; print(WorkspaceClient().config.oauth_token().access_token)')
           echo "::add-mask::$TOKEN"
           for attempt in $(seq 1 36); do
             VERSION=""

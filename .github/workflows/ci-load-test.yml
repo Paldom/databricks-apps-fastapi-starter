@@ -16,9 +16,9 @@ jobs:
       - name: Set up Python
         run: uv python install 3.11
       - name: Install dependencies
-        run: uv sync --frozen --directory backend --extra dev
+        run: uv sync --frozen --no-build --no-install-project --directory backend --extra dev
       - name: Start app
-        run: cd backend && uv run uvicorn app.main:app & sleep 5
+        run: cd backend && uv run --frozen --no-sync --no-build uvicorn app.main:app & sleep 5
       - name: Run Locust
         run: |
           cd backend && \
@@ -26,7 +26,7 @@ jobs:
           DATABRICKS_HOST="$DATABRICKS_HOST" \
           DATABRICKS_CLIENT_ID="$DATABRICKS_CLIENT_ID" \
           DATABRICKS_CLIENT_SECRET="$DATABRICKS_CLIENT_SECRET" \
-          uv run locust -f tests/performance/locustfile.py --headless -u 50 -r 10 -t 60s --csv=locust --csv-full-history --html=locust-report.html
+          uv run --frozen --no-sync --no-build locust -f tests/performance/locustfile.py --headless -u 50 -r 10 -t 60s --csv=locust --csv-full-history --html=locust-report.html
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

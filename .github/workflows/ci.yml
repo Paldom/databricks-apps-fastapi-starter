@@ -37,19 +37,19 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install backend (locked)
-        run: uv sync --frozen --directory backend --extra dev
+        run: uv sync --frozen --no-build --no-install-project --directory backend --extra dev
 
       - name: Install frontend (locked)
-        run: npm ci --prefix frontend
+        run: npm ci --ignore-scripts --prefix frontend
 
       - name: Commit gate (same config as local pre-commit and the agent Stop hook)
-        run: uv run --frozen --directory backend pre-commit run --all-files --show-diff-on-failure
+        run: uv run --frozen --no-sync --no-build --directory backend pre-commit run --all-files --show-diff-on-failure
 
       - name: Backend tests with coverage
-        run: uv run --frozen --directory backend pytest -q --cov=app --cov-branch --cov-report=xml --cov-report=term
+        run: uv run --frozen --no-sync --no-build --directory backend pytest -q --cov=app --cov-branch --cov-report=xml --cov-report=term
 
       - name: Bandit
-        run: uv run --frozen --directory backend bandit -r app -c pyproject.toml -q
+        run: uv run --frozen --no-sync --no-build --directory backend bandit -r app -c pyproject.toml -q
 
       - name: Frontend typecheck
         run: npm --prefix frontend run typecheck
@@ -62,7 +62,7 @@ jobs:
 
       - name: Generated files are committed
         run: |
-          uv run --frozen --directory backend python scripts/export_openapi.py
+          uv run --frozen --no-sync --no-build --directory backend python scripts/export_openapi.py
           npm --prefix frontend run api:gen
           if [ -n "$(git status --porcelain -- backend/openapi.yaml frontend/src/shared/api/generated)" ]; then
             git status --porcelain -- backend/openapi.yaml frontend/src/shared/api/generated

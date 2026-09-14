@@ -120,18 +120,21 @@ function KnowledgeResult({ result, isError }: ToolCallMessagePartProps) {
   const { t } = useTranslation()
   const text = resultText(result)
   const snippets = text
-    .split(/(?=^\s*\[\d+\]|^\s*\d+[.)]\s)/m)
+    .split(/\n(?=\s*(?:\[\d+\]|\d+[.)]\s))/)
     .filter((snippet) => snippet.trim())
   return (
     <section aria-label={t('chat.sources')} className="my-2 space-y-2">
       <h3 className="font-medium">{t('chat.sources')}</h3>
       {isError && <p role="alert">{t('chat.toolError')}</p>}
       {result === undefined ? (
-        <p role="status">{t('common.loading')}</p>
+        <output>{t('common.loading')}</output>
       ) : (
         <ul className="space-y-2">
-          {snippets.map((snippet, index) => (
-            <li key={index} className="whitespace-pre-wrap break-words text-sm">
+          {snippets.map((snippet) => (
+            <li
+              key={snippet}
+              className="whitespace-pre-wrap break-words text-sm"
+            >
               {snippet}
             </li>
           ))}
@@ -152,7 +155,7 @@ function GenieResult({ result, isError }: ToolCallMessagePartProps) {
       <h3 className="font-medium">{t('chat.genie')}</h3>
       {isError && <p role="alert">{t('chat.toolError')}</p>}
       {result === undefined ? (
-        <p role="status">{t('common.loading')}</p>
+        <output>{t('common.loading')}</output>
       ) : (
         <pre className="whitespace-pre-wrap break-words text-sm">
           {resultText(result)}
